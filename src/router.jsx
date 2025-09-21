@@ -8,9 +8,10 @@ import AuthGuard from './components/AuthGuard.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
 import Dashboard from './pages/Dashboard.jsx';
-import Evaluation from './pages/Evaluation.jsx';
+import FeatureAwareEvaluation from './pages/FeatureAwareEvaluation.jsx';
 import ReportView from './pages/ReportView.jsx';
 import Credits from './pages/Credits.jsx';
+import FeatureAwareOrgProcesses from './pages/FeatureAwareOrgProcesses.jsx';
 
 function AppRouter() {
   return (
@@ -25,11 +26,11 @@ function AppRouter() {
       />
       <Route 
         path={ROUTES.EVALUATION}
-        element={<ProtectedRoute><Evaluation /></ProtectedRoute>}
+        element={<ProtectedRoute><FeatureAwareEvaluation /></ProtectedRoute>}
       />
       <Route 
         path={ROUTES.EVALUATION_PARAM}
-        element={<ProtectedRoute><Evaluation /></ProtectedRoute>}
+        element={<ProtectedRoute><FeatureAwareEvaluation /></ProtectedRoute>}
       />
       <Route 
         path={ROUTES.REPORT_VIEW}
@@ -38,6 +39,22 @@ function AppRouter() {
       <Route 
         path={ROUTES.CREDITS}
         element={<ProtectedRoute><Credits /></ProtectedRoute>}
+      />
+      
+      {/* Organizational routes (feature-gated) */}
+      <Route 
+        path={ROUTES.ORG_PROCESSES}
+        element={<ProtectedRoute><FeatureAwareOrgProcesses /></ProtectedRoute>}
+      />
+      <Route 
+        path={ROUTES.ORG_PROCESS_DETAIL}
+        element={<ProtectedRoute><FeatureAwareOrgProcesses /></ProtectedRoute>}
+      />
+      
+      {/* Reports routes (feature-gated) */}
+      <Route 
+        path={ROUTES.INDIVIDUAL_REPORT}
+        element={<ProtectedRoute><FeatureAwareOrgProcesses /></ProtectedRoute>}
       />
     </Routes>
   );

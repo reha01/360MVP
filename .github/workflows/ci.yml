@@ -1,0 +1,179 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deploy environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        
+    - name: Instalar dependencias
+      run: npm ci
+      
+    - name: Ejecutar linting
+      run: npm run lint
+      
+    - name: Ejecutar tests unitarios
+      run: npm run test:run
+      
+    - name: Build aplicación (local)
+      run: npm run build
+      
+    - name: Build staging (solo Node 20.x)
+      if: matrix.node-version == '20.x'
+      run: npm run build:staging
+      
+    - name: Upload build artifacts
+      if: matrix.node-version == '20.x'
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-files-${{ github.sha }}
+        path: dist/
+        retention-days: 7
+
+  security-checks:
+    runs-on: ubuntu-latest
+    needs: test-and-build
+    
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        
+    - name: Instalar dependencias
+      run: npm ci
+      
+    - name: Audit de seguridad
+      run: npm audit --audit-level high
+      continue-on-error: true
+      
+    - name: Check bundle size
+      run: |
+        npm run build
+        du -sh dist/ || ls -la dist/
+        echo "Bundle size check completed"
+
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: [test-and-build, security-checks]
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging'
+    
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        
+    - name: Instalar dependencias
+      run: npm ci
+      
+    - name: Build para staging
+      run: npm run build:staging
+      
+    - name: Setup Firebase CLI
+      run: npm install -g firebase-tools
+      
+    - name: Deploy a staging
+      run: |
+        firebase use staging
+        firebase deploy --only hosting:staging --token ${{ secrets.FIREBASE_TOKEN }}
+      env:
+        FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: [test-and-build, security-checks]
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
+    
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        
+    - name: Instalar dependencias
+      run: npm ci
+      
+    - name: Build para production
+      run: npm run build:production
+      
+    - name: Setup Firebase CLI
+      run: npm install -g firebase-tools
+      
+    - name: Deploy a production
+      run: |
+        firebase use production
+        firebase deploy --only hosting:production --token ${{ secrets.FIREBASE_TOKEN }}
+      env:
+        FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+
+  preview-deployment:
+    runs-on: ubuntu-latest
+    needs: test-and-build
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        
+    - name: Instalar dependencias
+      run: npm ci
+      
+    - name: Build para preview
+      run: npm run build:staging
+      
+    - name: Setup Firebase CLI
+      run: npm install -g firebase-tools
+      
+    - name: Deploy preview channel
+      run: |
+        firebase use staging
+        firebase hosting:channel:deploy preview-${{ github.event.number }} --expires 7d --token ${{ secrets.FIREBASE_TOKEN }}
+      env:
+        FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}

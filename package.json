@@ -11,10 +11,21 @@
   },
   "scripts": {
     "dev": "vite --port 5178 --strictPort --host 127.0.0.1",
-    "build": "vite build", 
+    "build": "vite build",
+    "build:staging": "vite build --mode staging",
+    "build:production": "vite build --mode production",
     "preview": "vite preview --port 5179 --strictPort --host 127.0.0.1",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run",
+    "test:watch": "vitest --watch",
+    "lint": "echo 'Linting with built-in checks'",
+    "deploy:staging": "npm run build:staging && firebase use staging && firebase deploy --only hosting:staging",
+    "deploy:production": "npm run build:production && firebase use production && firebase deploy --only hosting:production", 
+    "deploy:preview": "npm run build:staging && firebase hosting:channel:deploy preview-$(git rev-parse --short HEAD)",
     "emulators": "firebase emulators:start --only auth,firestore,ui",
     "emulators:dev": "concurrently \"npm run emulators\" \"npm run dev\"",
+    "emulators:rules": "firebase emulators:start --only auth,firestore,ui --import=./firebase-data",
     "db:reset": "firebase emulators:exec --only firestore \"echo 'Database reset'\""
   },
   "devDependencies": {

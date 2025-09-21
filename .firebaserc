@@ -1,0 +1,24 @@
+{
+  "projects": {
+    "default": "demo-360mvp",
+    "staging": "360mvp-staging",
+    "production": "360mvp-production"
+  },
+  "targets": {
+    "demo-360mvp": {
+      "hosting": {
+        "staging": ["360mvp-staging"]
+      }
+    },
+    "360mvp-staging": {
+      "hosting": {
+        "staging": ["360mvp-staging"]
+      }
+    },
+    "360mvp-production": {
+      "hosting": {
+        "production": ["360mvp-production"]
+      }
+    }
+  }
+}

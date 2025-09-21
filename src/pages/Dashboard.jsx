@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useUserProfile } from '../hooks/useUserProfile';
 import UserProfileCard from '../components/UserProfileCard';
 import { ROUTES } from '../constants/routes';
+import { isOrgEnabled, isCreditsEnabled, FeatureFlags } from '../services/featureFlags';
 
 const Dashboard = () => {
   const { logout, simulateEmailVerification, user } = useAuth();
@@ -61,28 +62,95 @@ const Dashboard = () => {
       
       <UserProfileCard showActions={true} compact={false} />
 
-      {/* Email Verification Section */}
-      <div style={{ backgroundColor: '#fff3cd', padding: '15px', borderRadius: '8px', border: '1px solid #ffeaa7', marginTop: '20px' }}>
-        <h4>📧 Estado de Verificación de Email</h4>
-        <p><strong>Estado actual:</strong> {user?.emailVerified ? '✅ Verificado' : '❌ No verificado'}</p>
-        <p><strong>Email:</strong> {user?.email}</p>
-        {!user?.emailVerified && (
-          <button 
-            onClick={handleSimulateVerification}
+      {/* Individual Evaluation Section */}
+      <div style={{ backgroundColor: '#e7f3ff', padding: '15px', borderRadius: '8px', border: '1px solid #b6d7ff', marginTop: '20px' }}>
+        <h4>🎯 Evaluación Individual</h4>
+        <p style={{ marginBottom: '15px', color: '#004085' }}>
+          Realiza tu evaluación personal con plantillas predefinidas
+        </p>
+        <a 
+          href="/evaluation"
+          style={{
+            display: 'inline-block',
+            padding: '10px 20px',
+            backgroundColor: '#007bff',
+            color: 'white',
+            textDecoration: 'none',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '600'
+          }}
+        >
+          🎯 Comenzar Evaluación
+        </a>
+      </div>
+
+      {/* Organizational Tools - Solo si está habilitado */}
+      {isOrgEnabled() && (
+        <div style={{ backgroundColor: '#fff8e1', padding: '15px', borderRadius: '8px', border: '1px solid #ffecb3', marginTop: '20px' }}>
+          <h4>🏢 Herramientas Organizacionales</h4>
+          <p style={{ marginBottom: '15px', color: '#e65100' }}>
+            Gestiona evaluaciones 360° para tu equipo u organización
+          </p>
+          <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+            <a 
+              href="/org/processes"
+              style={{
+                display: 'inline-block',
+                padding: '10px 20px',
+                backgroundColor: '#ff9800',
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '600'
+              }}
+            >
+              📊 Dashboard Organizacional
+            </a>
+          </div>
+        </div>
+      )}
+
+      {/* Credits Section - Solo si está habilitado */}
+      {isCreditsEnabled() && (
+        <div style={{ backgroundColor: '#f3e5f5', padding: '15px', borderRadius: '8px', border: '1px solid #e1bee7', marginTop: '20px' }}>
+          <h4>💳 Sistema de Créditos</h4>
+          <p style={{ marginBottom: '15px', color: '#4a148c' }}>
+            Gestiona tus créditos y compra evaluaciones adicionales
+          </p>
+          <a 
+            href="/credits"
             style={{
-              padding: '8px 16px',
-              backgroundColor: '#28a745',
+              display: 'inline-block',
+              padding: '10px 20px',
+              backgroundColor: '#9c27b0',
               color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              marginTop: '10px'
+              textDecoration: 'none',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '600'
             }}
           >
-            🔧 Simular Verificación (Emulador)
-          </button>
-        )}
-      </div>
+            💳 Ver Créditos
+          </a>
+        </div>
+      )}
+
+      {/* Feature Flags Debug - Solo en desarrollo */}
+      {FeatureFlags.isDebugEnabled() && (
+        <div style={{ backgroundColor: '#f8f9fa', padding: '15px', borderRadius: '8px', marginTop: '20px' }}>
+          <h4>🔧 Feature Flags (Debug)</h4>
+          <div style={{ fontSize: '12px', fontFamily: 'monospace', color: '#666' }}>
+            <div>🏢 Org Module: {isOrgEnabled() ? '✅ ON' : '❌ OFF'}</div>
+            <div>📄 PDF Export: {FeatureFlags.isPdfEnabled() ? '✅ ON' : '❌ OFF'}</div>
+            <div>🔗 Invitations: {FeatureFlags.isInvitesEnabled() ? '✅ ON' : '❌ OFF'}</div>
+            <div>🎯 Wizard: {FeatureFlags.isWizardEnabled() ? '✅ ON' : '❌ OFF'}</div>
+            <div>💳 Credits: {isCreditsEnabled() ? '✅ ON' : '❌ OFF'}</div>
+            <div>🔧 Emulators: {FeatureFlags.shouldUseEmulators() ? '✅ ON' : '❌ OFF'}</div>
+          </div>
+        </div>
+      )}
 
       <div style={{ backgroundColor: '#d4edda', padding: '15px', borderRadius: '8px', border: '1px solid #c3e6cb', marginTop: '20px' }}>
         <h4>✅ Sistema de Autenticación Funcionando</h4>

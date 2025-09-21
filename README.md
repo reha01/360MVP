@@ -139,16 +139,35 @@ src/
 ## 🔧 CONFIGURACIÓN
 
 ### Variables de Entorno
-Crear `.env` (opcional, tiene fallbacks). Para usar emuladores, agrega `VITE_USE_EMULATORS=true`:
+
+#### Configuración por Entorno
+Copia `env.example` como `.env.local` para desarrollo:
 ```bash
-VITE_FIREBASE_API_KEY=demo-project-api-key
-VITE_FIREBASE_AUTH_DOMAIN=demo-project.firebaseapp.com  
-VITE_FIREBASE_PROJECT_ID=demo-project
-VITE_FIREBASE_STORAGE_BUCKET=demo-project.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
-VITE_FIREBASE_APP_ID=1:123456789:web:abcdefg
-VITE_USE_EMULATORS=true
+# Copia y personaliza según tu entorno
+cp env.example .env.local
 ```
+
+#### Variables Clave
+```bash
+# Firebase Config
+VITE_FIREBASE_PROJECT_ID=your-project-id
+VITE_USE_EMULATORS=true  # local: true, staging/prod: false
+
+# Feature Flags
+VITE_FEATURE_ORG=true      # Módulo organizacional
+VITE_FEATURE_PDF=true      # Export PDF
+VITE_FEATURE_INVITES=true  # Invitaciones por token
+VITE_FEATURE_CREDITS=false # Sistema de pagos
+
+# Environment
+VITE_ENVIRONMENT=local     # local/staging/production
+VITE_DEBUG_LOGS=true       # Logs de desarrollo
+```
+
+#### Archivos de Configuración
+- `env.example` - Template con todas las variables
+- `env.staging` - Configuración para staging (Firebase real)
+- `env.production` - Configuración para producción
 
 ### Firebase Emulators
 Los emuladores se configuran automáticamente:
@@ -233,5 +252,48 @@ npm run db:reset        # Reset Firestore emulator
 ## 📞 SOPORTE
 
 Sistema desarrollado con React 18, Firebase 9, y Vite 3.
-Documentación actualizada: [Fecha actual]
-Estado: ✅ **Funcional y listo para desarrollo de nuevas funcionalidades**
+
+## 🚀 DEPLOYMENT
+
+### Deploy a Staging
+```bash
+# Setup proyecto staging en Firebase Console
+# Configura env.staging con tus claves Firebase
+
+# Deploy manual
+npm run deploy:staging
+
+# Deploy vía GitHub Actions
+# Actions → CI/CD Pipeline → Run workflow → staging
+```
+
+### Deploy a Production  
+```bash
+# Setup proyecto production en Firebase Console
+# Configura env.production con tus claves Firebase
+
+# Deploy manual
+npm run deploy:production
+```
+
+### Feature Flags por Entorno
+```bash
+# Local (desarrollo)
+VITE_FEATURE_ORG=true         # Todas las features habilitadas
+VITE_DEBUG_LOGS=true          # Debug visible
+VITE_USE_EMULATORS=true       # Emuladores activos
+
+# Staging (testing)
+VITE_FEATURE_ORG=true         # Testing completo
+VITE_DEBUG_LOGS=false         # Sin debug logs
+VITE_USE_EMULATORS=false      # Firebase real
+
+# Production (live)
+VITE_FEATURE_CREDITS=true     # Todas las features activas
+VITE_DEBUG_LOGS=false         # Sin debug
+VITE_PERFORMANCE_METRICS=false # Sin métricas
+```
+
+---
+
+**Última actualización: 2025-09-21 (commit 36c22a0)**
