@@ -1,127 +1,127 @@
-// src/context/AuthContext.jsx
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { auth } from "../services/firebase.jsx";
+import React from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
-  GoogleAuthProvider,
-  signInWithPopup,
-} from "firebase/auth";
+} from 'firebase/auth';
+import { auth } from '../services/firebase';
 
-const AuthContext = createContext(null);
-export const useAuth = () => useContext(AuthContext);
+const AuthContext = createContext();
 
-function AuthProvider({ children }) {
+export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u || null);
+    console.log('[360MVP] AuthContext: Setting up authentication state listener...');
+    
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      console.log('[360MVP] AuthContext: Auth state changed ->', firebaseUser ? `User: ${firebaseUser.email}` : 'No user');
+      setUser(firebaseUser);
       setLoading(false);
     });
-    return () => unsub();
+
+    // Cleanup subscription on unmount
+    return () => {
+      console.log('[360MVP] AuthContext: Cleaning up auth listener');
+      unsubscribe();
+    };
   }, []);
 
-  const login = (email, password) => signInWithEmailAndPassword(auth, email, password);
-  const register = (email, password) => createUserWithEmailAndPassword(auth, email, password);
-  const logout = () => signOut(auth);
-
-  // Login con Google (OAuth real)
-  const loginWithGoogle = async () => {
+  const login = async (email, password) => {
+    console.log('[360MVP] AuthContext: Attempting login for:', email);
     try {
-      console.log('[360MVP] AuthContext: Iniciando login con Google real...');
-      
-      const provider = new GoogleAuthProvider();
-      
-      // Configurar el proveedor para obtener información completa
-      provider.addScope('email');
-      provider.addScope('profile');
-      
-      // Configurar parámetros adicionales
-      provider.setCustomParameters({
-        prompt: 'select_account'
-      });
-      
-      const result = await signInWithPopup(auth, provider);
-      
-      console.log('[360MVP] AuthContext: Login con Google exitoso para:', result.user.email);
-      console.log('[360MVP] AuthContext: Usuario Google completo:', {
-        uid: result.user.uid,
-        email: result.user.email,
-        displayName: result.user.displayName,
-        photoURL: result.user.photoURL,
-        emailVerified: result.user.emailVerified
-      });
-      
-      return { 
-        success: true, 
-        user: result.user,
-        message: '✅ Autenticación con Google exitosa'
-      };
-      
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      console.log('[360MVP] AuthContext: Login successful');
+      return result;
     } catch (error) {
-      console.error('[360MVP] AuthContext: Error en login con Google:', error);
-      
-      let errorMessage = 'Error desconocido en el login con Google';
-      
-      switch (error.code) {
-        case 'auth/popup-closed-by-user':
-          errorMessage = 'Login cancelado: Cerraste la ventana de Google';
-          break;
-        case 'auth/popup-blocked':
-          errorMessage = 'Popup bloqueado: Habilita popups para este sitio';
-          break;
-        case 'auth/cancelled-popup-request':
-          errorMessage = 'Login cancelado: Otro popup ya estaba abierto';
-          break;
-        case 'auth/unauthorized-domain':
-          errorMessage = 'Dominio no autorizado: Configura este dominio en Firebase Console';
-          break;
-        case 'auth/operation-not-allowed':
-          errorMessage = 'Google Sign-In no está habilitado en Firebase Console';
-          break;
-        default:
-          errorMessage = `Error: ${error.message}`;
-      }
-      
-      return { 
-        success: false, 
-        error: error.code || 'unknown',
-        message: errorMessage
-      };
+      console.error('[360MVP] AuthContext: Login failed:', error.message);
+      throw error;
     }
   };
 
-  // Simulación de verificación de email para modo emulador
+  const register = async (email, password) => {
+    console.log('[360MVP] AuthContext: Attempting registration for:', email);
+    try {
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      console.log('[360MVP] AuthContext: Registration successful');
+      return result;
+    } catch (error) {
+      console.error('[360MVP] AuthContext: Registration failed:', error.message);
+      throw error;
+    }
+  };
+
+  const logout = async () => {
+    console.log('[360MVP] AuthContext: Attempting logout');
+    try {
+      await signOut(auth);
+      console.log('[360MVP] AuthContext: Logout successful');
+    } catch (error) {
+      console.error('[360MVP] AuthContext: Logout failed:', error.message);
+      throw error;
+    }
+  };
+
+  // Email verification simulation for emulator
   const simulateEmailVerification = async () => {
-    if (!user) return false;
-
-    try {
-      console.log('[360MVP] AuthContext: Simulando verificación de email...');
-      
-      // En modo emulador, podemos forzar la actualización del estado
-      // Creamos una copia del usuario con emailVerified = true
-      const updatedUser = {
-        ...user,
-        emailVerified: true
-      };
-
-      // Forzamos la actualización del estado
-      setUser(updatedUser);
-      
-      console.log('[360MVP] AuthContext: Email verificado simulado exitosamente');
-      return true;
-    } catch (error) {
-      console.error('[360MVP] AuthContext: Error simulando verificación:', error);
-      return false;
-    }
+    if ((import.meta.env.VITE_USE_EMULATOR ?? 'true') !== 'true') return;
+    // Forzar refresh del usuario y setear flag local mientras usamos emulador
+    await auth.currentUser?.reload?.();
+    // Actualiza el estado local para reflejar verificación en UI
+    setUser({ ...auth.currentUser, emailVerified: true });
+    console.log('[360MVP] AuthContext: Email verification simulated');
   };
 
-  const value = { user, loading, login, register, logout, loginWithGoogle, simulateEmailVerification };
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
+  const value = {
+    user,
+    login,
+    register,
+    logout,
+    loading,
+    simulateEmailVerification,
+  };
 
-export default AuthProvider;
+  return (
+    <AuthContext.Provider value={value}>
+      {loading ? (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+          flexDirection: 'column',
+          fontFamily: 'Arial, sans-serif'
+        }}>
+          <div style={{
+            width: '50px',
+            height: '50px',
+            border: '5px solid #f3f3f3',
+            borderTop: '5px solid #3498db',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite'
+          }}></div>
+          <p style={{marginTop: '20px', color: '#666'}}>🔐 Verificando autenticación...</p>
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
+      ) : (
+        children
+      )}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};

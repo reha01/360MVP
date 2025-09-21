@@ -1,263 +1,152 @@
-import React, { useState } from "react";
-import { useAuth } from "../context/AuthContext.jsx";
-import { Link, useNavigate } from "react-router-dom";
+// src/pages/Register.jsx
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { signInWithGoogle } from '../services/firebase';
+import { ROUTES } from '../constants/routes';
 
-export default function Register() {
-  const { register, loginWithGoogle } = useAuth();
-  const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState("");
+const Register = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const { register, user } = useAuth();
+  const navigate = useNavigate();
 
-  const handleEmailRegister = async (e) => {
+  // Redirect if user is already authenticated
+  useEffect(() => {
+    if (user) {
+      console.log('[360MVP] Register: User already authenticated, redirecting to dashboard');
+      navigate(ROUTES.DASHBOARD, { replace: true });
+    }
+  }, [user, navigate]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-
-    // Validar contraseñas coinciden
+    
+    if (!email || !password || !confirmPassword) {
+      setError('Por favor completa todos los campos');
+      return;
+    }
+    
     if (password !== confirmPassword) {
-      setError("Las contraseñas no coinciden");
+      setError('Las contraseñas no coinciden');
       return;
     }
 
-    // Validar longitud mínima
     if (password.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres");
+      setError('La contraseña debe tener al menos 6 caracteres');
       return;
     }
 
     setLoading(true);
+    setError('');
     
     try {
+      console.log('[360MVP] Register: Attempting registration...');
       await register(email, password);
-      console.log('[360MVP] Register: Email registration successful');
-      navigate("/dashboard");
-    } catch (ex) {
-      console.error('[360MVP] Register: Email registration failed:', ex);
-      setError(ex.message);
+      console.log('[360MVP] Register: Registration successful');
+      navigate(ROUTES.DASHBOARD, { replace: true });
+    } catch (error) {
+      console.error('[360MVP] Register: Registration failed:', error);
+      setError('Error al registrarse: ' + error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleRegister = async () => {
-    setError("");
+  const handleGoogleSignIn = async () => {
     setLoading(true);
+    setError('');
     
     try {
-      const result = await loginWithGoogle();
-      
-      if (result.success) {
-        console.log('[360MVP] Register: Google registration successful');
-        navigate("/dashboard");
-      } else {
-        console.warn('[360MVP] Register: Google registration failed:', result.message);
-        setError(result.message);
-      }
-    } catch (ex) {
-      console.error('[360MVP] Register: Google registration error:', ex);
-      setError('Error inesperado en registro con Google');
+      console.log('[360MVP] Register: Attempting Google sign in...');
+      await signInWithGoogle();
+      console.log('[360MVP] Register: Google sign in successful');
+      navigate(ROUTES.DASHBOARD, { replace: true });
+    } catch (error) {
+      console.error('[360MVP] Register: Google sign in failed:', error);
+      setError('Error al registrarse con Google: ' + error.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ 
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: '#f8f9fa',
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: 'white',
-        padding: '40px',
-        borderRadius: '12px',
-        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-        width: '100%',
-        maxWidth: '400px'
-      }}>
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-          <h1 style={{ margin: '0 0 8px 0', color: '#495057', fontSize: '28px' }}>360MVP</h1>
-          <p style={{ margin: 0, color: '#6c757d' }}>Crea tu cuenta nueva</p>
+    <div style={{ maxWidth: '400px', margin: '50px auto', padding: '20px' }}>
+      <h2>Crear Cuenta</h2>
+      {error && <div style={{color: 'red', marginBottom: '10px', padding: '10px', backgroundColor: '#fee', borderRadius: '4px'}}>{error}</div>}
+      
+      <form onSubmit={handleSubmit}>
+        <div style={{marginBottom: '15px'}}>
+          <input 
+            type="email" 
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            style={{width: '100%', padding: '10px'}}
+            disabled={loading}
+          />
         </div>
-
-        {/* Error Message */}
-        {error && (
-          <div style={{
-            backgroundColor: '#f8d7da',
-            color: '#721c24',
-            padding: '12px 16px',
-            borderRadius: '6px',
-            marginBottom: '20px',
-            fontSize: '14px',
-            border: '1px solid #f5c6cb'
-          }}>
-            {error}
-          </div>
-        )}
-
-        {/* Google Register Button */}
-        <button
-          onClick={handleGoogleRegister}
+        <div style={{marginBottom: '15px'}}>
+          <input 
+            type="password" 
+            placeholder="Contraseña"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={{width: '100%', padding: '10px'}}
+            disabled={loading}
+          />
+        </div>
+        <div style={{marginBottom: '15px'}}>
+          <input 
+            type="password" 
+            placeholder="Confirmar Contraseña"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            style={{width: '100%', padding: '10px'}}
+            disabled={loading}
+          />
+        </div>
+        <button 
+          type="submit"
           disabled={loading}
-          style={{
-            width: '100%',
-            padding: '12px',
-            backgroundColor: '#ffffff',
-            color: '#495057',
-            border: '2px solid #e9ecef',
-            borderRadius: '8px',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            marginBottom: '20px',
-            fontSize: '16px',
-            fontWeight: '500',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '10px',
-            opacity: loading ? 0.6 : 1,
-            transition: 'all 0.2s ease'
-          }}
-          onMouseEnter={(e) => !loading && (e.target.style.borderColor = '#28a745')}
-          onMouseLeave={(e) => !loading && (e.target.style.borderColor = '#e9ecef')}
+          style={{width: '100%', padding: '10px', backgroundColor: '#28a745', color: 'white', border: 'none', marginBottom: '10px'}}
         >
-          <span style={{ fontSize: '18px' }}>🔍</span>
-          {loading ? 'Registrando con Google...' : '🔍 Registrarse con Google'}
+          {loading ? 'Creando cuenta...' : 'Crear Cuenta'}
         </button>
+      </form>
 
-        {/* Divider */}
-        <div style={{
+      <div style={{textAlign: 'center', margin: '20px 0', color: '#666'}}>o</div>
+
+      <button 
+        onClick={handleGoogleSignIn}
+        disabled={loading}
+        style={{
+          width: '100%', 
+          padding: '10px', 
+          backgroundColor: '#db4437', 
+          color: 'white', 
+          border: 'none',
           display: 'flex',
           alignItems: 'center',
-          margin: '20px 0',
-          color: '#6c757d',
-          fontSize: '14px'
-        }}>
-          <div style={{ flex: 1, height: '1px', backgroundColor: '#e9ecef' }}></div>
-          <span style={{ padding: '0 16px' }}>o</span>
-          <div style={{ flex: 1, height: '1px', backgroundColor: '#e9ecef' }}></div>
-        </div>
+          justifyContent: 'center',
+          gap: '10px'
+        }}
+      >
+        🔗 Registrarse con Google
+      </button>
 
-        {/* Email Form */}
-        <form onSubmit={handleEmailRegister}>
-          <div style={{ marginBottom: '16px' }}>
-            <input
-              type="email"
-              placeholder="Correo electrónico"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              disabled={loading}
-              style={{
-                width: '100%',
-                padding: '12px 16px',
-                border: '2px solid #e9ecef',
-                borderRadius: '8px',
-                fontSize: '16px',
-                boxSizing: 'border-box',
-                opacity: loading ? 0.6 : 1
-              }}
-            />
-          </div>
-
-          <div style={{ marginBottom: '16px' }}>
-            <input
-              type="password"
-              placeholder="Contraseña (mínimo 6 caracteres)"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              disabled={loading}
-              style={{
-                width: '100%',
-                padding: '12px 16px',
-                border: '2px solid #e9ecef',
-                borderRadius: '8px',
-                fontSize: '16px',
-                boxSizing: 'border-box',
-                opacity: loading ? 0.6 : 1
-              }}
-            />
-          </div>
-
-          <div style={{ marginBottom: '20px' }}>
-            <input
-              type="password"
-              placeholder="Confirmar contraseña"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              disabled={loading}
-              style={{
-                width: '100%',
-                padding: '12px 16px',
-                border: '2px solid #e9ecef',
-                borderRadius: '8px',
-                fontSize: '16px',
-                boxSizing: 'border-box',
-                opacity: loading ? 0.6 : 1
-              }}
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: '100%',
-              padding: '12px',
-              backgroundColor: '#28a745',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '16px',
-              fontWeight: '600',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              opacity: loading ? 0.6 : 1,
-              transition: 'background-color 0.2s ease'
-            }}
-            onMouseEnter={(e) => !loading && (e.target.style.backgroundColor = '#1e7e34')}
-            onMouseLeave={(e) => !loading && (e.target.style.backgroundColor = '#28a745')}
-          >
-            {loading ? 'Creando cuenta...' : 'Crear Cuenta'}
-          </button>
-        </form>
-
-        {/* Login Link */}
-        <div style={{ textAlign: 'center', marginTop: '24px', color: '#6c757d' }}>
-          ¿Ya tienes una cuenta?{' '}
-          <Link 
-            to="/login"
-            style={{ 
-              color: '#007bff', 
-              textDecoration: 'none',
-              fontWeight: '500'
-            }}
-            onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
-            onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
-          >
-            Iniciar Sesión
-          </Link>
-        </div>
-
-        {/* Development Info */}
-        <div style={{
-          marginTop: '20px',
-          padding: '12px',
-          backgroundColor: '#d4edda',
-          borderRadius: '6px',
-          fontSize: '12px',
-          color: '#155724',
-          textAlign: 'center'
-        }}>
-          ✅ <strong>Google OAuth:</strong> Registro real con Google
-        </div>
+      <p style={{textAlign: 'center', marginTop: '20px'}}>
+        ¿Ya tienes cuenta? <Link to={ROUTES.LOGIN}>Iniciar Sesión</Link>
+      </p>
+      
+      <div style={{textAlign: 'center', marginTop: '10px', fontSize: '14px', color: '#666'}}>
+        <p>🔑 Demo: Usa cualquier email/password para el emulador</p>
       </div>
     </div>
   );
-}
+};
+
+export default Register;

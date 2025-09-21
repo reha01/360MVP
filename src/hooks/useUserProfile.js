@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext.jsx';
-import { getUserProfile, initializeUserOnFirstLogin } from '../services/firestore.js';
+import { useAuth } from '../context/AuthContext';
 
 /**
- * useUserProfile - Hook que proporciona información extendida del perfil del usuario
- * Abstrae el acceso a los datos del usuario y permite expansión futura más allá de auth.currentUser
+ * useUserProfile - Hook that provides extended user profile information
+ * Abstracts user data access and allows for future expansion beyond auth.currentUser
  */
 export const useUserProfile = () => {
   const { user, loading: authLoading } = useAuth();
@@ -25,48 +24,34 @@ export const useUserProfile = () => {
           return;
         }
 
-        // Intentar conectar con Firestore (real)
-        let firestoreProfile = null;
-        
-        try {
-          firestoreProfile = await initializeUserOnFirstLogin(user);
-          console.log('[360MVP] useUserProfile: Perfil Firestore cargado exitosamente');
-        } catch (error) {
-          console.warn('[360MVP] useUserProfile: Error con Firestore, usando datos locales:', error.message);
-          // En caso de error, usar datos por defecto
-        }
-        
-        // Construir perfil extendido con datos locales o Firestore
+        // Build extended profile from auth user
         const userProfile = {
-          // Datos core de auth
+          // Core auth data
           uid: user.uid,
           email: user.email,
           emailVerified: user.emailVerified,
           displayName: user.displayName || null,
           photoURL: user.photoURL || null,
           
-          // Datos de metadata de auth
+          // Extended profile data (can be expanded with Firestore data)
           createdAt: user.metadata?.creationTime,
           lastSignIn: user.metadata?.lastSignInTime,
           
-          // Datos extendidos (desde Firestore o valores por defecto)
-          credits: firestoreProfile?.credits || 3, // Créditos iniciales
-          evaluationsCompleted: firestoreProfile?.evaluationsCompleted || 0,
-          plan: firestoreProfile?.plan || 'free',
-          preferences: firestoreProfile?.preferences || {},
-          
-          // Campos computados
+          // Computed fields
           isVerified: user.emailVerified,
           hasProfile: !!(user.displayName || user.photoURL),
-          hasFirestoreProfile: !!firestoreProfile,
-          isRealGoogleAuth: user.providerData?.some(provider => provider.providerId === 'google.com')
+          
+          // Future extensions ready
+          preferences: {},
+          evaluations: [],
+          credits: 0
         };
 
-        console.log('[360MVP] useUserProfile: Perfil construido para usuario:', user.email);
+        console.log('[360MVP] useUserProfile: Profile built for user:', user.email);
         setProfile(userProfile);
 
       } catch (err) {
-        console.error('[360MVP] useUserProfile: Error construyendo perfil:', err);
+        console.error('[360MVP] useUserProfile: Error building profile:', err);
         setError(err);
       } finally {
         setLoading(false);
@@ -77,7 +62,7 @@ export const useUserProfile = () => {
   }, [user, authLoading]);
 
   const refreshProfile = () => {
-    // Disparar reconstrucción del perfil
+    // Trigger profile rebuild
     setLoading(true);
   };
 
@@ -86,7 +71,7 @@ export const useUserProfile = () => {
     loading: authLoading || loading,
     error,
     refreshProfile,
-    // Getters de conveniencia
+    // Convenience getters
     isAuthenticated: !!user,
     needsVerification: user && !user.emailVerified,
     hasDisplayName: !!(user?.displayName)

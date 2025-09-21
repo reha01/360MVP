@@ -1,10 +1,14 @@
-// src/components/ProtectedRoute.jsx
+// src/components/AuthGuard.jsx
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ROUTES } from '../constants/routes';
 
-const ProtectedRoute = ({ children }) => {
+/**
+ * AuthGuard - Redirects authenticated users to dashboard, 
+ * non-authenticated users to login
+ */
+const AuthGuard = () => {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -37,11 +41,13 @@ const ProtectedRoute = ({ children }) => {
     );
   }
 
-  if (!user) {
-    return <Navigate to={ROUTES.LOGIN} replace />;
+  // If user is authenticated, redirect to dashboard
+  if (user) {
+    return <Navigate to={ROUTES.DASHBOARD} replace />;
   }
 
-  return children;
+  // If user is not authenticated, redirect to login
+  return <Navigate to={ROUTES.LOGIN} replace />;
 };
 
-export default ProtectedRoute;
+export default AuthGuard;

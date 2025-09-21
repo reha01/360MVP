@@ -60,4 +60,7 @@ export const signInWithEmail = (email, password) => signInWithEmailAndPassword(a
 export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
 export const signOutUser = () => signOut(auth);
 
+// Exportaciones adicionales para compatibilidad
+export { googleProvider };
+
 export { app, auth, db };
