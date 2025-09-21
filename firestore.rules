@@ -1,0 +1,34 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can read and write their own data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Evaluations belong to users
+    match /evaluations/{evaluationId} {
+      allow read, write: if request.auth != null && 
+        (resource.data.userId == request.auth.uid || 
+         request.data.userId == request.auth.uid);
+    }
+    
+    // Evaluation responses belong to the evaluation owner
+    match /evaluations/{evaluationId}/responses/{responseId} {
+      allow read, write: if request.auth != null && 
+        get(/databases/$(database)/documents/evaluations/$(evaluationId)).data.userId == request.auth.uid;
+    }
+    
+    // Public read access to questions (for now, in development)
+    match /questions/{document=**} {
+      allow read: if request.auth != null;
+    }
+    
+    // Reports belong to users  
+    match /reports/{reportId} {
+      allow read, write: if request.auth != null && 
+        (resource.data.userId == request.auth.uid || 
+         request.data.userId == request.auth.uid);
+    }
+  }
+}

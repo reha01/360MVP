@@ -1,0 +1,183 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1600" width="1200" height="1600" font-family="Arial, sans-serif">
+    <style>
+        .swimlane-label { font-size: 18px; font-weight: bold; fill: #333; }
+        .component-box { fill: #fff; stroke: #666; stroke-width: 1.5; rx: 8; }
+        .component-title { font-size: 14px; font-weight: bold; fill: #000; }
+        .component-subtitle { font-size: 12px; fill: #555; }
+        .db-table { fill: #f9f9f9; stroke: #999; }
+        .db-field { font-size: 11px; }
+        .arrow-line { stroke: #333; stroke-width: 2; fill: none; }
+        .arrow-label { font-size: 11px; fill: #000; }
+        .security-boundary { stroke: #d32f2f; stroke-width: 2; stroke-dasharray: 8 4; fill: none; rx: 10; }
+        .legend-text { font-size: 12px; }
+        .trace-header { font-size: 12px; font-weight: bold; }
+        .trace-text { font-size: 11px; }
+    </style>
+    <defs>
+        <marker id="arrowhead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#333"></path>
+        </marker>
+    </defs>
+
+    <!-- Swimlanes -->
+    <rect x="10" y="10" width="380" height="1300" fill="#E3F2FD" rx="10"></rect>
+    <text x="200" y="40" class="swimlane-label" text-anchor="middle">Cliente (Navegador)</text>
+
+    <rect x="400" y="10" width="580" height="1300" fill="#FFF9C4" rx="10"></rect>
+    <text x="690" y="40" class="swimlane-label" text-anchor="middle">Firebase Ecosystem</text>
+
+    <rect x="990" y="10" width="200" height="1300" fill="#FFEBEE" rx="10"></rect>
+    <text x="1090" y="40" class="swimlane-label" text-anchor="middle">Stripe</text>
+
+    <!-- Cliente Components -->
+    <g id="spa-group">
+        <rect x="50" y="70" width="300" height="150" class="component-box" style="fill: #BBDEFB;"></rect>
+        <text x="200" y="100" class="component-title" text-anchor="middle">Single Page App (SPA)</text>
+        <text x="200" y="125" class="component-subtitle" text-anchor="middle">React, React Router</text>
+        <text x="200" y="145" class="component-subtitle" text-anchor="middle">Chart.js, jsPDF</text>
+        <text x="200" y="170" class="component-subtitle" text-anchor="middle" style="fill: #1565C0;">(FEAT-007) UX Responsive</text>
+    </g>
+
+    <!-- Firebase Components -->
+    <g id="firebase-hosting">
+        <rect x="420" y="70" width="200" height="70" class="component-box" style="fill: #FFF59D;"></rect>
+        <text x="520" y="100" class="component-title" text-anchor="middle">Firebase Hosting</text>
+        <text x="520" y="120" class="component-subtitle" text-anchor="middle">(FEAT-005) Sirve SPA</text>
+    </g>
+    <g id="firebase-auth">
+        <rect x="700" y="70" width="260" height="70" class="component-box" style="fill: #FFF59D;"></rect>
+        <text x="830" y="100" class="component-title" text-anchor="middle">Firebase Authentication</text>
+        <text x="830" y="120" class="component-subtitle" text-anchor="middle">Email/Pass, Google</text>
+    </g>
+    <g id="firestore">
+        <rect x="420" y="160" width="540" height="280" class="component-box" style="fill: #FFF59D;"></rect>
+        <text x="690" y="185" class="component-title" text-anchor="middle">Cloud Firestore (NoSQL)</text>
+        <rect x="695" y="195" width="250" height="20" class="component-box" style="fill: #C5E1A5;"></rect>
+        <text x="820" y="210" class="component-subtitle" text-anchor="middle">(FEAT-005, FEAT-008) Firestore Rules</text>
+        
+        <rect x="440" y="230" width="160" height="190" class="db-table"></rect>
+        <text x="520" y="250" class="component-title" text-anchor="middle">users</text>
+        <text x="450" y="270" class="db-field" text-anchor="start">- uid: string</text>
+        <text x="450" y="285" class="db-field" text-anchor="start">- email: string</text>
+        <text x="450" y="300" class="db-field" text-anchor="start">- creditosEvaluacion: number</text>
+
+        <rect x="610" y="230" width="160" height="190" class="db-table"></rect>
+        <text x="690" y="250" class="component-title" text-anchor="middle">evaluationQuestions</text>
+        <text x="620" y="270" class="db-field" text-anchor="start">- id: string</text>
+        <text x="620" y="285" class="db-field" text-anchor="start">- text: string</text>
+        <text x="620" y="300" class="db-field" text-anchor="start">- dimension: string</text>
+
+        <rect x="780" y="230" width="160" height="190" class="db-table"></rect>
+        <text x="860" y="250" class="component-title" text-anchor="middle">evaluations</text>
+        <text x="790" y="270" class="db-field" text-anchor="start">- userId: string</text>
+        <text x="790" y="285" class="db-field" text-anchor="start">- answers: map</text>
+        <text x="790" y="300" class="db-field" text-anchor="start">- results: map</text>
+    </g>
+    <g id="cloud-functions">
+        <rect x="420" y="460" width="540" height="500" class="component-box" style="fill: #FFF59D;"></rect>
+        <text x="690" y="485" class="component-title" text-anchor="middle">Cloud Functions</text>
+        <text x="690" y="505" class="component-subtitle" text-anchor="middle">(FEAT-005) Logs, (FEAT-008) Env Vars</text>
+        
+        <!-- Function Groups -->
+        <rect x="440" y="520" width="240" height="100" class="component-box" style="fill: #FFCC80;"></rect>
+        <text x="560" y="540" class="component-title" text-anchor="middle">Auth Functions</text>
+        <text x="450" y="565" class="component-subtitle">- onCreate (trigger)</text>
+        <text x="450" y="585" class="component-subtitle">- getUserProfile</text>
+
+        <rect x="700" y="520" width="240" height="140" class="component-box" style="fill: #FFCC80;"></rect>
+        <text x="820" y="540" class="component-title" text-anchor="middle">Evaluation Functions</text>
+        <text x="710" y="565" class="component-subtitle">- getQuestions</text>
+        <text x="710" y="585" class="component-subtitle">- saveProgress</text>
+        <text x="710" y="605" class="component-subtitle">- submitAnswers</text>
+        <text x="710" y="625" class="component-subtitle">- calculateResults</text>
+
+        <rect x="440" y="640" width="240" height="100" class="component-box" style="fill: #FFCC80;"></rect>
+        <text x="560" y="660" class="component-title" text-anchor="middle">Report Functions</text>
+        <text x="450" y="685" class="component-subtitle">- generateSummary</text>
+        <text x="450" y="705" class="component-subtitle">- generateFullReport</text>
+
+        <rect x="700" y="680" width="240" height="120" class="component-box" style="fill: #FFCC80;"></rect>
+        <text x="820" y="700" class="component-title" text-anchor="middle">Payment Functions</text>
+        <text x="710" y="725" class="component-subtitle">- createCheckoutSession</text>
+        <text x="710" y="745" class="component-subtitle">- handleWebhook</text>
+        <text x="710" y="765" class="component-subtitle">- updateCredits (transaction)</text>
+    </g>
+
+    <!-- Stripe Components -->
+    <g id="stripe-checkout">
+        <rect x="1010" y="70" width="160" height="70" class="component-box" style="fill: #EF9A9A;"></rect>
+        <text x="1090" y="105" class="component-title" text-anchor="middle">Stripe Checkout</text>
+    </g>
+    <g id="stripe-webhooks">
+        <rect x="1010" y="160" width="160" height="70" class="component-box" style="fill: #EF9A9A;"></rect>
+        <text x="1090" y="195" class="component-title" text-anchor="middle">Stripe Webhooks</text>
+    </g>
+
+    <!-- Security Boundary -->
+    <rect x="410" y="60" width="770" height="910" class="security-boundary"></rect>
+    <text x="420" y="985" style="fill: #d32f2f; font-size: 12px; font-style: italic;">(FEAT-008) Security Boundary</text>
+    
+    <!-- Flows -->
+    <!-- FEAT-001: Sign up/Login -->
+    <path d="M 350 110 C 500 110, 600 110, 690 110" class="arrow-line" marker-end="url(#arrowhead)"></path>
+    <text x="520" y="100" class="arrow-label">1. Sign Up / Login</text>
+    <path d="M 830 145 V 530 H 685" class="arrow-line" marker-end="url(#arrowhead)"></path>
+    <text x="730" y="340" class="arrow-label">2. Auth Trigger (onCreate)</text>
+    <path d="M 520 520 V 420 H 520" class="arrow-line" marker-end="url(#arrowhead)"></path>
+    <text x="530" y="460" class="arrow-label">3. Crea user (credits=1)</text>
+
+    <!-- FEAT-002: Evaluation -->
+    <path d="M 200 225 V 280 H 430" class="arrow-line" marker-end="url(#arrowhead)"></path>
+    <text x="270" y="260" class="arrow-label">4. Verifica créditos</text>
+    <path d="M 350 160 C 500 160, 600 550, 690 550" class="arrow-line" marker-end="url(#arrowhead)"></path>
+    <text x="480" y="350" class="arrow-label">5. getQuestions</text>
+    <path d="M 700 580 C 650 580, 650 350, 690 350" class="arrow-line" marker-end="url(#arrowhead)"></path>
+    <text x="550" y="430" class="arrow-label">6. Retorna preguntas</text>
+    <path d="M 200 200 C 300 300, 500 500, 700 600" class="arrow-line" marker-end="url(#arrowhead)"></path>
+    <text x="450" y="410" class="arrow-label">7. saveProgress / submitAnswers</text>
+    <path d="M 820 625 H 860 V 420 H 860" class="arrow-line" marker-end="url(#arrowhead)"></path>
+    <text x="870" y="520" class="arrow-label">8. Escribe results</text>
+    
+    <!-- FEAT-003: Dashboard -->
+    <path d="M 350 200 C 400 250, 400 600, 440 680" class="arrow-line" marker-end="url(#arrowhead)"></path>
+    <text x="310" y="450" class="arrow-label">9. generateSummary</text>
+
+    <!-- FEAT-004: Payment -->
+    <path d="M 350 220 C 500 220, 600 710, 690 710" class="arrow-line" marker-end="url(#arrowhead)"></path>
+    <text x="480" y="470" class="arrow-label">10. createCheckoutSession</text>
+    <path d="M 820 725 H 900 C 950 725, 1000 115, 1000 115" class="arrow-line" marker-end="url(#arrowhead)"></path>
+    <text x="910" y="420" class="arrow-label">11. Redirect a Stripe Checkout</text>
+    <path d="M 1090 155 V 735 H 945" class="arrow-line" marker-end="url(#arrowhead)"></path>
+    <text x="960" y="450" class="arrow-label">12. Webhook: pago OK</text>
+
+    <!-- Legend and Traceability -->
+    <g transform="translate(40, 1000)">
+        <rect x="0" y="0" width="1120" height="280" class="component-box" style="fill: #FAFAFA;"></rect>
+        <text x="560" y="30" class="component-title" text-anchor="middle">Leyenda y Trazabilidad</text>
+
+        <!-- Legend -->
+        <rect x="20" y="50" width="20" height="20" style="fill: #BBDEFB; stroke: #666;"></rect>
+        <text x="50" y="65" class="legend-text">Cliente / SPA</text>
+        <rect x="20" y="80" width="20" height="20" style="fill: #FFF59D; stroke: #666;"></rect>
+        <text x="50" y="95" class="legend-text">Servicios Firebase</text>
+        <rect x="20" y="110" width="20" height="20" style="fill: #FFCC80; stroke: #666;"></rect>
+        <text x="50" y="125" class="legend-text">Cloud Functions</text>
+        <rect x="20" y="140" width="20" height="20" style="fill: #EF9A9A; stroke: #666;"></rect>
+        <text x="50" y="155" class="legend-text">Servicios de Terceros (Stripe)</text>
+        <rect x="200" y="50" width="20" height="20" class="db-table"></rect>
+        <text x="230" y="65" class="legend-text">Colección Firestore</text>
+        <rect x="200" y="80" width="20" height="20" class="security-boundary" style="rx: 2;"></rect>
+        <text x="230" y="95" class="legend-text">Perímetro de Seguridad</text>
+
+        <!-- Traceability Table -->
+        <text x="680" y="60" class="trace-header" text-anchor="middle">Trazabilidad de Flujos</text>
+        <path d="M 450 75 H 910" style="stroke: #ccc;"></path>
+        <text x="460" y="90" class="trace-text">1-3: FEAT-001 (Onboarding) → Firebase Auth, CF onCreate, users</text>
+        <text x="460" y="105" class="trace-text">4-8: FEAT-002 (Evaluación) → users, evaluationQuestions, evaluations, CFs get/save/submit</text>
+        <text x="460" y="120" class="trace-text">9: FEAT-003 (Dashboard) → evaluations, CF generateSummary, Chart.js</text>
+        <text x="460" y="135" class="trace-text">10-12: FEAT-004 (Pagos) → CF createCheckout, Stripe, CF handleWebhook, users</text>
+        <text x="460" y="150" class="trace-text">N/A: FEAT-005 (Infra) → Hosting, Firestore Rules, CF Logs</text>
+        <text x="460" y="165" class="trace-text">N/A: FEAT-007 (UX) → SPA</text>
+        <text x="460" y="180" class="trace-text">N/A: FEAT-008 (Seguridad) → Auth, Rules, Env Vars</text>
+    </g>
+</svg>
