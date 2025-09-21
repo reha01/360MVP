@@ -14,12 +14,12 @@ import {
 import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 
 const firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDOSjNqkO0KnW1QlyGYMwuL03FqYAVtX4w",
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "discipulado-mvp-dev.firebaseapp.com",
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "discipulado-mvp-dev",
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "discipulado-mvp-dev.appspot.com",
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "87665033208",
-    appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:87665033208:web:abc123",
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCozdMcZGpS-W7f1y5N02Vh089Qbm3giSQ",
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "mvp-staging-3e1cd.firebaseapp.com",
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "mvp-staging-3e1cd",
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "mvp-staging-3e1cd.firebasestorage.app",
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "537831427065",
+    appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:537831427065:web:3f10f1e837ecb83976cb28",
 };
 
 const app = initializeApp(firebaseConfig);
