@@ -1,5 +1,18 @@
 # Documentación Backend (Cloud Functions & Firestore)
 
+## Estado actual tras consolidación
+
+Última actualización: 2025-09-21 (commit 2221c65)
+
+- Emuladores activos utilizados en desarrollo:
+  - Auth Emulator: http://127.0.0.1:9099
+  - Firestore Emulator: http://127.0.0.1:8080
+  - Emulator UI: http://127.0.0.1:4000
+- Scripts npm:
+  - `npm run emulators` (auth, firestore, ui)
+  - `npm run emulators:dev` (emuladores + frontend)
+- Variables `.env` (frontend) con fallbacks: ver README; `VITE_USE_EMULATORS` habilita conexión a emuladores.
+
 ## Objetivo
 Definir la estructura de Cloud Functions, reglas de Firestore, transacciones, webhooks y configuración para cubrir las features FEAT-001 a FEAT-006, FEAT-008 y FEAT-009.
 

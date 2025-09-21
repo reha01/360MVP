@@ -33,6 +33,8 @@ Una aplicación React moderna con Firebase que permite realizar evaluaciones de 
 
 ## 🚀 INICIO RÁPIDO
 
+Última actualización: 2025-09-21 (commit 2221c65)
+
 ### Prerrequisitos
 ```bash
 - Node.js 16+ 
@@ -66,11 +68,11 @@ npm run emulators
 
 ## 🏗️ ARQUITECTURA
 
-### Estructura de Directorios
+### Estructura de Directorios (app única en `src/`)
 ```
 src/
 ├── components/           # Componentes reutilizables
-│   ├── NavigationCard.jsx    # Cards de navegación
+│   ├── NavigationCard.jsx    # (eliminado en consolidación)
 │   ├── UserProfileCard.jsx   # Perfil de usuario  
 │   └── ProtectedRoute.jsx    # Rutas protegidas
 ├── context/             
@@ -85,7 +87,7 @@ src/
 │   ├── Credits.jsx         # Gestión de créditos
 │   └── ReportView.jsx      # Visualización de reportes
 ├── services/            
-│   ├── firebase.jsx        # Configuración Firebase
+│   ├── firebase.jsx        # Configuración Firebase (centralizada)
 │   └── firestore.js        # Operaciones de base de datos
 └── constants/
     └── routes.js           # Rutas de la aplicación
@@ -137,7 +139,7 @@ src/
 ## 🔧 CONFIGURACIÓN
 
 ### Variables de Entorno
-Crear `.env` (opcional, tiene fallbacks):
+Crear `.env` (opcional, tiene fallbacks). Para usar emuladores, agrega `VITE_USE_EMULATORS=true`:
 ```bash
 VITE_FIREBASE_API_KEY=demo-project-api-key
 VITE_FIREBASE_AUTH_DOMAIN=demo-project.firebaseapp.com  
@@ -145,6 +147,7 @@ VITE_FIREBASE_PROJECT_ID=demo-project
 VITE_FIREBASE_STORAGE_BUCKET=demo-project.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
 VITE_FIREBASE_APP_ID=1:123456789:web:abcdefg
+VITE_USE_EMULATORS=true
 ```
 
 ### Firebase Emulators

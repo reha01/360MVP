@@ -1,5 +1,16 @@
 # Documentación Frontend (SPA)
 
+## Estado actual tras consolidación
+
+Última actualización: 2025-09-21 (commit 2221c65)
+
+- App única en `src/` (sin `mvp_clean/` ni `legacy_src/`).
+- Firebase centralizado en `src/services/firebase.jsx` con `Auth Emulator` en `http://127.0.0.1:9099` cuando `VITE_USE_EMULATORS==='true'`.
+- Rutas vigentes: `/login`, `/register`, `/dashboard`, `/evaluation`, `/evaluation/:evaluationId`, `/report/:id`, `/credits`.
+- Google Sign-In disponible en `Login.jsx` y `Register.jsx` usando `signInWithPopup(new GoogleAuthProvider())`.
+- Dashboard incluye botón "Simular Verificación (Emulador)" que marca `emailVerified` en UI.
+- Scripts npm: `npm run dev` (Vite 5178), `npm run emulators`, `npm run emulators:dev`.
+
 ## Objetivo
 
 Definir estructura de carpetas, rutas, contextos, hooks, componentes clave y convenciones del frontend (SPA) para cubrir FEAT-001, FEAT-002, FEAT-003, FEAT-004, FEAT-007, FEAT-008.
@@ -65,7 +76,7 @@ Definir estructura de carpetas, rutas, contextos, hooks, componentes clave y con
 │   │   └── useSaveProgress.js   # Hook para guardado automático con debounce
 │   ├── services/                # Servicios e integraciones
 │   │   ├── api.js               # Cliente para llamadas a Cloud Functions
-│   │   ├── firebase.js          # Configuración e inicialización de Firebase
+│   │   ├── firebase.jsx         # Configuración e inicialización de Firebase (centralizada)
 │   │   ├── stripe.js            # Configuración e inicialización de Stripe
 │   │   └── report-generator.js  # Generación de informes PDF
 │   ├── pages/                   # Páginas/vistas principales
@@ -97,17 +108,15 @@ Definir estructura de carpetas, rutas, contextos, hooks, componentes clave y con
 └── README.md                    # Documentación general
 ```
 
-### Rutas clave
+### Rutas clave (vigentes)
 
-- `/` - Página de inicio pública
 - `/login` - Inicio de sesión
 - `/register` - Registro de usuario
-- `/reset-password` - Restablecimiento de contraseña
 - `/dashboard` - Panel principal (protegido)
-- `/evaluation` - Inicio de nueva evaluación (protegido)
-- `/evaluation/:evaluationId` - Continuar evaluación en progreso (protegido)
-- `/report/:evaluationId` - Vista de resultados de una evaluación (protegido)
-- `/credits` - Página de compra de créditos (protegido)
+- `/evaluation` - Inicio de evaluación (protegido)
+- `/evaluation/:evaluationId` - Continuar evaluación (protegido)
+- `/report/:id` - Vista de resultados (protegido)
+- `/credits` - Compra de créditos (protegido)
 
 ## Rutas y protección
 
