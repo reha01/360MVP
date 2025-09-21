@@ -7,18 +7,25 @@
   "targets": {
     "demo-360mvp": {
       "hosting": {
-        "staging": ["mvp-staging-3e1cd"]
+        "staging": [
+          "mvp-staging-3e1cd"
+        ]
       }
     },
     "mvp-staging-3e1cd": {
       "hosting": {
-        "staging": ["mvp-staging-3e1cd"]
+        "staging": [
+          "mvp-staging-3e1cd"
+        ]
       }
     },
     "360mvp-production": {
       "hosting": {
-        "production": ["360mvp-production"]
+        "production": [
+          "360mvp-production"
+        ]
       }
     }
-  }
+  },
+  "etags": {}
 }
