@@ -110,9 +110,7 @@ jobs:
       run: npm install -g firebase-tools
       
     - name: Deploy a staging
-      run: |
-        firebase use staging
-        firebase deploy --only hosting:staging --token ${{ secrets.FIREBASE_TOKEN }}
+      run: firebase deploy --project mvp-staging-3e1cd --only "hosting:staging"
       env:
         FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
 
@@ -141,9 +139,7 @@ jobs:
       run: npm install -g firebase-tools
       
     - name: Deploy a production
-      run: |
-        firebase use production
-        firebase deploy --only hosting:production --token ${{ secrets.FIREBASE_TOKEN }}
+      run: firebase deploy --project 360mvp-production --only "hosting:production"
       env:
         FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
 
@@ -172,8 +168,6 @@ jobs:
       run: npm install -g firebase-tools
       
     - name: Deploy preview channel
-      run: |
-        firebase use staging
-        firebase hosting:channel:deploy preview-${{ github.event.number }} --expires 7d --token ${{ secrets.FIREBASE_TOKEN }}
+      run: firebase hosting:channel:deploy preview-${{ github.event.number }} --project mvp-staging-3e1cd --expires 7d
       env:
         FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
