@@ -179,4 +179,6 @@ export const ProgressRing = ({
   );
 };
 
+export { ProgressRing };
+export { Progress };
 export default Progress;

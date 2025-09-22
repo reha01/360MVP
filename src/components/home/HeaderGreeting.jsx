@@ -1,6 +1,6 @@
 // src/components/home/HeaderGreeting.jsx
 import React from 'react';
-import ProgressRing from './ProgressRing';
+import { ProgressRing } from '../../components/ui/Progress';
 
 /**
  * HeaderGreeting - Header del dashboard con saludo personalizado y progreso
