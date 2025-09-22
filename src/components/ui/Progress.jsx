@@ -96,7 +96,7 @@ const ProgressBase = ({
 /**
  * ProgressRing - Componente de progreso circular
  */
-export const ProgressRing = ({ 
+const ProgressRing = ({ 
   value = 0, 
   max = 100,
   size = 64,
