@@ -1,8 +1,7 @@
 // src/pages/home/sections/LeaderAnalyticsSection.jsx
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Card, CardHeader, CardTitle, CardContent, CardFooter, Button, Badge } from '../../../components/ui';
-import { Progress } from '../../../components/ui/Progress';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter, Button, Badge, Progress } from '../../../components/ui';
 
 /**
  * LeaderAnalyticsSection - Panel mini de analytics para líderes

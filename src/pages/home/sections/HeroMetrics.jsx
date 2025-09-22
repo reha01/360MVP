@@ -1,7 +1,6 @@
 // src/pages/home/sections/HeroMetrics.jsx
 import React from 'react';
-import { Card } from '../../../components/ui';
-import { ProgressRing } from '../../../components/ui/Progress';
+import { Card, ProgressRing } from '../../../components/ui';
 import useAssignedTasks from '../../../hooks/useAssignedTasks';
 import useReports from '../../../hooks/useReports';
 

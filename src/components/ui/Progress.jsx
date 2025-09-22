@@ -2,9 +2,9 @@
 import React from 'react';
 
 /**
- * Progress - Componente de barra de progreso
+ * Progress - Componente de barra de progreso accesible
  */
-const Progress = ({ 
+const ProgressBase = ({ 
   value = 0, 
   max = 100,
   variant = 'primary',
@@ -12,6 +12,7 @@ const Progress = ({
   showLabel = false,
   label = '',
   className = '',
+  'aria-label': ariaLabel,
   ...props 
 }) => {
   const percentage = Math.min(Math.max((value / max) * 100, 0), 100);
@@ -47,7 +48,15 @@ const Progress = ({
   };
 
   return (
-    <div className={`ui-progress ${className}`} {...props}>
+    <div 
+      className={`ui-progress ${className}`}
+      role="progressbar"
+      aria-valuenow={value}
+      aria-valuemin={0}
+      aria-valuemax={max}
+      aria-label={ariaLabel || label || `${Math.round(percentage)}% complete`}
+      {...props}
+    >
       {(showLabel || label) && (
         <div style={{
           display: 'flex',
@@ -179,4 +188,8 @@ export const ProgressRing = ({
   );
 };
 
+// Normalize exports for maximum compatibility
+const Progress = ProgressBase;
+
 export default Progress;
+export { Progress, ProgressRing };
