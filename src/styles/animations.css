@@ -1,0 +1,213 @@
+/* src/styles/animations.css */
+/* Sistema de animaciones Apple-like para 360MVP */
+
+/* Variables de transición */
+:root {
+  /* Durations - Apple uses 0.15s for most micro-interactions */
+  --transition-fast: 0.15s;
+  --transition-normal: 0.25s;
+  --transition-slow: 0.35s;
+  
+  /* Easing curves - Apple's preferred timing functions */
+  --ease-out-swift: cubic-bezier(0.4, 0.0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0.0, 0.6, 1);
+  --ease-bounce: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  
+  /* Transform values for consistent hover effects */
+  --hover-lift: translateY(-2px);
+  --hover-lift-subtle: translateY(-1px);
+  --hover-scale: scale(1.02);
+  --hover-scale-subtle: scale(1.01);
+  
+  /* Shadow values */
+  --shadow-hover: 0 8px 25px rgba(0, 0, 0, 0.1);
+  --shadow-focus: 0 0 0 3px rgba(10, 132, 255, 0.1);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+/* Base transition class */
+.smooth-transition {
+  transition: all var(--transition-fast) var(--ease-out-swift);
+}
+
+/* Hover effects */
+.hover-lift {
+  transition: transform var(--transition-fast) var(--ease-out-swift), 
+              box-shadow var(--transition-fast) var(--ease-out-swift);
+}
+
+.hover-lift:hover {
+  transform: var(--hover-lift);
+  box-shadow: var(--shadow-hover);
+}
+
+.hover-lift-subtle {
+  transition: transform var(--transition-fast) var(--ease-out-swift);
+}
+
+.hover-lift-subtle:hover {
+  transform: var(--hover-lift-subtle);
+}
+
+.hover-scale {
+  transition: transform var(--transition-fast) var(--ease-out-swift);
+}
+
+.hover-scale:hover {
+  transform: var(--hover-scale);
+}
+
+.hover-scale-subtle {
+  transition: transform var(--transition-fast) var(--ease-out-swift);
+}
+
+.hover-scale-subtle:hover {
+  transform: var(--hover-scale-subtle);
+}
+
+/* Focus states */
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+/* Loading animations */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.shimmer {
+  background: linear-gradient(90deg, 
+    #F1F5F9 25%, 
+    #E2E8F0 37%, 
+    #F1F5F9 63%);
+  background-size: 1000px 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Fade in animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn var(--transition-normal) var(--ease-out-swift);
+}
+
+.fade-in-up {
+  animation: fadeInUp var(--transition-normal) var(--ease-out-swift);
+}
+
+.slide-in-left {
+  animation: slideInLeft var(--transition-normal) var(--ease-out-swift);
+}
+
+/* Stagger animations for lists */
+.stagger-children > * {
+  animation: fadeInUp var(--transition-normal) var(--ease-out-swift);
+}
+
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 50ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 100ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 150ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 200ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 250ms; }
+
+/* Interactive feedback */
+.active-scale {
+  transition: transform var(--transition-fast) var(--ease-out-swift);
+}
+
+.active-scale:active {
+  transform: scale(0.98);
+}
+
+/* Progress animations */
+@keyframes progressFill {
+  from {
+    width: 0%;
+  }
+  to {
+    width: var(--progress-width);
+  }
+}
+
+.progress-animated {
+  animation: progressFill 1s var(--ease-out-swift);
+}
+
+/* Skeleton loading specific */
+.skeleton-loading {
+  border-radius: 8px;
+  background: linear-gradient(90deg, 
+    #F8FAFC 25%, 
+    #F1F5F9 37%, 
+    #F8FAFC 63%);
+  background-size: 1000px 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+/* Mobile optimizations */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Dark mode support (placeholder) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --shadow-hover: 0 8px 25px rgba(0, 0, 0, 0.3);
+    --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+}

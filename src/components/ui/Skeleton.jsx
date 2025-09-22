@@ -40,7 +40,7 @@ const Skeleton = ({
   const baseStyles = {
     width,
     height,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
     position: 'relative',
     overflow: 'hidden',
     ...getVariantStyles()
@@ -52,28 +52,7 @@ const Skeleton = ({
       style={baseStyles}
       {...props}
     >
-      <div
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent)',
-          animation: 'skeleton-shimmer 1.5s infinite'
-        }}
-      />
-      
-      <style jsx>{`
-        @keyframes skeleton-shimmer {
-          0% {
-            transform: translateX(-100%);
-          }
-          100% {
-            transform: translateX(100%);
-          }
-        }
-      `}</style>
+      <div className="shimmer" />
     </div>
   );
 };

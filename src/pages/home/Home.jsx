@@ -10,7 +10,7 @@ import AssignedEvaluationsSection from './sections/AssignedEvaluationsSection';
 import ReportsSection from './sections/ReportsSection';
 import RecentActivitySection from './sections/RecentActivitySection';
 import LeaderAnalyticsSection from './sections/LeaderAnalyticsSection';
-import { SkeletonCard } from '../../components/ui';
+import { DashboardSkeleton } from '../../components/ui';
 
 /**
  * Home - Página de inicio del dashboard con layout de secciones limpias
@@ -23,17 +23,19 @@ const Home = () => {
   const isLeader = profile?.role === 'leader' || profile?.permissions?.includes('org_admin') || false;
 
   if (profileLoading) {
-    return <HomeSkeleton />;
+    return <DashboardSkeleton />;
   }
 
   return (
     <div className="home-page">
-      <div className="home-page__container">
+      <div className="home-page__container fade-in">
         {/* Hero metrics */}
-        <HeroMetrics profile={profile} />
+        <div className="fade-in-up">
+          <HeroMetrics profile={profile} />
+        </div>
 
         {/* Main content grid */}
-        <div className="home-page__grid">
+        <div className="home-page__grid stagger-children">
           {/* Left column */}
           <div className="home-page__main-column">
             {/* Self Assessment */}
@@ -116,43 +118,5 @@ const Home = () => {
   );
 };
 
-/**
- * HomeSkeleton - Loading state para la página Home
- */
-const HomeSkeleton = () => {
-  return (
-    <div className="home-page">
-      <div className="home-page__container">
-        {/* Hero skeleton */}
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-          gap: '16px',
-          marginBottom: '32px'
-        }}>
-          {[1, 2, 3].map(i => (
-            <SkeletonCard key={i} hasHeader={false} hasFooter={false} />
-          ))}
-        </div>
-
-        {/* Main content skeleton */}
-        <div style={{
-          display: 'grid',
-          gap: '32px',
-          gridTemplateColumns: window.innerWidth >= 769 ? '2fr 1fr' : '1fr'
-        }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-            <SkeletonCard />
-            <SkeletonCard />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-            <SkeletonCard />
-            <SkeletonCard />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 export default Home;

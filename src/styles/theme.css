@@ -1,0 +1,253 @@
+/* src/styles/theme.css */
+/* Sistema de temas completo para 360MVP - Apple-like design */
+
+/* Smooth theme transitions */
+.theme-transitioning * {
+  transition: background-color var(--transition-normal) var(--ease-out-swift),
+              color var(--transition-normal) var(--ease-out-swift),
+              border-color var(--transition-normal) var(--ease-out-swift),
+              box-shadow var(--transition-normal) var(--ease-out-swift) !important;
+}
+
+/* Light theme (default) */
+:root,
+[data-theme="light"] {
+  /* Background colors */
+  --color-bg-primary: #F8FAFC;
+  --color-bg-secondary: #FFFFFF;
+  --color-bg-tertiary: #F1F5F9;
+  --color-bg-elevated: #FFFFFF;
+  --color-bg-overlay: rgba(15, 23, 42, 0.6);
+  
+  /* Text colors */
+  --color-text-primary: #0B0F14;
+  --color-text-secondary: #64748B;
+  --color-text-tertiary: #94A3B8;
+  --color-text-inverse: #FFFFFF;
+  --color-text-accent: #0A84FF;
+  
+  /* Border colors */
+  --color-border-primary: #E5E7EB;
+  --color-border-secondary: #E2E8F0;
+  --color-border-focus: #0A84FF;
+  
+  /* Interactive colors */
+  --color-primary: #0A84FF;
+  --color-primary-hover: #0066CC;
+  --color-primary-active: #004999;
+  
+  --color-success: #10B981;
+  --color-success-hover: #059669;
+  
+  --color-warning: #F59E0B;
+  --color-warning-hover: #D97706;
+  
+  --color-danger: #EF4444;
+  --color-danger-hover: #DC2626;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.06);
+  --shadow-xl: 0 25px 50px rgba(0, 0, 0, 0.1);
+  --shadow-hover: 0 8px 25px rgba(0, 0, 0, 0.1);
+  --shadow-focus: 0 0 0 3px rgba(10, 132, 255, 0.1);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.04);
+  
+  /* Skeleton colors */
+  --color-skeleton-base: #F8FAFC;
+  --color-skeleton-shimmer: #F1F5F9;
+  --color-skeleton-highlight: rgba(255, 255, 255, 0.8);
+}
+
+/* Dark theme */
+[data-theme="dark"] {
+  /* Background colors */
+  --color-bg-primary: #0B0F14;
+  --color-bg-secondary: #1E293B;
+  --color-bg-tertiary: #334155;
+  --color-bg-elevated: #1E293B;
+  --color-bg-overlay: rgba(0, 0, 0, 0.8);
+  
+  /* Text colors */
+  --color-text-primary: #F8FAFC;
+  --color-text-secondary: #CBD5E1;
+  --color-text-tertiary: #94A3B8;
+  --color-text-inverse: #0B0F14;
+  --color-text-accent: #60A5FA;
+  
+  /* Border colors */
+  --color-border-primary: #334155;
+  --color-border-secondary: #475569;
+  --color-border-focus: #60A5FA;
+  
+  /* Interactive colors - Adapted for dark mode */
+  --color-primary: #60A5FA;
+  --color-primary-hover: #93C5FD;
+  --color-primary-active: #3B82F6;
+  
+  --color-success: #34D399;
+  --color-success-hover: #6EE7B7;
+  
+  --color-warning: #FBBF24;
+  --color-warning-hover: #FCD34D;
+  
+  --color-danger: #F87171;
+  --color-danger-hover: #FCA5A5;
+  
+  /* Shadows - More pronounced for dark mode */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 25px 50px rgba(0, 0, 0, 0.6);
+  --shadow-hover: 0 8px 25px rgba(0, 0, 0, 0.4);
+  --shadow-focus: 0 0 0 3px rgba(96, 165, 250, 0.2);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);
+  
+  /* Skeleton colors for dark mode */
+  --color-skeleton-base: #1E293B;
+  --color-skeleton-shimmer: #334155;
+  --color-skeleton-highlight: rgba(255, 255, 255, 0.1);
+}
+
+/* Base styling for themed elements */
+body {
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  transition: background-color var(--transition-normal, 0.25s) var(--ease-out-swift, ease);
+}
+
+/* Card theming */
+.ui-card {
+  background-color: var(--color-bg-secondary) !important;
+  border-color: var(--color-border-primary) !important;
+  color: var(--color-text-primary) !important;
+}
+
+/* Button theming */
+.ui-button {
+  transition: all var(--transition-fast, 0.15s) var(--ease-out-swift, ease) !important;
+}
+
+/* Input theming */
+input, 
+textarea, 
+select {
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-primary);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--color-border-focus);
+  box-shadow: var(--shadow-focus);
+}
+
+/* Skeleton theming */
+.skeleton-loading {
+  background: linear-gradient(90deg, 
+    var(--color-skeleton-base) 25%, 
+    var(--color-skeleton-shimmer) 37%, 
+    var(--color-skeleton-base) 63%);
+  background-size: 1000px 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+.ui-skeleton {
+  background-color: var(--color-skeleton-base) !important;
+}
+
+.shimmer {
+  background: linear-gradient(90deg, 
+    var(--color-skeleton-base) 25%, 
+    var(--color-skeleton-shimmer) 37%, 
+    var(--color-skeleton-base) 63%) !important;
+}
+
+/* Sidebar theming */
+.side-nav {
+  background-color: var(--color-bg-secondary);
+  border-color: var(--color-border-primary);
+}
+
+.side-nav__item:hover {
+  background-color: var(--color-bg-tertiary);
+}
+
+/* Top bar theming */
+.top-bar {
+  background-color: var(--color-bg-secondary);
+  border-color: var(--color-border-primary);
+}
+
+/* Badge theming */
+.ui-badge {
+  color: var(--color-text-primary);
+}
+
+/* Progress theming */
+.ui-progress {
+  background-color: var(--color-bg-tertiary);
+}
+
+/* Empty state theming */
+.ui-empty-state {
+  color: var(--color-text-secondary);
+}
+
+/* Link theming */
+a {
+  color: var(--color-text-accent);
+}
+
+a:hover {
+  color: var(--color-primary-hover);
+}
+
+/* Scrollbar theming */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-tertiary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-text-tertiary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary);
+}
+
+/* Selection theming */
+::selection {
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  :root,
+  [data-theme="light"] {
+    --color-border-primary: #000000;
+    --color-text-secondary: #000000;
+  }
+  
+  [data-theme="dark"] {
+    --color-border-primary: #FFFFFF;
+    --color-text-secondary: #FFFFFF;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .theme-transitioning * {
+    transition: none !important;
+  }
+}

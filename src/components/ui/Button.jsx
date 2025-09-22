@@ -96,7 +96,7 @@ const Button = ({
     fontWeight: '500', // Not bold (600), regular medium
     fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     cursor: disabled ? 'not-allowed' : 'pointer',
-    transition: 'all 0.2s ease',
+    transition: 'all var(--transition-fast, 0.15s) var(--ease-out-swift, cubic-bezier(0.4, 0.0, 0.2, 1))',
     textDecoration: 'none',
     outline: 'none',
     position: 'relative',
@@ -127,11 +127,24 @@ const Button = ({
         if (hoverStyle) {
           Object.assign(e.target.style, hoverStyle);
         }
-        e.target.style.transform = 'translateY(-1px)';
+        e.target.style.transform = 'var(--hover-lift-subtle, translateY(-1px))';
+        e.target.style.boxShadow = 'var(--shadow-hover, 0 8px 25px rgba(0, 0, 0, 0.1))';
       }
     },
     onMouseLeave: (e) => {
       Object.assign(e.target.style, baseStyles);
+      e.target.style.transform = 'translateY(0)';
+      e.target.style.boxShadow = '';
+    },
+    onMouseDown: (e) => {
+      if (!disabled && !loading) {
+        e.target.style.transform = 'scale(0.98)';
+      }
+    },
+    onMouseUp: (e) => {
+      if (!disabled && !loading) {
+        e.target.style.transform = 'var(--hover-lift-subtle, translateY(-1px))';
+      }
     }
   };
 

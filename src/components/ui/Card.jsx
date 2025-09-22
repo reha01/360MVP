@@ -47,14 +47,16 @@ const Card = ({
     backgroundColor: 'white',
     borderRadius: '16px',
     border: border ? '1px solid #E5E7EB' : 'none',
-    transition: 'all 0.2s ease',
+    transition: 'all var(--transition-fast, 0.15s) var(--ease-out-swift, cubic-bezier(0.4, 0.0, 0.2, 1))',
     ...getPaddingStyles(),
     ...getShadowStyles()
   };
 
   const hoverStyles = hover ? {
-    transform: 'translateY(-1px)',
-    boxShadow: shadow === 'none' ? '0 4px 6px rgba(0, 0, 0, 0.05)' : '0 8px 24px rgba(0, 0, 0, 0.08)',
+    transform: 'var(--hover-lift-subtle, translateY(-1px))',
+    boxShadow: shadow === 'none' 
+      ? 'var(--shadow-card, 0 4px 6px rgba(0, 0, 0, 0.05))' 
+      : 'var(--shadow-hover, 0 8px 25px rgba(0, 0, 0, 0.1))',
     borderColor: '#D1D5DB'
   } : {};
 

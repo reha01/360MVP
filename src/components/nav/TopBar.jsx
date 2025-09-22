@@ -4,6 +4,7 @@ import { useUserProfile } from '../../hooks/useUserProfile';
 import useFeatureFlags from '../../hooks/useFeatureFlags';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
+import ThemeToggle from '../ui/ThemeToggle';
 
 /**
  * TopBar - Header superior con saludo, búsqueda y badges
@@ -65,6 +66,13 @@ const TopBar = ({ onMobileMenuToggle }) => {
 
         {/* Right side - Actions + Badges */}
         <div className="topbar__right">
+          {/* Theme toggle */}
+          <ThemeToggle 
+            variant="icon" 
+            size="sm"
+            className="theme-toggle"
+          />
+
           {/* Help button */}
           <Button
             variant="ghost"
