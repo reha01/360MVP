@@ -34,6 +34,9 @@ class FeatureFlagsService {
       // Sistema de créditos y pagos
       credits: this._getBooleanFlag('VITE_FEATURE_CREDITS', false),
       
+      // Sistema de emails transaccionales
+      email: this._getBooleanFlag('VITE_FEATURE_EMAIL', true),
+      
       // Logs de debug
       debugLogs: this._getBooleanFlag('VITE_DEBUG_LOGS', true),
       
@@ -164,6 +167,9 @@ export const FeatureFlags = new FeatureFlagsService();
 
 // Initialize logging
 FeatureFlags.logConfiguration();
+
+// Default export
+export default FeatureFlags;
 
 // Convenience exports
 export const isOrgEnabled = () => FeatureFlags.isOrgEnabled();

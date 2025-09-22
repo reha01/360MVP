@@ -30,5 +30,28 @@ service cloud.firestore {
         (resource.data.userId == request.auth.uid || 
          request.data.userId == request.auth.uid);
     }
+    
+    // Processes belong to tenants/organizations
+    match /processes/{processId} {
+      allow read, write: if request.auth != null && 
+        (resource.data.tenantId == request.auth.token.tenantId || 
+         request.data.tenantId == request.auth.token.tenantId);
+    }
+    
+    // Invitations are readable by the process owner and the invited participant
+    match /invitations/{invitationId} {
+      allow read: if request.auth != null && 
+        (resource.data.processOwnerId == request.auth.uid || 
+         resource.data.toEmail == request.auth.token.email);
+      allow write: if request.auth != null && 
+        resource.data.processOwnerId == request.auth.uid;
+    }
+    
+    // Mail events are readable by the process owner
+    match /mailEvents/{eventId} {
+      allow read: if request.auth != null && 
+        resource.data.processOwnerId == request.auth.uid;
+      allow write: if request.auth != null; // Only Cloud Functions can write
+    }
   }
 }

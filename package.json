@@ -5,9 +5,12 @@
   "type": "module",
   "dependencies": {
     "firebase": "^10.12.2",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^2.5.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.3.0"
+    "react-router-dom": "^6.3.0",
+    "recharts": "^2.15.4"
   },
   "scripts": {
     "dev": "vite --port 5178 --strictPort --host 127.0.0.1",
@@ -21,7 +24,7 @@
     "test:watch": "vitest --watch",
     "lint": "echo 'Linting with built-in checks'",
     "deploy:staging": "npm run build:staging && firebase use staging && firebase deploy --only hosting",
-    "deploy:production": "npm run build:production && firebase use production && firebase deploy --only hosting:production", 
+    "deploy:production": "npm run build:production && firebase use production && firebase deploy --only hosting:production",
     "deploy:preview": "npm run build:staging && firebase hosting:channel:deploy preview-$(git rev-parse --short HEAD)",
     "emulators": "firebase emulators:start --only auth,firestore,ui",
     "emulators:dev": "concurrently \"npm run emulators\" \"npm run dev\"",

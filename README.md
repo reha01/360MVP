@@ -118,7 +118,15 @@ src/
 - Verificación visual del estado del email
 - Integración completa con emuladores
 
-### 2. **Dashboard Inteligente** 
+### 2. **Sistema de Emails Transaccionales** ✨
+- **Invitaciones:** Envío automático de invitaciones a evaluaciones 360°
+- **Recordatorios:** Notificaciones antes de la fecha límite
+- **Confirmaciones:** Emails de agradecimiento al completar
+- **Templates HTML:** Diseño profesional y responsive
+- **Tracking:** Seguimiento de estado de entrega
+- **Proveedor:** Resend (3,000 emails/mes gratis)
+
+### 3. **Dashboard Inteligente** 
 - Navegación intuitiva por cards
 - Información del perfil en tiempo real
 - Estado de créditos y evaluaciones
@@ -157,6 +165,7 @@ VITE_USE_EMULATORS=true  # local: true, staging/prod: false
 VITE_FEATURE_ORG=true      # Módulo organizacional
 VITE_FEATURE_PDF=true      # Export PDF
 VITE_FEATURE_INVITES=true  # Invitaciones por token
+VITE_FEATURE_EMAIL=true    # Sistema de emails transaccionales
 VITE_FEATURE_CREDITS=false # Sistema de pagos
 
 # Environment
@@ -169,6 +178,31 @@ VITE_DEBUG_LOGS=true       # Logs de desarrollo
 - `env.staging` - Configuración para staging (Firebase real)
 - `env.production` - Configuración para producción
 
+### Configuración de Email (Opcional)
+Para habilitar el envío real de emails:
+
+1. **Crear cuenta en Resend:**
+   - Ir a https://resend.com
+   - Registrarse y verificar email
+   - Obtener API key del dashboard
+
+2. **Configurar variables:**
+   ```bash
+   # En .env.local
+   VITE_FEATURE_EMAIL=true
+   VITE_RESEND_API_KEY=re_xxxxxxxxx
+   VITE_EMAIL_FROM=noreply@yourdomain.com
+   VITE_EMAIL_REPLY_TO=support@yourdomain.com
+   ```
+
+3. **Para staging/producción:**
+   ```bash
+   # Configurar en Firebase Functions
+   firebase functions:config:set resend.api_key="re_xxxxxxxxx"
+   firebase functions:config:set email.from="noreply@yourdomain.com"
+   firebase functions:config:set email.reply_to="support@yourdomain.com"
+   ```
+
 ### Firebase Emulators
 Los emuladores se configuran automáticamente:
 - ✅ **Auth Emulator**: Puerto 9099
@@ -176,6 +210,12 @@ Los emuladores se configuran automáticamente:
 - ✅ **UI Emulator**: Puerto 4000
 
 ## 🚧 PRÓXIMAS FUNCIONALIDADES
+
+### ✅ **Completado (PR#7)**
+- [x] **Sistema de Emails**: Invitaciones, recordatorios y confirmaciones
+- [x] **Templates HTML**: Diseño profesional y responsive
+- [x] **Tracking de Emails**: Seguimiento de estado de entrega
+- [x] **Integración Resend**: 3,000 emails/mes gratis
 
 ### 🎯 **Alta Prioridad**
 - [ ] **Wizard de Evaluación**: Sistema completo de preguntas

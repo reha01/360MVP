@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recordatorio - Evaluación 360°</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        .title {
+            color: #e74c3c;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #7f8c8d;
+            font-size: 16px;
+        }
+        .content {
+            margin-bottom: 30px;
+        }
+        .urgent {
+            background: #fdf2f2;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #e74c3c;
+            margin: 20px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background: #e74c3c;
+            color: white;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .cta-button:hover {
+            background: #c0392b;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .info-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 14px;
+        }
+        .info-value {
+            color: #7f8c8d;
+            font-size: 16px;
+            margin-top: 5px;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ecf0f1;
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        .countdown {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+            text-align: center;
+            font-weight: 600;
+        }
+        @media (max-width: 600px) {
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+            .container {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">⏰</div>
+            <h1 class="title">Recordatorio Importante</h1>
+            <p class="subtitle">Tu evaluación 360° está pendiente</p>
+        </div>
+
+        <div class="content">
+            <p>Hola <strong>{{participantName}}</strong>,</p>
+            
+            <p>Te recordamos que aún no has completado tu evaluación 360° para el proceso <strong>"{{processName}}"</strong> en {{tenantName}}.</p>
+
+            <div class="urgent">
+                <h3 style="margin-top: 0; color: #e74c3c;">⏰ Tiempo restante</h3>
+                <p style="font-size: 18px; margin-bottom: 0;"><strong>{{daysRemaining}} días restantes</strong></p>
+            </div>
+
+            <div class="countdown">
+                <strong>Fecha límite: {{deadline}}</strong>
+            </div>
+
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">Tu rol</div>
+                    <div class="info-value">{{roleInProcess}}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Tiempo estimado</div>
+                    <div class="info-value">15-20 minutos</div>
+                </div>
+            </div>
+
+            <p>Tu participación es importante para el éxito de esta evaluación. Por favor, completa tu evaluación lo antes posible.</p>
+
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{{inviteUrl}}" class="cta-button">
+                    Completar Evaluación Ahora
+                </a>
+            </div>
+
+            <p>Si ya completaste la evaluación, puedes ignorar este recordatorio. Si tienes algún problema técnico, contacta a <a href="mailto:{{supportEmail}}">{{supportEmail}}</a>.</p>
+        </div>
+
+        <div class="footer">
+            <p>Este enlace es personal y no debe ser compartido.</p>
+            <p>© {{currentYear}} {{tenantName}} - Evaluación 360°</p>
+        </div>
+    </div>
+</body>
+</html>
