@@ -12,49 +12,48 @@ import {
   onSnapshot
 } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
+// For Phase 1, redirect to the appropriate service based on tenancy flag
+import { isTenancyV1Enabled } from './featureFlags.js';
 
 class AnalyticsService {
   constructor() {
-    this.db = getFirestore();
-    this.auth = getAuth();
-    this.unsubscribers = new Map();
+    // This is now a router class that delegates to appropriate implementation
+    this.scopedService = null;
+    this.legacyService = null;
   }
 
-  /**
-   * Obtiene métricas agregadas de la organización
-   */
-  async getOrganizationMetrics(orgId, timeRange = '30d') {
-    try {
-      const startDate = this.getStartDate(timeRange);
-      const metrics = {
-        overview: await this.getOverviewMetrics(orgId, startDate),
-        participation: await this.getParticipationMetrics(orgId, startDate),
-        performance: await this.getPerformanceMetrics(orgId, startDate),
-        trends: await this.getTrendMetrics(orgId, startDate),
-        distribution: await this.getDistributionMetrics(orgId, startDate),
-        engagement: await this.getEngagementMetrics(orgId, startDate)
-      };
-
-      return metrics;
-    } catch (error) {
-      console.error('Error fetching organization metrics:', error);
-      throw error;
+  async getService() {
+    const tenancyEnabled = isTenancyV1Enabled();
+    
+    if (tenancyEnabled) {
+      if (!this.scopedService) {
+        const { default: ScopedAnalyticsService } = await import('./analyticsService.scoped.js');
+        this.scopedService = ScopedAnalyticsService;
+      }
+      return this.scopedService;
+    } else {
+      if (!this.legacyService) {
+        const { default: LegacyAnalyticsService } = await import('./analyticsService.legacy.js');
+        this.legacyService = LegacyAnalyticsService;
+      }
+      return this.legacyService;
     }
+  }
+
+  // Delegate all methods to the appropriate service
+
+  async getOrganizationMetrics(userId, timeRange = '30d') {
+    const service = await this.getService();
+    return service.getOrganizationMetrics(userId, timeRange);
   }
 
   /**
    * Métricas generales de overview
    */
-  async getOverviewMetrics(orgId, startDate) {
-    const evaluationsQuery = query(
-      collection(this.db, 'evaluations'),
-      where('organizationId', '==', orgId),
+  async getOverviewMetrics(userId, startDate) {
+    const evaluations = await this.getScopedAnalyticsCollection('evaluations', userId, [
       where('createdAt', '>=', startDate)
-    );
-
-    const snapshot = await getDocs(evaluationsQuery);
-    const evaluations = [];
-    snapshot.forEach(doc => evaluations.push({ id: doc.id, ...doc.data() }));
+    ]);
 
     // Calcular métricas
     const totalEvaluations = evaluations.length;
@@ -643,3 +642,4 @@ class AnalyticsService {
 }
 
 export default new AnalyticsService();
+

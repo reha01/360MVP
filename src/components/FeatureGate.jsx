@@ -1,6 +1,6 @@
 // src/components/FeatureGate.jsx
 import React from 'react';
-import { FeatureFlags } from '../services/featureFlags';
+import { FeatureFlags } from '../lib/featureFlags';
 
 /**
  * FeatureGate - Componente para controlar acceso a features

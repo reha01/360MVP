@@ -44,7 +44,10 @@ class FeatureFlagsService {
       performanceMetrics: this._getBooleanFlag('VITE_PERFORMANCE_METRICS', true),
       
       // Usar emuladores
-      useEmulators: this._getBooleanFlag('VITE_USE_EMULATORS', true)
+      useEmulators: this._getBooleanFlag('VITE_USE_EMULATORS', true),
+      
+      // Multi-Tenant Feature Flag (Phase 0)
+      tenancyV1: this._getBooleanFlag('VITE_TENANCY_V1', false)
     };
   }
 
@@ -121,6 +124,13 @@ class FeatureFlagsService {
   }
 
   /**
+   * Verificar si multi-tenancy V1 está habilitado
+   */
+  isTenancyV1Enabled() {
+    return this.flags.tenancyV1;
+  }
+
+  /**
    * Obtener configuración del tenant por defecto
    */
   getDefaultTenant() {
@@ -179,5 +189,6 @@ export const isWizardEnabled = () => FeatureFlags.isWizardEnabled();
 export const isCreditsEnabled = () => FeatureFlags.isCreditsEnabled();
 export const shouldUseEmulators = () => FeatureFlags.shouldUseEmulators();
 export const isDebugEnabled = () => FeatureFlags.isDebugEnabled();
+export const isTenancyV1Enabled = () => FeatureFlags.isTenancyV1Enabled();
 export const getDefaultTenant = () => FeatureFlags.getDefaultTenant();
 export const getAppBaseUrl = () => FeatureFlags.getAppBaseUrl();

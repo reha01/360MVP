@@ -1,6 +1,6 @@
 // src/hooks/useFeatureFlags.js
 import { useMemo } from 'react';
-import { FeatureFlags } from '../services/featureFlags';
+import { FeatureFlags } from '../lib/featureFlags';
 
 /**
  * useFeatureFlags - Hook para acceder fácilmente a feature flags

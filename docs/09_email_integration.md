@@ -324,3 +324,6 @@ firebase functions:log --follow
 # Test local con emuladores
 npm run emulators:dev
 ```
+
+
+

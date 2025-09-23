@@ -51,7 +51,151 @@ service cloud.firestore {
     match /mailEvents/{eventId} {
       allow read: if request.auth != null && 
         resource.data.processOwnerId == request.auth.uid;
-      allow write: if request.auth != null; // Only Cloud Functions can write
+    }
+    
+    // ========== MULTI-TENANT RULES (Phase 0 - Preparatory) ==========
+    // These rules are prepared but not enforced until TENANCY_V1 is enabled
+    
+    // Organizations - Only members can read, only owners can write
+    match /organizations/{orgId} {
+      allow read: if request.auth != null && (
+        // Always allow reading personal orgs
+        orgId == ('org_personal_' + request.auth.uid) ||
+        // TODO: Check membership for corporate orgs (Phase 1)
+        true
+      );
+      allow write: if request.auth != null && (
+        // Only allow writing to personal orgs by owner
+        orgId == ('org_personal_' + request.auth.uid) ||
+        // TODO: Check ownership/admin role for corporate orgs (Phase 1)
+        false
+      );
+    }
+    
+    // Organization Members - Readable by org members and the user themselves
+    match /organization_members/{membershipId} {
+      allow read: if request.auth != null && (
+        // User can always read their own memberships
+        resource.data.userId == request.auth.uid ||
+        // TODO: Members can read other members in same org (Phase 1)
+        true
+      );
+      allow write: if request.auth != null && (
+        // TODO: Only org owners/admins can manage memberships (Phase 1)
+        // For now, allow writes for backfill process
+        true
+      );
+    }
+    
+    // Extended evaluation rules for multi-tenancy (dual mode)
+    match /evaluations/{evaluationId} {
+      // Read rules
+      allow read: if request.auth != null && (
+        // Legacy mode: allow if user owns the document
+        (!exists(/databases/$(database)/documents/feature_flags/TENANCY_V1) || 
+         !resource.data.keys().hasAll(['orgId'])) && 
+        resource.data.userId == request.auth.uid
+      ) || (
+        // Tenancy mode: require org membership
+        exists(/databases/$(database)/documents/feature_flags/TENANCY_V1) &&
+        resource.data.orgId != null &&
+        exists(/databases/$(database)/documents/organization_members/$(resource.data.orgId + '_' + request.auth.uid)) &&
+        get(/databases/$(database)/documents/organization_members/$(resource.data.orgId + '_' + request.auth.uid)).data.status == 'active'
+      );
+      
+      // Write rules  
+      allow create: if request.auth != null && (
+        // Legacy mode: allow if user is creating their own doc
+        (!exists(/databases/$(database)/documents/feature_flags/TENANCY_V1) && 
+         request.data.userId == request.auth.uid)
+      ) || (
+        // Tenancy mode: require org membership and orgId
+        exists(/databases/$(database)/documents/feature_flags/TENANCY_V1) &&
+        request.data.orgId != null &&
+        exists(/databases/$(database)/documents/organization_members/$(request.data.orgId + '_' + request.auth.uid)) &&
+        get(/databases/$(database)/documents/organization_members/$(request.data.orgId + '_' + request.auth.uid)).data.status == 'active'
+      );
+      
+      allow update: if request.auth != null && (
+        // Legacy mode
+        (!exists(/databases/$(database)/documents/feature_flags/TENANCY_V1) && 
+         resource.data.userId == request.auth.uid)
+      ) || (
+        // Tenancy mode: can't change orgId
+        exists(/databases/$(database)/documents/feature_flags/TENANCY_V1) &&
+        resource.data.orgId == request.data.orgId &&
+        exists(/databases/$(database)/documents/organization_members/$(resource.data.orgId + '_' + request.auth.uid)) &&
+        get(/databases/$(database)/documents/organization_members/$(resource.data.orgId + '_' + request.auth.uid)).data.status == 'active'
+      );
+      
+      allow delete: if request.auth != null && (
+        // Legacy mode
+        (!exists(/databases/$(database)/documents/feature_flags/TENANCY_V1) && 
+         resource.data.userId == request.auth.uid)
+      ) || (
+        // Tenancy mode: require owner or admin role
+        exists(/databases/$(database)/documents/feature_flags/TENANCY_V1) &&
+        exists(/databases/$(database)/documents/organization_members/$(resource.data.orgId + '_' + request.auth.uid)) &&
+        get(/databases/$(database)/documents/organization_members/$(resource.data.orgId + '_' + request.auth.uid)).data.role in ['owner', 'project_leader']
+      );
+    }
+    
+    // Extended reports rules for multi-tenancy (dual mode)
+    match /reports/{reportId} {
+      // Read rules
+      allow read: if request.auth != null && (
+        // Legacy mode
+        (!exists(/databases/$(database)/documents/feature_flags/TENANCY_V1) || 
+         !resource.data.keys().hasAll(['orgId'])) && 
+        resource.data.userId == request.auth.uid
+      ) || (
+        // Tenancy mode
+        exists(/databases/$(database)/documents/feature_flags/TENANCY_V1) &&
+        resource.data.orgId != null &&
+        exists(/databases/$(database)/documents/organization_members/$(resource.data.orgId + '_' + request.auth.uid)) &&
+        get(/databases/$(database)/documents/organization_members/$(resource.data.orgId + '_' + request.auth.uid)).data.status == 'active'
+      );
+      
+      // Write rules
+      allow create: if request.auth != null && (
+        // Legacy mode
+        (!exists(/databases/$(database)/documents/feature_flags/TENANCY_V1) && 
+         request.data.userId == request.auth.uid)
+      ) || (
+        // Tenancy mode
+        exists(/databases/$(database)/documents/feature_flags/TENANCY_V1) &&
+        request.data.orgId != null &&
+        exists(/databases/$(database)/documents/organization_members/$(request.data.orgId + '_' + request.auth.uid)) &&
+        get(/databases/$(database)/documents/organization_members/$(request.data.orgId + '_' + request.auth.uid)).data.status == 'active'
+      );
+      
+      allow update, delete: if request.auth != null && (
+        // Legacy mode
+        (!exists(/databases/$(database)/documents/feature_flags/TENANCY_V1) && 
+         resource.data.userId == request.auth.uid)
+      ) || (
+        // Tenancy mode
+        exists(/databases/$(database)/documents/feature_flags/TENANCY_V1) &&
+        resource.data.orgId == request.data.orgId &&
+        exists(/databases/$(database)/documents/organization_members/$(resource.data.orgId + '_' + request.auth.uid)) &&
+        get(/databases/$(database)/documents/organization_members/$(resource.data.orgId + '_' + request.auth.uid)).data.role in ['owner', 'project_leader']
+      );
+    }
+    
+    // Rules for responses subcollection
+    match /evaluations/{evaluationId}/responses/{responseId} {
+      allow read, write: if request.auth != null && (
+        // Legacy mode
+        (!exists(/databases/$(database)/documents/feature_flags/TENANCY_V1) && 
+         (resource.data.userId == request.auth.uid || request.data.userId == request.auth.uid))
+      ) || (
+        // Tenancy mode - check parent evaluation's org membership
+        exists(/databases/$(database)/documents/feature_flags/TENANCY_V1) &&
+        exists(/databases/$(database)/documents/evaluations/$(evaluationId)) &&
+        get(/databases/$(database)/documents/evaluations/$(evaluationId)).data.orgId != null &&
+        exists(/databases/$(database)/documents/organization_members/$(get(/databases/$(database)/documents/evaluations/$(evaluationId)).data.orgId + '_' + request.auth.uid)) &&
+        get(/databases/$(database)/documents/organization_members/$(get(/databases/$(database)/documents/evaluations/$(evaluationId)).data.orgId + '_' + request.auth.uid)).data.status == 'active'
+      );
     }
   }
 }

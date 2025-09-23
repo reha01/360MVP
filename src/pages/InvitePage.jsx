@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import featureFlags from '../services/featureFlags';
+import featureFlags from '../lib/featureFlags';
 
 const InvitePage = () => {
   const { token } = useParams();
@@ -202,3 +202,5 @@ const InvitePage = () => {
 };
 
 export default InvitePage;
+
+

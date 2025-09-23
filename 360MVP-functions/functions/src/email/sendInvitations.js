@@ -128,3 +128,6 @@ exports.sendInvitations = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('internal', `Failed to send invitations: ${error.message}`);
   }
 });
+
+
+

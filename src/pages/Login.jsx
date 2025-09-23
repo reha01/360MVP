@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { signInWithGoogle } from '../services/firebase';
+import { signInWithGoogle } from '../lib/firebase';
 import { ROUTES } from '../constants/routes';
 
 const Login = () => {

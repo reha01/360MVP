@@ -1,5 +1,5 @@
 // src/hooks/useFirestore.js
-import { db } from '../services/firebase';
+import { db } from '../lib/firebase';
 import { collection, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 const useFirestore = () => {

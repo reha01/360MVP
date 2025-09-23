@@ -1,7 +1,7 @@
 // src/components/ui/DashboardSkeletons.jsx
 import React from 'react';
-import { Card, CardHeader, CardContent, CardFooter } from './Card';
-import { Skeleton, SkeletonText } from './Skeleton';
+import Card, { CardHeader, CardContent, CardFooter } from './Card';
+import Skeleton, { SkeletonText } from './Skeleton';
 
 /**
  * HeroMetricsSkeleton - Skeleton para las métricas del hero

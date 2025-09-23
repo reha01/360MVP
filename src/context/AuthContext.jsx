@@ -6,7 +6,7 @@ import {
   createUserWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
-import { auth } from '../services/firebase';
+import { auth } from '../lib/firebase';
 
 const AuthContext = createContext();
 

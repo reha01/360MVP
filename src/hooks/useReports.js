@@ -1,7 +1,7 @@
 // src/hooks/useReports.js
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { FeatureFlags } from '../services/featureFlags';
+import { FeatureFlags } from '../lib/featureFlags';
 
 /**
  * useReports - Hook para obtener reportes del usuario

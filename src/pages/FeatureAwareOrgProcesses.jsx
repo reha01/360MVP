@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import FeatureGate from '../components/FeatureGate';
 import { useAuth } from '../context/AuthContext';
 import emailService from '../services/emailService';
-import featureFlags from '../services/featureFlags';
+import featureFlags from '../lib/featureFlags';
 
 const FeatureAwareOrgProcesses = () => {
   const { user } = useAuth();

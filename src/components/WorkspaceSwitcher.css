@@ -1,0 +1,338 @@
+/* src/components/WorkspaceSwitcher.css */
+.workspace-switcher {
+  position: relative;
+  display: inline-block;
+}
+
+.workspace-switcher-trigger {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 200px;
+  font-family: inherit;
+}
+
+.workspace-switcher-trigger:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.workspace-switcher-trigger.open {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.workspace-switcher-trigger.switching {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.workspace-switcher-trigger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Avatar */
+.workspace-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.workspace-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-initials {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  color: white;
+}
+
+.avatar-initials.personal {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.avatar-initials.corporate {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+/* Workspace Info */
+.workspace-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.workspace-name {
+  font-weight: 500;
+  font-size: 14px;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.workspace-type {
+  font-size: 12px;
+  color: #6b7280;
+  text-transform: capitalize;
+}
+
+/* Dropdown Arrow */
+.dropdown-arrow {
+  color: #9ca3af;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.dropdown-arrow.rotated {
+  transform: rotate(180deg);
+}
+
+/* Dropdown */
+.workspace-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  overflow: hidden;
+  animation: dropdownSlide 0.2s ease-out;
+}
+
+@keyframes dropdownSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.workspace-dropdown-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  background: #f9fafb;
+}
+
+.workspace-dropdown-header span {
+  font-weight: 600;
+  font-size: 12px;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Workspace List */
+.workspace-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.workspace-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  width: 100%;
+  border: none;
+  background: white;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  font-family: inherit;
+}
+
+.workspace-item:hover {
+  background: #f9fafb;
+}
+
+.workspace-item.active {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.workspace-item.pending {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.workspace-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.workspace-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.workspace-details .workspace-name {
+  font-weight: 500;
+  font-size: 14px;
+  margin: 0;
+}
+
+.workspace-meta {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.check-icon {
+  color: #10b981;
+  flex-shrink: 0;
+}
+
+/* Accept Invite Button */
+.accept-invite-btn {
+  padding: 4px 8px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.accept-invite-btn:hover {
+  background: #2563eb;
+}
+
+/* Dividers */
+.workspace-divider {
+  height: 1px;
+  background: #f3f4f6;
+  margin: 8px 0;
+}
+
+.workspace-section {
+  padding: 8px 0;
+}
+
+.section-header {
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Loading State */
+.workspace-switcher.loading .workspace-switcher-trigger {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.workspace-avatar.skeleton {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+}
+
+.workspace-name.skeleton {
+  height: 16px;
+  border-radius: 4px;
+  width: 120px;
+}
+
+/* Switching Overlay */
+.workspace-switching-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.switching-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #f3f4f6;
+  border-top: 3px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .workspace-switcher-trigger {
+    min-width: 160px;
+    padding: 8px 10px;
+  }
+  
+  .workspace-dropdown {
+    left: -20px;
+    right: -20px;
+    width: auto;
+  }
+  
+  .workspace-name {
+    font-size: 13px;
+  }
+  
+  .workspace-type,
+  .workspace-meta {
+    font-size: 11px;
+  }
+}
+
+

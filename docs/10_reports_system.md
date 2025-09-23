@@ -377,3 +377,6 @@ El sistema de reportes avanzados está completamente funcional y listo para prod
 ✅ Seguridad y permisos robustos
 
 El sistema está diseñado para ser extensible y permitir futuras mejoras sin cambios estructurales mayores.
+
+
+

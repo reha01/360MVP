@@ -5,7 +5,7 @@
 Última actualización: 2025-09-21 (commit 2221c65)
 
 - App única en `src/` (sin `mvp_clean/` ni `legacy_src/`).
-- Firebase centralizado en `src/services/firebase.jsx` con `Auth Emulator` en `http://127.0.0.1:9099` cuando `VITE_USE_EMULATORS==='true'`.
+- Firebase centralizado en `src/services/firebase.js` con `Auth Emulator` en `http://127.0.0.1:9099` cuando `VITE_USE_EMULATORS==='true'`.
 - Rutas vigentes: `/login`, `/register`, `/dashboard`, `/evaluation`, `/evaluation/:evaluationId`, `/report/:id`, `/credits`.
 - Google Sign-In disponible en `Login.jsx` y `Register.jsx` usando `signInWithPopup(new GoogleAuthProvider())`.
 - Dashboard incluye botón "Simular Verificación (Emulador)" que marca `emailVerified` en UI.
@@ -76,7 +76,7 @@ Definir estructura de carpetas, rutas, contextos, hooks, componentes clave y con
 │   │   └── useSaveProgress.js   # Hook para guardado automático con debounce
 │   ├── services/                # Servicios e integraciones
 │   │   ├── api.js               # Cliente para llamadas a Cloud Functions
-│   │   ├── firebase.jsx         # Configuración e inicialización de Firebase (centralizada)
+│   │   ├── firebase.js          # Configuración e inicialización de Firebase (centralizada)
 │   │   ├── stripe.js            # Configuración e inicialización de Stripe
 │   │   └── report-generator.js  # Generación de informes PDF
 │   ├── pages/                   # Páginas/vistas principales

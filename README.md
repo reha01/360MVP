@@ -87,7 +87,7 @@ src/
 │   ├── Credits.jsx         # Gestión de créditos
 │   └── ReportView.jsx      # Visualización de reportes
 ├── services/            
-│   ├── firebase.jsx        # Configuración Firebase (centralizada)
+│   ├── firebase.js         # Configuración Firebase (centralizada)
 │   └── firestore.js        # Operaciones de base de datos
 └── constants/
     └── routes.js           # Rutas de la aplicación

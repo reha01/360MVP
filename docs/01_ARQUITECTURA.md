@@ -3,7 +3,7 @@
 Última actualización: 2025-09-21 (commit 2221c65)
 
 - App única en la raíz del repositorio (`src/`), sin `mvp_clean/` ni `legacy_src/` activos.
-- Firebase centralizado en `src/services/firebase.jsx` con `Auth Emulator` en `http://127.0.0.1:9099` cuando `VITE_USE_EMULATORS === 'true'`.
+- Firebase centralizado en `src/services/firebase.js` con `Auth Emulator` en `http://127.0.0.1:9099` cuando `VITE_USE_EMULATORS === 'true'`.
 - Rutas actuales: `/login`, `/register`, `/dashboard`, `/evaluation`, `/credits`, `/report/:id`.
 - Google Sign-In operativo desde `Login.jsx` y `Register.jsx` usando `signInWithPopup(new GoogleAuthProvider())`.
 - Dashboard incluye botón "Simular Verificación (Emulador)" que actualiza la UI a ✅ mediante `simulateEmailVerification()` del `AuthContext`.
