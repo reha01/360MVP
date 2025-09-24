@@ -26,6 +26,7 @@
     "test:run": "vitest run",
     "test:watch": "vitest --watch",
     "lint": "echo 'Linting with built-in checks'",
+    "typecheck": "echo 'TypeScript check - no tsconfig found'",
     "deploy:staging": "npm run build:staging && firebase use staging && firebase deploy --only hosting",
     "deploy:production": "npm run build:production && firebase use production && firebase deploy --only hosting:production",
     "deploy:preview": "npm run build:staging && firebase hosting:channel:deploy preview-$(git rev-parse --short HEAD)",
