@@ -1,6 +1,6 @@
 // src/pages/Login.jsx
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { signInWithGoogle } from '../lib/firebase';
 import { ROUTES } from '../constants/routes';
@@ -12,14 +12,18 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const { login, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Get redirect path from location state
+  const redirectPath = location.state?.from?.pathname || ROUTES.DASHBOARD;
 
   // Redirect if user is already authenticated
   useEffect(() => {
     if (user) {
-      console.log('[360MVP] Login: User already authenticated, redirecting to dashboard');
-      navigate(ROUTES.DASHBOARD, { replace: true });
+      console.log('[360MVP] Login: User already authenticated, redirecting to:', redirectPath);
+      navigate(redirectPath, { replace: true });
     }
-  }, [user, navigate]);
+  }, [user, navigate, redirectPath]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -34,8 +38,8 @@ const Login = () => {
     try {
       console.log('[360MVP] Login: Attempting sign in...');
       await login(email, password);
-      console.log('[360MVP] Login: Sign in successful');
-      navigate(ROUTES.DASHBOARD, { replace: true });
+      console.log('[360MVP] Login: Sign in successful, redirecting to:', redirectPath);
+      navigate(redirectPath, { replace: true });
     } catch (error) {
       console.error('[360MVP] Login: Sign in failed:', error);
       setError('Error al iniciar sesión: ' + error.message);
@@ -51,8 +55,8 @@ const Login = () => {
     try {
       console.log('[360MVP] Login: Attempting Google sign in...');
       await signInWithGoogle();
-      console.log('[360MVP] Login: Google sign in successful');
-      navigate(ROUTES.DASHBOARD, { replace: true });
+      console.log('[360MVP] Login: Google sign in successful, redirecting to:', redirectPath);
+      navigate(redirectPath, { replace: true });
     } catch (error) {
       console.error('[360MVP] Login: Google sign in failed:', error);
       setError('Error al iniciar sesión con Google: ' + error.message);

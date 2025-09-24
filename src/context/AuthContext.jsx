@@ -18,7 +18,7 @@ export const AuthProvider = ({ children }) => {
     console.log('[360MVP] AuthContext: Setting up authentication state listener...');
     
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      console.log('[360MVP] AuthContext: Auth state changed ->', firebaseUser ? `User: ${firebaseUser.email}` : 'No user');
+      console.info('[AuthContext] user', !!firebaseUser, firebaseUser ? `(${firebaseUser.email})` : '(none)');
       setUser(firebaseUser);
       setLoading(false);
     });

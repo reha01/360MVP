@@ -56,14 +56,28 @@ const WorkspaceSwitcher = () => {
   // Get organization display info
   const getOrgDisplayInfo = (membership) => {
     const org = membership.organization;
+    const orgMeta = membership.orgMeta;
+    
+    // Use real organization name from metadata, fallback to embedded data
+    const displayName = orgMeta?.displayName || org?.displayName || org?.name || 'Unknown Workspace';
+    const orgType = orgMeta?.type || org?.type || 'unknown';
+    const avatarColor = orgMeta?.avatarColor || org?.avatarColor;
+    
+    // Show fallback badge if no real name
+    const hasRealName = orgMeta?.displayName || org?.displayName;
+    const nameToShow = hasRealName ? displayName : `${membership.orgId.slice(0, 8)}... (sin nombre)`;
+    
     return {
       id: membership.orgId,
-      name: org?.name || 'Unknown Workspace',
-      type: org?.type || 'unknown',
+      name: nameToShow,
+      displayName: displayName,
+      type: orgType,
       role: membership.role,
-      isPersonal: org?.type === 'personal',
+      isPersonal: orgType === 'personal',
       avatar: org?.avatar || null,
-      initials: getInitials(org?.name || 'Unknown')
+      avatarColor: avatarColor,
+      initials: getInitials(displayName),
+      hasRealName: !!hasRealName
     };
   };
 

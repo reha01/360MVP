@@ -2,25 +2,43 @@
 // Main application header with workspace switcher
 
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useOrg } from '../context/OrgContext';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
 import './Header.css';
 
 const Header = () => {
-  const { user, signOutUser } = useAuth();
-  const { activeOrg, canSwitchWorkspace } = useOrg();
+  const { user, logout } = useAuth();
+  const { activeOrg, canSwitchWorkspace, activeMembership } = useOrg();
 
   const handleSignOut = async () => {
     try {
-      await signOutUser();
+      await logout();
     } catch (error) {
       console.error('Error signing out:', error);
     }
   };
 
+  // Show different header based on auth state
   if (!user) {
-    return null; // Don't show header when not logged in
+    return (
+      <header className="app-header">
+        <div className="header-container">
+          {/* Logo */}
+          <div className="header-logo">
+            <h1>360MVP</h1>
+          </div>
+
+          {/* Login Button */}
+          <div className="header-auth">
+            <Link to="/login" className="login-button">
+              Iniciar sesión
+            </Link>
+          </div>
+        </div>
+      </header>
+    );
   }
 
   return (
@@ -42,7 +60,7 @@ const Header = () => {
             <span className="user-name">{user.displayName || user.email}</span>
             {activeOrg && (
               <span className="current-workspace">
-                in {activeOrg.name}
+                in {activeMembership?.orgMeta?.displayName || activeOrg.displayName || activeOrg.name || 'Unknown Workspace'}
               </span>
             )}
           </div>

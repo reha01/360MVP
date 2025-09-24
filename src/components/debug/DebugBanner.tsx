@@ -4,6 +4,7 @@
 import React from 'react';
 import { deriveEnv, isPublicHost } from '../../utils/env';
 import { FeatureFlags } from '../../lib/featureFlags';
+import { isDebug } from '../../utils/debug';
 
 interface DebugInfo {
   env: string;
@@ -20,7 +21,7 @@ interface DebugBannerProps {
 const DebugBanner: React.FC<DebugBannerProps> = ({ info }) => {
   // Show banner if DEBUG is enabled in localStorage or not in production
   const shouldShow = 
-    localStorage.getItem('DEBUG') === '1' || 
+    isDebug() || 
     import.meta.env.MODE !== 'production';
 
   if (!shouldShow) {
