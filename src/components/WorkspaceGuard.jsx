@@ -63,6 +63,11 @@ const WorkspaceGuard = ({ children, fallback = null }) => {
     }
   }, [user, activeOrgId, authLoading, status, memberships, location.pathname, setActiveOrgId]);
 
+  // Unauthenticated state - redirect to login
+  if (status === 'unauthenticated' || !user) {
+    return children; // Let AuthProtectedRoute handle redirect to login
+  }
+
   // Still loading
   if (authLoading || status === 'loading') {
     return fallback || (
@@ -84,11 +89,6 @@ const WorkspaceGuard = ({ children, fallback = null }) => {
         </button>
       </div>
     );
-  }
-
-  // User not logged in
-  if (!user) {
-    return children; // Let AuthGuard handle this
   }
 
   // Error loading memberships

@@ -8,6 +8,8 @@ import { getApp } from 'firebase/app';
 import { useAuth } from './AuthContext';
 import { db } from '../services/firebase';
 import telemetry from '../services/telemetryService';
+import { isDebug, dlog, dwarn } from '../utils/debug';
+import { getMultipleOrgMeta } from '../lib/orgs';
 
 const OrgContext = createContext();
 
@@ -17,13 +19,12 @@ const OrgContext = createContext();
 const globalCache = new Map(); // uid -> { memberships, timestamp, status }
 const loadingStates = new Map(); // uid -> Promise
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-const DEBUG = typeof window !== 'undefined' && (localStorage.getItem('DEBUG_ORGCTX') === '1' || import.meta.env.DEV);
 
-// Helper: Log with timestamp
+// Helper: Log with timestamp (only in debug mode)
 function debugLog(message, data = {}) {
-  if (!DEBUG) return;
+  if (!isDebug()) return;
   const timestamp = new Date().toISOString().split('T')[1].slice(0, 12);
-  console.log(`[OrgCtx ${timestamp}] ${message}`, data);
+  dlog(`[OrgCtx ${timestamp}] ${message}`, data);
 }
 
 // Helper: Check if cache is valid
@@ -155,7 +156,33 @@ async function fetchUserMemberships(uid, userEmail) {
       };
     });
     
-    return enrichedMemberships;
+    // Load organization metadata concurrently
+    const orgIds = enrichedMemberships.map(m => m.orgId).filter(Boolean);
+    const orgMetaMap = await getMultipleOrgMeta(orgIds);
+    
+    // Enrich memberships with organization metadata
+    const finalMemberships = enrichedMemberships.map(m => {
+      const orgMeta = orgMetaMap.get(m.orgId);
+      return {
+        ...m,
+        organization: {
+          ...m.organization,
+          ...(orgMeta && {
+            displayName: orgMeta.displayName,
+            avatarColor: orgMeta.avatarColor,
+            type: orgMeta.type
+          })
+        },
+        orgMeta
+      };
+    });
+    
+    debugLog('Memberships enriched with org metadata', { 
+      total: finalMemberships.length,
+      withMeta: finalMemberships.filter(m => m.orgMeta).length 
+    });
+    
+    return finalMemberships;
   } catch (error) {
     console.error('[OrgContext] Critical error fetching memberships:', error);
     
@@ -183,7 +210,7 @@ export const OrgProvider = ({ children }) => {
   const location = useLocation();
   
   // Component state
-  const [status, setStatus] = useState('idle'); // idle | loading | success | error
+  const [status, setStatus] = useState('idle'); // idle | loading | success | error | unauthenticated
   const [memberships, setMemberships] = useState([]);
   const [activeOrgId, setActiveOrgIdState] = useState(null);
   const [activeOrg, setActiveOrg] = useState(null);
@@ -199,8 +226,8 @@ export const OrgProvider = ({ children }) => {
   // Debug render tracking
   useEffect(() => {
     renderCount.current++;
-    if (DEBUG && renderCount.current > 10) {
-      console.warn('[OrgContext] Excessive renders detected:', renderCount.current);
+    if (isDebug() && renderCount.current > 10) {
+      dwarn('[OrgContext] Excessive renders detected:', renderCount.current);
     }
   }, []);
   
@@ -230,16 +257,17 @@ export const OrgProvider = ({ children }) => {
   useEffect(() => {
     const uid = user?.uid;
     
-    // Guard 1: No user
+    // Guard 1: No user - set unauthenticated state
     if (!uid) {
-      debugLog('No user, clearing state');
-      setStatus('idle');
+      debugLog('No user, setting unauthenticated state');
+      setStatus('unauthenticated');
       setMemberships([]);
       setActiveOrgIdState(null);
       setActiveOrg(null);
       setOrganizations([]);
       setError(null);
       loadingRef.current = false;
+      navigatedRef.current = false;
       return;
     }
     
@@ -249,10 +277,10 @@ export const OrgProvider = ({ children }) => {
       return;
     }
     
-    // Guard 3: Kill switch check
-    const killSwitch = localStorage.getItem('ORGCTX_KILL') === '1';
+    // Guard 3: Kill switch check (only in development)
+    const killSwitch = import.meta.env.DEV && localStorage.getItem('ORGCTX_KILL') === '1';
     if (killSwitch) {
-      console.warn('[OrgContext] KILL SWITCH ACTIVE - Using fallback');
+      console.warn('[OrgContext] KILL SWITCH ACTIVE - Using fallback (DEV ONLY)');
       const fallbackMembership = {
         id: `fallback_${uid}`,
         orgId: `org_personal_${uid}`,
@@ -411,8 +439,13 @@ export const OrgProvider = ({ children }) => {
     
   }, [user?.uid, user?.email, authLoading, getStoredOrgId, storeOrgId]);
   
-  // Navigation effect - only navigate when truly needed
+  // Navigation effect - only navigate when truly needed AND user is authenticated
   useEffect(() => {
+    // Don't navigate if user is not authenticated
+    if (status === 'unauthenticated' || !user) {
+      return;
+    }
+    
     if (status === 'success' && memberships.length === 0 && !navigationRef.current) {
       if (location.pathname !== '/select-workspace') {
         navigationRef.current = true;
@@ -420,7 +453,7 @@ export const OrgProvider = ({ children }) => {
         navigate('/select-workspace', { replace: true });
       }
     }
-  }, [status, memberships, navigate, location.pathname]);
+  }, [status, memberships, navigate, location.pathname, user]);
   
   // Actions
   const setActiveOrgId = useCallback((orgId) => {
@@ -474,6 +507,14 @@ export const OrgProvider = ({ children }) => {
     (m.orgId === activeOrgId || m.org_id === activeOrgId)
   );
   
+  // Create organizationsById map for easy lookup
+  const organizationsById = memberships.reduce((acc, membership) => {
+    if (membership.orgId && membership.orgMeta) {
+      acc[membership.orgId] = membership.orgMeta;
+    }
+    return acc;
+  }, {});
+  
   // Context value
   const value = {
     // State
@@ -481,6 +522,7 @@ export const OrgProvider = ({ children }) => {
     activeOrg,
     memberships,
     organizations,
+    organizationsById,
     status,
     error,
     
@@ -516,30 +558,37 @@ export const useOrg = () => {
   return context;
 };
 
-// Legacy compatibility exports
-let globalOrgContext = null;
+// Legacy compatibility - removed to fix build issues
 
-export const setGlobalOrgContext = (context) => {
-  globalOrgContext = context;
-};
-
-export const getActiveOrgIdFromContext = () => {
-  return globalOrgContext?.activeOrgId || null;
-};
-
-// TEMP: Debug helper - REMOVE before commit
-if (typeof window !== 'undefined') {
-  window.__debugOrgContext = {
-    cache: globalCache,
-    loadingStates,
-    forceReset: () => {
-      globalCache.clear();
-      loadingStates.clear();
-      localStorage.removeItem('selectedOrgId');
-      localStorage.removeItem('ORGCTX_KILL');
-      location.reload();
-    }
-  };
+  // Debug helper (only available in debug mode)
+  if (typeof window !== 'undefined' && isDebug()) {
+    window.__debugOrgContext = {
+      cache: globalCache,
+      loadingStates,
+      debugOnly: () => isDebug(),
+      forceReset: () => {
+        globalCache.clear();
+        loadingStates.clear();
+        localStorage.removeItem('selectedOrgId');
+        localStorage.removeItem('ORGCTX_KILL');
+        localStorage.removeItem('DEBUG');
+        console.log('[OrgContext] Debug state cleared, reloading...');
+        location.reload();
+      },
+      enableDebug: () => {
+        localStorage.setItem('DEBUG', '1');
+        console.log('[OrgContext] Debug mode enabled, reload to see logs');
+      },
+      disableDebug: () => {
+        localStorage.removeItem('DEBUG');
+        console.log('[OrgContext] Debug mode disabled, reload to hide logs');
+      }
+    };
+  
+  console.log('🔧 OrgContext debug tools available:');
+  console.log('  __debugOrgContext.forceReset() - Clear all state');
+  console.log('  __debugOrgContext.enableDebug() - Enable debug logs');
+  console.log('  __debugOrgContext.disableDebug() - Disable debug logs');
 }
 
 export default OrgContext;

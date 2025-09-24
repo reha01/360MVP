@@ -4,11 +4,11 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-import { OrgProvider, setGlobalOrgContext } from './context/OrgContext';
-import { useOrg } from './context/OrgContext';
+import { OrgProvider } from './context/OrgContext';
 import Header from './components/Header';
 import WorkspaceGuard from './components/WorkspaceGuard';
 import WorkspaceSelector from './components/WorkspaceSelector';
+import AuthProtectedRoute from './components/ProtectedRoute';
 import DebugBannerWrapper from './components/debug/DebugBannerWrapper';
 
 // Import your existing pages
@@ -19,23 +19,14 @@ import Evaluation from './pages/Evaluation';
 import ReportView from './pages/ReportView';
 // Add other pages as needed
 
-// Global org context setter for legacy compatibility
-const OrgContextBridge = ({ children }) => {
-  const orgContext = useOrg();
-  
-  useEffect(() => {
-    setGlobalOrgContext(orgContext);
-  }, [orgContext]);
-
-  return children;
-};
-
-// Protected route wrapper
-const ProtectedRoute = ({ children, requireActiveOrg = true, allowedRoles }) => {
+// Workspace-protected route wrapper (requires auth + workspace)
+const WorkspaceProtectedRoute = ({ children, requireActiveOrg = true, allowedRoles }) => {
   return (
-    <WorkspaceGuard requireActiveOrg={requireActiveOrg} allowedRoles={allowedRoles}>
-      {children}
-    </WorkspaceGuard>
+    <AuthProtectedRoute>
+      <WorkspaceGuard requireActiveOrg={requireActiveOrg} allowedRoles={allowedRoles}>
+        {children}
+      </WorkspaceGuard>
+    </AuthProtectedRoute>
   );
 };
 
@@ -44,8 +35,7 @@ const App = () => {
     <AuthProvider>
       <Router>
         <OrgProvider>
-          <OrgContextBridge>
-            <div className="app">
+          <div className="app">
               <Header />
               
               <main className="app-main">
@@ -54,62 +44,69 @@ const App = () => {
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
                   
-                  {/* Workspace selection */}
-                  <Route path="/select-workspace" element={<WorkspaceSelector />} />
+                  {/* Workspace selection - requires auth only */}
+                  <Route 
+                    path="/select-workspace" 
+                    element={
+                      <AuthProtectedRoute>
+                        <WorkspaceSelector />
+                      </AuthProtectedRoute>
+                    } 
+                  />
                   
-                  {/* Protected routes - require active workspace */}
+                  {/* Protected routes - require auth + workspace */}
                   <Route 
                     path="/dashboard" 
                     element={
-                      <ProtectedRoute>
+                      <WorkspaceProtectedRoute>
                         <Dashboard />
-                      </ProtectedRoute>
+                      </WorkspaceProtectedRoute>
                     } 
                   />
                   
                   <Route 
                     path="/evaluations" 
                     element={
-                      <ProtectedRoute>
+                      <WorkspaceProtectedRoute>
                         <Evaluation />
-                      </ProtectedRoute>
+                      </WorkspaceProtectedRoute>
                     } 
                   />
                   
                   <Route 
                     path="/evaluations/:id" 
                     element={
-                      <ProtectedRoute>
+                      <WorkspaceProtectedRoute>
                         <Evaluation />
-                      </ProtectedRoute>
+                      </WorkspaceProtectedRoute>
                     } 
                   />
                   
                   <Route 
                     path="/reports" 
                     element={
-                      <ProtectedRoute>
+                      <WorkspaceProtectedRoute>
                         <ReportView />
-                      </ProtectedRoute>
+                      </WorkspaceProtectedRoute>
                     } 
                   />
                   
                   <Route 
                     path="/reports/:id" 
                     element={
-                      <ProtectedRoute>
+                      <WorkspaceProtectedRoute>
                         <ReportView />
-                      </ProtectedRoute>
+                      </WorkspaceProtectedRoute>
                     } 
                   />
                   
-                  {/* Admin routes - require owner/project_leader role */}
+                  {/* Admin routes - require auth + workspace + role */}
                   <Route 
                     path="/admin" 
                     element={
-                      <ProtectedRoute allowedRoles={['owner', 'project_leader']}>
+                      <WorkspaceProtectedRoute allowedRoles={['owner', 'project_leader']}>
                         <div>Admin Panel (TODO: Implement)</div>
-                      </ProtectedRoute>
+                      </WorkspaceProtectedRoute>
                     } 
                   />
                   
@@ -130,7 +127,6 @@ const App = () => {
               {/* Debug Banner - only visible in development or when DEBUG=1 */}
               <DebugBannerWrapper />
             </div>
-          </OrgContextBridge>
         </OrgProvider>
       </Router>
     </AuthProvider>

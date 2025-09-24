@@ -1,11 +1,12 @@
 // src/components/ProtectedRoute.jsx
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ROUTES } from '../constants/routes';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -25,7 +26,7 @@ const ProtectedRoute = ({ children }) => {
             animation: 'spin 1s linear infinite',
             margin: '0 auto 10px'
           }}></div>
-          <p>🔐 Verificando autenticación...</p>
+          <p>🔐 Verificando sesión...</p>
           <style>{`
             @keyframes spin {
               0% { transform: rotate(0deg); }
@@ -38,7 +39,7 @@ const ProtectedRoute = ({ children }) => {
   }
 
   if (!user) {
-    return <Navigate to={ROUTES.LOGIN} replace />;
+    return <Navigate to={ROUTES.LOGIN} replace state={{ from: location }} />;
   }
 
   return children;

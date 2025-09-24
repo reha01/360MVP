@@ -121,4 +121,11 @@ Thumbs.db
 
 # Temporary files
 *.tmp
-*.temp
+*.tempdist/
+build/
+node_modules/
+tests/.auth/
+tests/.auth/state.json
+.env
+tests/.auth/
+tests/.auth/state.json

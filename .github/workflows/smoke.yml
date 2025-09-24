@@ -1,0 +1,22 @@
+name: Smoke E2E (staging)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: 'npm' }
+      - run: npm ci
+      # Recuperar storageState desde secretos si se usa
+      # - name: Restore auth state (opcional)
+      #   run: |
+      #     mkdir -p tests/.auth
+      #     echo "${{ secrets.PW_STATE_JSON }}" > tests/.auth/state.json
+      - name: Run smoke (staging)
+        env:
+          STAGING_BASE_URL: https://mvp-staging-3e1cd.web.app
+        run: npm run test:smoke:staging -- --reporter=line

@@ -52,10 +52,17 @@ class FeatureFlagsService {
   }
 
   /**
-   * Obtener entorno actual
+   * Obtener entorno actual (privado)
    */
   _getEnvironment() {
     return import.meta.env.VITE_ENVIRONMENT || 'local';
+  }
+
+  /**
+   * Obtener entorno actual (público)
+   */
+  getEnvironment() {
+    return this._getEnvironment();
   }
 
   /**
