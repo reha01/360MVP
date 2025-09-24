@@ -15,17 +15,15 @@ beforeAll(async () => {
         rules_version = '2';
         service cloud.firestore {
           match /databases/{db}/documents {
-            function memberDoc(orgId) {
-              return get(/databases/$(db)/documents/organization_members/$(orgId + ':' + request.auth.uid));
-            }
             function isActiveMember(orgId) {
               return request.auth != null
-                     && memberDoc(orgId).exists()
-                     && memberDoc(orgId).data.status == 'active';
+                     && exists(/databases/$(db)/documents/organization_members/$(orgId + ':' + request.auth.uid))
+                     && get(/databases/$(db)/documents/organization_members/$(orgId + ':' + request.auth.uid)).data.status == 'active';
             }
-            function hasRole(orgId, allowed) {
+            
+            function hasRole(orgId, allowedRoles) {
               return isActiveMember(orgId)
-                     && allowed.hasAny([memberDoc(orgId).data.role]);
+                     && get(/databases/$(db)/documents/organization_members/$(orgId + ':' + request.auth.uid)).data.role in allowedRoles;
             }
 
             // Orgs (metadatos)
@@ -46,7 +44,7 @@ beforeAll(async () => {
               allow read: if request.auth != null
                           && resource.data.user_id == request.auth.uid;
               allow create, update, delete: if request.auth != null
-                          && (request.resource.data.role in ['owner','admin']);
+                          && request.resource.data.role in ['owner','admin'];
             }
 
             // Denegar todo lo no contemplado
@@ -365,7 +363,7 @@ describe('Firestore Security Rules v1 - Multi-organization', () => {
       await assertSucceeds(setDoc(doc(db, 'organization_members', `${orgId}:new_user_123`), {
         orgId: orgId,
         user_id: 'new_user_123',
-        role: 'member',
+        role: 'admin',
         status: 'active',
         createdAt: new Date(),
       }));
