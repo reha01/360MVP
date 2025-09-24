@@ -72,14 +72,16 @@ export const dtrace = (...args: any[]) => { if (isDebug()) console.trace(...args
 
 ---
 
-## 2025-09-24 - PWA headers y cache-busting
+## 2025-09-24 - PWA: injectManifest + no-cache en sw/manifest/index.html
 **Contexto**: Service Worker causaba problemas de cache en staging, mostrando versiones antiguas.
 
-**Decisión**: Implementar cache-busting en headers del Service Worker:
+**Decisión**: Implementar `injectManifest` con no-cache headers:
 ```javascript
-// sw.ts
+// sw.ts - injectManifest mode
 const CACHE_VERSION = 'v1.0.3';
 const CACHE_NAME = `360mvp-cache-${CACHE_VERSION}`;
+
+// Headers no-cache para sw, manifest, index.html
 ```
 
 **Impacto**:
@@ -89,12 +91,12 @@ const CACHE_NAME = `360mvp-cache-${CACHE_VERSION}`;
 
 ---
 
-## 2025-09-24 - Convención de IDs organization_members: <orgId>:<uid>
+## 2025-09-24 - Convención membershipId: "<orgId>:<uid>"
 **Contexto**: Necesidad de identificar memberships de forma única y consistente en Firestore Rules.
 
 **Decisión**: Establecer convención de IDs para `organization_members`:
 ```javascript
-// Formato: <orgId>:<uid>
+// Formato: "<orgId>:<uid>"
 const membershipId = `${orgId}:${userId}`;
 
 // Ejemplo: "org_demo:user_123"
@@ -181,6 +183,110 @@ if (cached && isCacheValid(cached)) {
 ### Cross-Organization Security Validation
 **Contexto**: Necesidad de validar que no hay acceso cruzado entre organizaciones.
 **Pendiente**: Decidir nivel de validación y testing requerido.
+
+---
+
+## 2025-09-24 - Mover OrgProvider dentro del Router
+**Contexto**: Error de build porque `useNavigate` no funcionaba cuando `OrgProvider` estaba fuera del `Router`.
+
+**Decisión**: Reordenar la jerarquía de providers:
+```jsx
+// Antes
+<AuthProvider>
+  <OrgProvider>
+    <Router>...</Router>
+  </OrgProvider>
+</AuthProvider>
+
+// Después
+<AuthProvider>
+  <Router>
+    <OrgProvider>...</OrgProvider>
+  </Router>
+</AuthProvider>
+```
+
+**Impacto**:
+- ✅ `useNavigate` funciona correctamente en OrgContext
+- ✅ Eliminado `OrgContextBridge` (componente innecesario)
+- ✅ Estructura más limpia y lógica
+
+---
+
+## 2025-09-24 - Quitar global DEBUG → usar utils `isDebug`/`dlog`
+**Contexto**: `ReferenceError: DEBUG is not defined` en producción debido a referencias a variable global no definida.
+
+**Decisión**: Crear helper centralizado `src/utils/debug.ts`:
+```typescript
+export const isDebug = () =>
+  (import.meta as any).env?.DEV === true ||
+  localStorage.getItem('DEBUG') === '1';
+
+export const dlog = (...args: any[]) => { if (isDebug()) console.info(...args); };
+export const dwarn = (...args: any[]) => { if (isDebug()) console.warn(...args); };
+export const dtrace = (...args: any[]) => { if (isDebug()) console.trace(...args); };
+```
+
+**Impacto**:
+- ✅ Eliminado `ReferenceError` en producción
+- ✅ Debug logging consistente y seguro
+- ✅ Resistente a minificación
+
+---
+
+## 2025-09-24 - Kill-switch desactivado en prod; solo DEV
+**Contexto**: El kill-switch de OrgContext estaba activándose en producción, causando que la aplicación usara datos mock en lugar de datos reales de Firestore.
+
+**Decisión**: Modificar OrgContext para que el kill-switch solo funcione en desarrollo:
+```javascript
+// Antes
+const killSwitch = localStorage.getItem('ORGCTX_KILL') === '1';
+
+// Después  
+const killSwitch = import.meta.env.DEV && localStorage.getItem('ORGCTX_KILL') === '1';
+```
+
+**Impacto**: 
+- ✅ Staging ahora usa datos reales de Firestore
+- ✅ Kill-switch sigue disponible para debugging en desarrollo
+- ✅ Eliminado `emergency-fix.js` (ya no necesario)
+
+---
+
+## 2025-09-24 - PWA con `injectManifest` + headers `no-cache` para `/sw.js` y `manifest`
+**Contexto**: Service Worker causaba problemas de cache en staging, mostrando versiones antiguas.
+
+**Decisión**: Implementar `injectManifest` con no-cache headers:
+```javascript
+// sw.ts - injectManifest mode
+const CACHE_VERSION = 'v1.0.3';
+const CACHE_NAME = `360mvp-cache-${CACHE_VERSION}`;
+
+// Headers no-cache para sw, manifest, index.html
+```
+
+**Impacto**:
+- ✅ Cache controlado y versionado
+- ✅ Actualizaciones automáticas funcionan correctamente
+- ✅ PWA funcional en staging
+
+---
+
+## 2025-09-24 - Convención `organization_members` id: `${orgId}:${uid}`
+**Contexto**: Necesidad de identificar memberships de forma única y consistente en Firestore Rules.
+
+**Decisión**: Establecer convención de IDs para `organization_members`:
+```javascript
+// Formato: `${orgId}:${uid}`
+const membershipId = `${orgId}:${userId}`;
+
+// Ejemplo: "org_demo:user_123"
+```
+
+**Impacto**:
+- ✅ IDs únicos y predecibles
+- ✅ Firestore Rules pueden validar membresías fácilmente
+- ✅ Consultas más eficientes
 
 ---
 

@@ -4,37 +4,43 @@
 **Versión**: v0.4.0-staging  
 **Estado**: Staging Stabilization Complete
 
-## 🎯 Estado Actual
-
-### Infraestructura
-- ✅ **Firebase Hosting**: Deploy automático a staging (`mvp-staging-3e1cd.web.app`)
-- ✅ **PWA**: Service Worker funcional con cache-busting
-- ✅ **Environment Detection**: `deriveEnv()` + emuladores OFF en staging
-- ✅ **Debug Banner**: Visible en DEV, activable con `localStorage.DEBUG=1`
+## 📊 Resumen Ejecutivo
 
 ### Frontend
 - ✅ **React Router**: Rutas protegidas con `AuthProtectedRoute` + `WorkspaceProtectedRoute`
-- ✅ **OrgContext**: Loop infinito resuelto, carga única por UID, cache global
-- ✅ **Workspace Switcher**: Nombres reales de organizaciones desde Firestore
-- ✅ **Authentication**: Login/logout funcional, redirección post-login
-- ✅ **Debug Tools**: Helper seguro `isDebug()`, `dlog()`, `dwarn()`, `dtrace()`
+- ✅ **OrgContext**: Single-shot loading, cache global, kill-switch solo DEV
+- ✅ **Workspace Switcher**: Nombres reales desde `orgMeta.displayName`
+- ✅ **Authentication**: Login/logout, redirección post-login funcional
+- ✅ **Debug Tools**: `isDebug()`, `dlog()`, `dwarn()`, `dtrace()` seguros
 
 ### Backend
-- ✅ **Firestore Rules v1**: Multi-organización con roles (owner/admin/member/viewer)
+- ✅ **Firestore Rules v1**: Multi-org con roles (owner/admin/member/viewer)
 - ✅ **Scoping Service**: `assertEvaluationBelongsToOrg`, `assertMemberCan`
-- ✅ **Analytics Router**: Delegación a `scoped` vs `legacy` basado en feature flags
-- ✅ **Telemetry**: Tracking de operaciones unscoped y documentos legacy
+- ✅ **Analytics Router**: Delegación scoped/legacy basado en flags
+- ✅ **Telemetry**: Tracking operaciones unscoped y documentos legacy
+
+### Datos
+- ✅ **Organizations**: Metadatos con `displayName`, `type`, `avatarColor`
+- ✅ **Memberships**: Convención `"<orgId>:<uid>"` para IDs únicos
+- ✅ **Schema**: Compatibilidad `user_id`/`userId`, `org_id`/`orgId`
+
+### Infraestructura
+- ✅ **Firebase Hosting**: Deploy automático a staging (`mvp-staging-3e1cd.web.app`)
+- ✅ **PWA**: Service Worker con `injectManifest`, no-cache en sw/manifest/index.html
+- ✅ **Environment Detection**: `deriveEnv()` + emuladores OFF en staging
+- ✅ **Debug Banner**: Visible en DEV, activable con `localStorage.DEBUG=1`
 
 ## 🏆 Hitos Completados
 
 ### Staging Stabilization (v0.4.0)
-1. **Environment Detection**: `deriveEnv()` + emuladores OFF en staging
-2. **Service Worker**: PWA funcional con cache-busting
-3. **Debug Banner**: Sistema de debug con `DebugBannerWrapper`
-4. **OrgContext Fix**: Resolución de loop infinito con cache global
-5. **Workspace Switcher**: Nombres reales de organizaciones
-6. **Authentication Hardening**: `AuthProvider` + `ProtectedRoute` + redirección
-7. **Debug Helper**: Reemplazo de global `DEBUG` por utils seguros
+1. **deriveEnv + emuladores OFF**: Detección automática de entorno
+2. **PWA SW + headers**: Service Worker con `injectManifest` + no-cache
+3. **DebugBanner**: Sistema de debug con `DebugBannerWrapper`
+4. **OrgContext single-shot**: Loading único, cache global, kill-switch solo DEV
+5. **Workspace Switcher**: Nombres reales desde `orgMeta.displayName`
+6. **Playwright smoke (auth)**: Tests autenticados contra staging
+7. **kill-switch solo DEV**: Desactivado en producción
+8. **reglas v1 + tests base**: Firestore Rules con 30 tests (15/30 pasan)
 
 ### Multi-Tenant Foundation
 1. **Scoping Service**: Funciones de validación y acceso
@@ -44,10 +50,10 @@
 
 ## 🚧 En Curso
 
-### Firestore Rules v1 Testing
+### Firestore Rules v1 Testing → 100% verde
 - ✅ **Reglas implementadas**: Multi-organización con roles
 - ✅ **Tests creados**: 30 tests con emulador local
-- ⚠️ **Tests parciales**: 15 pasan, 15 necesitan ajustes en reglas
+- ⚠️ **Tests parciales**: 15 pasan (verde), 15 fallan (rojo) - ajustes de sintaxis
 - 🔄 **Próximo**: Ajustar reglas para que todos los tests pasen
 
 ## ⚠️ Bloqueos/Pendientes
@@ -66,9 +72,9 @@
 # Staging
 VITE_TENANCY_V1=true          # Multi-tenant enforcement
 VITE_FEATURE_ORG=true         # Organizations
-VITE_FEATURE_PDF=true         # PDF generation
 VITE_FEATURE_INVITES=true     # User invitations
 VITE_FEATURE_WIZARD=true      # Setup wizard
+VITE_FEATURE_PDF=true         # PDF generation (según repo)
 VITE_FEATURE_CREDITS=false    # Credits system (disabled)
 VITE_FEATURE_EMAIL=true       # Email integration
 ```
@@ -81,32 +87,35 @@ VITE_FEATURE_EMAIL=true       # Email integration
 3. **Cross-org Access**: Potencial fuga de datos → **Mitigación**: Tests exhaustivos, monitoreo
 
 ### Medio Impacto
-1. **Debug Mode**: Puede exponer info sensible → **Mitigación**: Solo en DEV, localStorage control
-2. **PWA Cache**: Posibles problemas de actualización → **Mitigación**: Cache-busting, versioning
+1. **SW cache**: Problemas de actualización PWA → **Mitigación**: no-cache headers, versioning
+2. **variación user_id/userId**: Inconsistencia de schema → **Mitigación**: Compatibilidad dual
+3. **datos incompletos en organizations**: Metadatos faltantes → **Mitigación**: Validación y backfill
 
-## 📋 Backlog Inmediato (3-5 tareas)
+## 📋 Backlog Inmediato (4-5 tareas)
 
 ### Prioridad Alta
 1. **Ajustar Firestore Rules**: Corregir sintaxis para que todos los tests pasen
 2. **Validar Cross-org Security**: Verificar que no hay acceso cruzado
 3. **Optimizar Bundle**: Implementar code splitting para reducir tamaño
+4. **Audit Fix**: Resolver vulnerabilidades npm
 
 ### Prioridad Media
-4. **Audit Fix**: Resolver vulnerabilidades npm
 5. **Performance Monitoring**: Añadir métricas de rendimiento
 
 ## 📝 Changelog
 
 ### 2025-09-24 (v0.4.0-staging)
-- ✅ Implementado sistema de nombres reales de organizaciones
-- ✅ Resuelto loop infinito en OrgContext con cache global
-- ✅ Hardened authentication con ProtectedRoute
-- ✅ Reemplazado global DEBUG por utils seguros
-- ✅ Creado Firestore Rules v1 con tests
-- ✅ Añadido README-dev.md con herramientas de debug
+- ✅ Sistema nombres reales organizaciones desde `orgMeta.displayName`
+- ✅ OrgContext single-shot loading, cache global, kill-switch solo DEV
+- ✅ Authentication hardening con `AuthProvider` + `ProtectedRoute`
+- ✅ Reemplazado global `DEBUG` por utils seguros `isDebug()`, `dlog()`
+- ✅ Firestore Rules v1 con tests (15/30 pasan, ajustes pendientes)
+- ✅ README-dev.md con herramientas de debug
 - ✅ Eliminado emergency-fix.js (ya no necesario)
-- ✅ Actualizado Firebase a v12.3.0 para compatibilidad
-- ✅ Añadido vitest.config.ts para testing
+- ✅ Firebase v12.3.0 + vitest.config.ts para testing
+- ✅ PWA con `injectManifest` + no-cache headers
+- ✅ Playwright smoke tests autenticados contra staging
+- ✅ CI estabilizado (lint/typecheck/build/rules) + smoke manual
 
 ### 2025-09-23 (v0.3.0-staging)
 - ✅ Implementado DebugBanner con environment detection
