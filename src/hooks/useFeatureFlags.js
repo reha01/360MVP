@@ -1,6 +1,6 @@
 // src/hooks/useFeatureFlags.js
 import { useMemo } from 'react';
-import { FeatureFlags } from '../lib/featureFlags';
+import * as featureFlags from '../lib/featureFlags';
 
 /**
  * useFeatureFlags - Hook para acceder fácilmente a feature flags
@@ -10,24 +10,24 @@ export const useFeatureFlags = () => {
   const flags = useMemo(() => {
     try {
       return {
-        orgEnabled: FeatureFlags.isOrgEnabled(),
-        pdfEnabled: FeatureFlags.isPdfEnabled(),
-        invitesEnabled: FeatureFlags.isInvitesEnabled(),
-        wizardEnabled: FeatureFlags.isWizardEnabled(),
-        creditsEnabled: FeatureFlags.isCreditsEnabled(),
-        debugEnabled: FeatureFlags.isDebugEnabled(),
-        performanceMetricsEnabled: FeatureFlags.isPerformanceMetricsEnabled(),
-        shouldUseEmulators: FeatureFlags.shouldUseEmulators(),
+        orgEnabled: featureFlags.FEATURE_ORG,
+        pdfEnabled: featureFlags.FEATURE_PDF,
+        invitesEnabled: featureFlags.FEATURE_INVITES,
+        wizardEnabled: featureFlags.FEATURE_WIZARD,
+        creditsEnabled: featureFlags.FEATURE_CREDITS,
+        testCatalogEnabled: featureFlags.TEST_CATALOG,
+        tenancyEnabled: featureFlags.TENANCY_V1,
+        debugEnabled: import.meta.env.DEV,
+        performanceMetricsEnabled: false,
+        shouldUseEmulators: import.meta.env.VITE_USE_EMULATORS === 'true',
         
-        // Environment info - with safety check
-        environment: (typeof FeatureFlags.getEnvironment === 'function' 
-          ? FeatureFlags.getEnvironment() 
-          : 'production'),
-        defaultTenant: FeatureFlags.getDefaultTenant(),
-        appBaseUrl: FeatureFlags.getAppBaseUrl(),
+        // Environment info
+        environment: import.meta.env.MODE || 'production',
+        defaultTenant: import.meta.env.VITE_DEFAULT_TENANT || 'default',
+        appBaseUrl: import.meta.env.VITE_APP_BASE_URL || window.location.origin,
         
         // Full configuration for debugging
-        getFullConfig: () => FeatureFlags.getConfiguration()
+        getFullConfig: () => featureFlags.getEnabledFeatures()
       };
     } catch (error) {
       console.error('[useFeatureFlags] Error loading flags, using defaults:', error);
@@ -38,13 +38,15 @@ export const useFeatureFlags = () => {
         invitesEnabled: false,
         wizardEnabled: false,
         creditsEnabled: false,
+        testCatalogEnabled: false,
+        tenancyEnabled: false,
         debugEnabled: false,
         performanceMetricsEnabled: false,
         shouldUseEmulators: false,
         environment: 'production',
         defaultTenant: 'default',
         appBaseUrl: window.location.origin,
-        getFullConfig: () => ({})
+        getFullConfig: () => []
       };
     }
   }, []);

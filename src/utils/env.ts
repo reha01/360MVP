@@ -27,3 +27,10 @@ export const isPublicHost = (): boolean => {
   return location.hostname.endsWith('web.app') || location.hostname.endsWith('firebaseapp.com');
 };
 
+
+
+
+
+
+
+

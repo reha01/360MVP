@@ -107,3 +107,10 @@ const MyComponent = () => {
 
 The debug banner is automatically hidden in production builds, but the manual activation via `localStorage.DEBUG` can still be used. This is intentional for troubleshooting production issues, but be aware that this information could be visible to end users if they know how to activate it.
 
+
+
+
+
+
+
+

@@ -1,240 +1,135 @@
-// src/lib/featureFlags.ts
-
-import { deriveEnv, isPublicHost, type AppEnv } from '../utils/env';
-
 /**
- * FeatureFlags - Sistema de feature flags híbrido
- * Build-time para performance, runtime para UI toggles
+ * Feature Flags - Control de funcionalidades
+ * 
+ * Flags disponibles:
+ * - TENANCY_V1: Enforcement multi-tenant
+ * - FEATURE_ORG: Módulo organizacional
+ * - FEATURE_INVITES: Sistema de invitaciones
+ * - FEATURE_PDF: Generación de PDF
+ * - FEATURE_EMAIL: Sistema de emails
+ * - FEATURE_CREDITS: Sistema de créditos/pagos
+ * - TEST_CATALOG: Catálogo de tests administrable (NUEVO)
  */
 
-interface FeatureFlagsConfig {
-  // Módulo organizacional (dashboards, procesos, CSV)
-  org: boolean;
-  // Export PDF en reportes
-  pdf: boolean;
-  // Sistema de invitaciones por token
-  invites: boolean;
-  // Wizard de evaluación avanzado
-  wizard: boolean;
-  // Sistema de créditos y pagos
-  credits: boolean;
-  // Sistema de emails transaccionales
-  email: boolean;
-  // Logs de debug
-  debugLogs: boolean;
-  // Métricas de performance
-  performanceMetrics: boolean;
-  // Usar emuladores
-  useEmulators: boolean;
-  // Multi-Tenant Feature Flag (Phase 0)
-  tenancyV1: boolean;
-}
+import { deriveEnv } from '../utils/env';
 
-class FeatureFlagsService {
-  public flags: FeatureFlagsConfig;
-  public environment: AppEnv;
-  
-  constructor() {
-    this.environment = deriveEnv();
-    this.flags = this._loadFlags();
-    
-    console.info('[360MVP] FeatureFlags:', { 
-      env: this.environment, 
-      useEmulators: this.flags.useEmulators 
-    });
+const env = deriveEnv();
+
+// Feature Flags desde variables de entorno
+export const TENANCY_V1 = import.meta.env.VITE_TENANCY_V1 === 'true';
+export const FEATURE_ORG = import.meta.env.VITE_FEATURE_ORG === 'true';
+export const FEATURE_INVITES = import.meta.env.VITE_FEATURE_INVITES === 'true';
+export const FEATURE_WIZARD = import.meta.env.VITE_FEATURE_WIZARD === 'true';
+export const FEATURE_PDF = import.meta.env.VITE_FEATURE_PDF === 'true';
+export const FEATURE_EMAIL = import.meta.env.VITE_FEATURE_EMAIL === 'true';
+export const FEATURE_CREDITS = import.meta.env.VITE_FEATURE_CREDITS === 'true';
+
+// NUEVO: Flag para catálogo de tests administrable
+export const TEST_CATALOG = import.meta.env.VITE_TEST_CATALOG === 'true';
+
+/**
+ * Verificar si una feature está habilitada
+ */
+export const isFeatureEnabled = (featureName: string): boolean => {
+  const features: Record<string, boolean> = {
+    TENANCY_V1,
+    FEATURE_ORG,
+    FEATURE_INVITES,
+    FEATURE_WIZARD,
+    FEATURE_PDF,
+    FEATURE_EMAIL,
+    FEATURE_CREDITS,
+    TEST_CATALOG
+  };
+
+  return features[featureName] === true;
+};
+
+/**
+ * Obtener todas las features habilitadas
+ */
+export const getEnabledFeatures = (): string[] => {
+  return Object.entries({
+    TENANCY_V1,
+    FEATURE_ORG,
+    FEATURE_INVITES,
+    FEATURE_WIZARD,
+    FEATURE_PDF,
+    FEATURE_EMAIL,
+    FEATURE_CREDITS,
+    TEST_CATALOG
+  })
+    .filter(([_, enabled]) => enabled)
+    .map(([name]) => name);
+};
+
+/**
+ * Debug: Log de features habilitadas
+ */
+export const logFeatures = () => {
+  if (env === 'local') {
+    console.log('[FeatureFlags] Enabled features:', getEnabledFeatures());
   }
+};
 
-  /**
-   * Cargar flags desde variables de entorno
-   */
-  private _loadFlags(): FeatureFlagsConfig {
-    const baseFlags = {
-      // Módulo organizacional (dashboards, procesos, CSV)
-      org: this._getBooleanFlag('VITE_FEATURE_ORG', true),
-      
-      // Export PDF en reportes
-      pdf: this._getBooleanFlag('VITE_FEATURE_PDF', true),
-      
-      // Sistema de invitaciones por token
-      invites: this._getBooleanFlag('VITE_FEATURE_INVITES', true),
-      
-      // Wizard de evaluación avanzado
-      wizard: this._getBooleanFlag('VITE_FEATURE_WIZARD', true),
-      
-      // Sistema de créditos y pagos
-      credits: this._getBooleanFlag('VITE_FEATURE_CREDITS', false),
-      
-      // Sistema de emails transaccionales
-      email: this._getBooleanFlag('VITE_FEATURE_EMAIL', true),
-      
-      // Logs de debug
-      debugLogs: this._getBooleanFlag('VITE_DEBUG_LOGS', true),
-      
-      // Métricas de performance
-      performanceMetrics: this._getBooleanFlag('VITE_PERFORMANCE_METRICS', true),
-      
-      // Usar emuladores - base value from env/localStorage
-      useEmulators: this._getBooleanFlag('VITE_USE_EMULATORS', true),
-      
-      // Multi-Tenant Feature Flag (Phase 0)
-      tenancyV1: this._getBooleanFlag('VITE_TENANCY_V1', false)
-    };
+/**
+ * Helper: Check if tenancy V1 is enabled
+ */
+export const isTenancyV1Enabled = (): boolean => TENANCY_V1;
 
-    // Override useEmulators if we're on a public host
-    if (isPublicHost()) {
-      baseFlags.useEmulators = false;
-    }
+/**
+ * Helper: Check if organization feature is enabled
+ */
+export const isOrgEnabled = (): boolean => FEATURE_ORG;
 
-    return baseFlags;
-  }
+/**
+ * Helper: Check if PDF feature is enabled
+ */
+export const isPdfEnabled = (): boolean => FEATURE_PDF;
 
-  /**
-   * Helper para obtener boolean flag
-   */
-  private _getBooleanFlag(key: string, defaultValue = false): boolean {
-    // First check environment variables
-    const envValue = import.meta.env[key];
-    if (envValue !== undefined) {
-      return envValue === 'true' || envValue === '1' || envValue === 'yes';
-    }
+/**
+ * Helper: Check if invites feature is enabled
+ */
+export const isInvitesEnabled = (): boolean => FEATURE_INVITES;
 
-    // Fallback to localStorage for development/testing
-    try {
-      const localValue = localStorage.getItem(key.replace('VITE_', '').toLowerCase());
-      if (localValue !== null) {
-        return localValue === 'true' || localValue === '1' || localValue === 'yes';
-      }
-    } catch (e) {
-      // Ignore localStorage errors
-    }
+/**
+ * Helper: Check if wizard feature is enabled
+ */
+export const isWizardEnabled = (): boolean => FEATURE_WIZARD;
 
-    return defaultValue;
-  }
+/**
+ * Helper: Check if credits feature is enabled
+ */
+export const isCreditsEnabled = (): boolean => FEATURE_CREDITS;
 
-  /**
-   * Verificar si el módulo organizacional está habilitado
-   */
-  isOrgEnabled(): boolean {
-    return this.flags.org && this.environment !== 'demo';
-  }
+/**
+ * Helper: Check if email feature is enabled
+ */
+export const isEmailEnabled = (): boolean => FEATURE_EMAIL;
 
-  /**
-   * Verificar si PDF export está habilitado
-   */
-  isPdfEnabled(): boolean {
-    return this.flags.pdf;
-  }
+/**
+ * Helper: Check if test catalog is enabled
+ */
+export const isTestCatalogEnabled = (): boolean => TEST_CATALOG;
 
-  /**
-   * Verificar si invitaciones por token están habilitadas
-   */
-  isInvitesEnabled(): boolean {
-    return this.flags.invites;
-  }
-
-  /**
-   * Verificar si wizard avanzado está habilitado
-   */
-  isWizardEnabled(): boolean {
-    return this.flags.wizard;
-  }
-
-  /**
-   * Verificar si sistema de créditos está habilitado
-   */
-  isCreditsEnabled(): boolean {
-    return this.flags.credits;
-  }
-
-  /**
-   * Verificar si usar emuladores
-   * Forced to false on public hosts regardless of other settings
-   */
-  shouldUseEmulators(): boolean {
-    return this.flags.useEmulators && (this.environment === 'local' || this.environment === 'development');
-  }
-
-  /**
-   * Verificar si mostrar logs de debug
-   */
-  isDebugEnabled(): boolean {
-    return this.flags.debugLogs && this.environment !== 'production';
-  }
-
-  /**
-   * Verificar si mostrar métricas de performance
-   */
-  isPerformanceMetricsEnabled(): boolean {
-    return this.flags.performanceMetrics;
-  }
-
-  /**
-   * Verificar si multi-tenancy V1 está habilitado
-   */
-  isTenancyV1Enabled(): boolean {
-    return this.flags.tenancyV1;
-  }
-
-  /**
-   * Obtener configuración del tenant por defecto
-   */
-  getDefaultTenant(): string {
-    return import.meta.env.VITE_TENANT_DEFAULT || 'demo-corp';
-  }
-
-  /**
-   * Obtener URL base de la aplicación
-   */
-  getAppBaseUrl(): string {
-    return import.meta.env.VITE_APP_BASE_URL || window.location.origin;
-  }
-
-  /**
-   * Obtener configuración completa para debugging
-   */
-  getConfiguration() {
-    return {
-      environment: this.environment,
-      flags: this.flags,
-      urls: {
-        appBase: this.getAppBaseUrl(),
-        authEmulator: import.meta.env.VITE_AUTH_EMULATOR_URL,
-        firestoreEmulator: import.meta.env.VITE_FIRESTORE_EMULATOR_URL
-      },
-      tenant: this.getDefaultTenant()
-    };
-  }
-
-  /**
-   * Log configuración si debug está habilitado
-   */
-  logConfiguration(): void {
-    if (this.isDebugEnabled()) {
-      console.group('[360MVP] FeatureFlags Configuration');
-      console.table(this.getConfiguration());
-      console.groupEnd();
-    }
-  }
-}
-
-// Singleton instance
-export const FeatureFlags = new FeatureFlagsService();
-
-// Initialize logging
-FeatureFlags.logConfiguration();
-
-// Default export
-export default FeatureFlags;
-
-// Convenience exports
-export const isOrgEnabled = () => FeatureFlags.isOrgEnabled();
-export const isPdfEnabled = () => FeatureFlags.isPdfEnabled();
-export const isInvitesEnabled = () => FeatureFlags.isInvitesEnabled();
-export const isWizardEnabled = () => FeatureFlags.isWizardEnabled();
-export const isCreditsEnabled = () => FeatureFlags.isCreditsEnabled();
-export const shouldUseEmulators = () => FeatureFlags.shouldUseEmulators();
-export const isDebugEnabled = () => FeatureFlags.isDebugEnabled();
-export const isTenancyV1Enabled = () => FeatureFlags.isTenancyV1Enabled();
-export const getDefaultTenant = () => FeatureFlags.getDefaultTenant();
-export const getAppBaseUrl = () => FeatureFlags.getAppBaseUrl();
-
+export default {
+  TENANCY_V1,
+  FEATURE_ORG,
+  FEATURE_INVITES,
+  FEATURE_WIZARD,
+  FEATURE_PDF,
+  FEATURE_EMAIL,
+  FEATURE_CREDITS,
+  TEST_CATALOG,
+  isFeatureEnabled,
+  getEnabledFeatures,
+  logFeatures,
+  isTenancyV1Enabled,
+  isOrgEnabled,
+  isPdfEnabled,
+  isInvitesEnabled,
+  isWizardEnabled,
+  isCreditsEnabled,
+  isEmailEnabled,
+  isTestCatalogEnabled
+};

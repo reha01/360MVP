@@ -1,6 +1,6 @@
 // src/components/FeatureGate.jsx
 import React from 'react';
-import { FeatureFlags } from '../lib/featureFlags';
+import featureFlags from '../lib/featureFlags';
 
 /**
  * FeatureGate - Componente para controlar acceso a features
@@ -15,15 +15,15 @@ const FeatureGate = ({
   const isEnabled = () => {
     switch (feature) {
       case 'org':
-        return FeatureFlags.isOrgEnabled();
+        return featureFlags.isOrgEnabled();
       case 'pdf':
-        return FeatureFlags.isPdfEnabled();
+        return featureFlags.isPdfEnabled();
       case 'invites':
-        return FeatureFlags.isInvitesEnabled();
+        return featureFlags.isInvitesEnabled();
       case 'wizard':
-        return FeatureFlags.isWizardEnabled();
+        return featureFlags.isWizardEnabled();
       case 'credits':
-        return FeatureFlags.isCreditsEnabled();
+        return featureFlags.isCreditsEnabled();
       default:
         console.warn('[360MVP] FeatureGate: Unknown feature:', feature);
         return false;

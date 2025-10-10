@@ -219,3 +219,10 @@ Una vez completada la Fase 0:
 **⚠️ Recordatorio importante**: Esta implementación es preparatoria. No cambia nada visible para los usuarios finales, solo prepara la infraestructura para futuras funcionalidades corporativas.
 
 
+
+
+
+
+
+
+

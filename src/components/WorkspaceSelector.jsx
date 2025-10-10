@@ -114,7 +114,7 @@ const WorkspaceSelector = () => {
           </div>
           <button 
             className="retry-button"
-            onClick={() => window.location.reload()}
+            onClick={() => { window.location.reload(); }}
           >
             Retry
           </button>

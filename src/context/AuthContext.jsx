@@ -7,6 +7,7 @@ import {
   signOut,
 } from 'firebase/auth';
 import { auth } from '../lib/firebase';
+import { ensureDemoUserPermissions } from '../services/demoUserService';
 
 const AuthContext = createContext();
 
@@ -17,8 +18,20 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     console.log('[360MVP] AuthContext: Setting up authentication state listener...');
     
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       console.info('[AuthContext] user', !!firebaseUser, firebaseUser ? `(${firebaseUser.email})` : '(none)');
+      
+      // Si es usuario demo, asegurar permisos
+      if (firebaseUser && firebaseUser.email === 'demo@360mvp.com') {
+        console.log('[AuthContext] Demo user detected, ensuring permissions...');
+        try {
+          await ensureDemoUserPermissions(firebaseUser);
+          console.log('[AuthContext] Demo user permissions ensured');
+        } catch (error) {
+          console.error('[AuthContext] Error ensuring demo user permissions:', error);
+        }
+      }
+      
       setUser(firebaseUser);
       setLoading(false);
     });

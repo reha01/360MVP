@@ -17,6 +17,8 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Evaluation from './pages/Evaluation';
 import ReportView from './pages/ReportView';
+import TestsAdmin from './pages/admin/TestsAdmin';
+import { TEST_CATALOG } from './lib/featureFlags';
 // Add other pages as needed
 
 // Workspace-protected route wrapper (requires auth + workspace)
@@ -64,6 +66,7 @@ const App = () => {
                     } 
                   />
                   
+                  {/* Evaluations - con soporte para routing dinámico */}
                   <Route 
                     path="/evaluations" 
                     element={
@@ -73,6 +76,16 @@ const App = () => {
                     } 
                   />
                   
+                  <Route 
+                    path="/evaluations/:testId/:version" 
+                    element={
+                      <WorkspaceProtectedRoute>
+                        <Evaluation />
+                      </WorkspaceProtectedRoute>
+                    } 
+                  />
+                  
+                  {/* Legacy route compatibility */}
                   <Route 
                     path="/evaluations/:id" 
                     element={
@@ -101,10 +114,39 @@ const App = () => {
                   />
                   
                   {/* Admin routes - require auth + workspace + role */}
+                  {TEST_CATALOG && (
+                    <>
+                      <Route 
+                        path="/admin/tests" 
+                        element={
+                          <WorkspaceProtectedRoute allowedRoles={['owner', 'admin']}>
+                            <TestsAdmin />
+                          </WorkspaceProtectedRoute>
+                        } 
+                      />
+                      <Route 
+                        path="/admin/tests/new" 
+                        element={
+                          <WorkspaceProtectedRoute allowedRoles={['owner', 'admin']}>
+                            <TestsAdmin mode="create" />
+                          </WorkspaceProtectedRoute>
+                        } 
+                      />
+                      <Route 
+                        path="/admin/tests/:testId/edit" 
+                        element={
+                          <WorkspaceProtectedRoute allowedRoles={['owner', 'admin']}>
+                            <TestsAdmin mode="edit" />
+                          </WorkspaceProtectedRoute>
+                        } 
+                      />
+                    </>
+                  )}
+                  
                   <Route 
                     path="/admin" 
                     element={
-                      <WorkspaceProtectedRoute allowedRoles={['owner', 'project_leader']}>
+                      <WorkspaceProtectedRoute allowedRoles={['owner', 'admin']}>
                         <div>Admin Panel (TODO: Implement)</div>
                       </WorkspaceProtectedRoute>
                     } 

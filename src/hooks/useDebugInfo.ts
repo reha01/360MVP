@@ -3,7 +3,6 @@
 
 import { useMemo } from 'react';
 import { deriveEnv, isPublicHost } from '../utils/env';
-import { FeatureFlags } from '../lib/featureFlags';
 import { useOrg } from '../context/OrgContext';
 
 export interface DebugInfo {
@@ -20,9 +19,16 @@ export const useDebugInfo = (): DebugInfo => {
   return useMemo(() => ({
     env: deriveEnv(),
     publicHost: isPublicHost(),
-    useEmulators: FeatureFlags.shouldUseEmulators(),
+    useEmulators: import.meta.env.VITE_USE_EMULATORS === 'true',
     activeOrgId,
-    tenant: FeatureFlags.getDefaultTenant()
+    tenant: import.meta.env.VITE_DEFAULT_TENANT || 'default'
   }), [activeOrgId]);
 };
+
+
+
+
+
+
+
 

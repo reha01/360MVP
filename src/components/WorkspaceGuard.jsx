@@ -84,7 +84,9 @@ const WorkspaceGuard = ({ children, fallback = null }) => {
       <div className="workspace-guard-empty">
         <h3>No tienes organizaciones</h3>
         <p>Parece que aún no tienes acceso a ninguna organización.</p>
-        <button onClick={() => window.location.assign('/select-workspace')}>
+        <button onClick={() => {
+          window.location.href = '/select-workspace';
+        }}>
           Seleccionar Workspace
         </button>
       </div>
@@ -97,7 +99,9 @@ const WorkspaceGuard = ({ children, fallback = null }) => {
       <div className="workspace-guard-error">
         <h3>Workspace Error</h3>
         <p>Unable to load your workspaces: {orgError}</p>
-        <button onClick={() => window.location.reload()}>
+        <button onClick={() => {
+          window.location.reload();
+        }}>
           Retry
         </button>
       </div>

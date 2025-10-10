@@ -30,6 +30,39 @@
   background-clip: text;
 }
 
+/* Navigation Menu */
+.header-nav {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+}
+
+.nav-link {
+  text-decoration: none;
+  color: #6b7280;
+  font-weight: 500;
+  font-size: 14px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.nav-link:hover {
+  color: #374151;
+  background: #f9fafb;
+}
+
+.nav-link.admin-link {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.nav-link.admin-link:hover {
+  color: #b91c1c;
+  background: #fef2f2;
+}
+
 /* Workspace Section */
 .header-workspace {
   flex: 1;
@@ -124,6 +157,15 @@
     font-size: 20px;
   }
   
+  .header-nav {
+    gap: 12px;
+  }
+  
+  .nav-link {
+    font-size: 13px;
+    padding: 6px 8px;
+  }
+  
   .header-workspace {
     max-width: 200px;
   }
@@ -159,5 +201,12 @@
     padding: 6px;
   }
 }
+
+
+
+
+
+
+
 
 

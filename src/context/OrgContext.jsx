@@ -106,6 +106,32 @@ async function createPersonalWorkspace(uid, userEmail) {
 async function fetchUserMemberships(uid, userEmail) {
   debugLog('Fetching memberships', { uid });
   
+  // Check for demo configuration in localStorage first
+  const demoConfig = localStorage.getItem('demo_user_config');
+  if (demoConfig && userEmail === 'demo@360mvp.com') {
+    try {
+      const config = JSON.parse(demoConfig);
+      debugLog('Using demo configuration from localStorage', config);
+      
+      // Return demo membership
+      return [{
+        id: config.orgId,
+        orgId: config.orgId,
+        org_id: config.orgId,
+        userId: config.userId,
+        user_id: config.userId,
+        email: config.email,
+        role: config.role,
+        status: config.status,
+        orgName: config.orgName,
+        orgType: 'business',
+        isDemo: true
+      }];
+    } catch (error) {
+      debugLog('Error parsing demo config', { error: error.message });
+    }
+  }
+  
   try {
     const col = collection(db, 'organization_members');
     let memberships = [];
@@ -267,7 +293,7 @@ export const OrgProvider = ({ children }) => {
       setOrganizations([]);
       setError(null);
       loadingRef.current = false;
-      navigatedRef.current = false;
+      navigationRef.current = false;
       return;
     }
     

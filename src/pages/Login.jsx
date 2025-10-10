@@ -65,6 +65,35 @@ const Login = () => {
     }
   };
 
+  // Demo login para desarrollo
+  const handleDemoLogin = async () => {
+    setEmail('demo@360mvp.com');
+    setPassword('Demo123456!');
+    setLoading(true);
+    setError('');
+    
+    try {
+      console.log('[360MVP] Login: Demo login...');
+      await login('demo@360mvp.com', 'Demo123456!');
+      console.log('[360MVP] Login: Demo login successful, redirecting to:', redirectPath);
+      navigate(redirectPath, { replace: true });
+    } catch (error) {
+      console.error('[360MVP] Login: Demo login failed, creating account...', error);
+      // Si falla, intentar registrar
+      try {
+        const { createUserWithEmailAndPassword } = await import('firebase/auth');
+        const { auth } = await import('../lib/firebase');
+        await createUserWithEmailAndPassword(auth, 'demo@360mvp.com', 'Demo123456!');
+        await login('demo@360mvp.com', 'Demo123456!');
+        navigate(redirectPath, { replace: true });
+      } catch (registerError) {
+        setError('Error con cuenta demo: ' + registerError.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div style={{ maxWidth: '400px', margin: '50px auto', padding: '20px' }}>
       <h2>Iniciar Sesión</h2>
@@ -119,6 +148,31 @@ const Login = () => {
       >
         🔗 Continuar con Google
       </button>
+
+      {/* Botón Demo para desarrollo */}
+      {import.meta.env.DEV && (
+        <>
+          <div style={{textAlign: 'center', margin: '15px 0', color: '#666'}}>o</div>
+          <button 
+            onClick={handleDemoLogin}
+            disabled={loading}
+            style={{
+              width: '100%', 
+              padding: '10px', 
+              backgroundColor: '#28a745', 
+              color: 'white', 
+              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px',
+              cursor: loading ? 'wait' : 'pointer'
+            }}
+          >
+            🚀 Login Demo (Desarrollo)
+          </button>
+        </>
+      )}
 
       <p style={{textAlign: 'center', marginTop: '20px'}}>
         ¿No tienes cuenta? <Link to={ROUTES.REGISTER}>Regístrate</Link>

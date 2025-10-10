@@ -3,7 +3,6 @@
 
 import React from 'react';
 import { deriveEnv, isPublicHost } from '../../utils/env';
-import { FeatureFlags } from '../../lib/featureFlags';
 import { isDebug } from '../../utils/debug';
 
 interface DebugInfo {

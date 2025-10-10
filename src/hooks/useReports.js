@@ -1,7 +1,7 @@
 // src/hooks/useReports.js
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { FeatureFlags } from '../lib/featureFlags';
+import featureFlags from '../lib/featureFlags';
 
 /**
  * useReports - Hook para obtener reportes del usuario
@@ -38,7 +38,7 @@ export const useReports = () => {
             type: 'self', // self, 180, 360
             category: 'leadership',
             url: '/report/report_1',
-            pdfAvailable: FeatureFlags.isPdfEnabled(),
+            pdfAvailable: featureFlags.isPdfEnabled(),
             shareableLink: '/shared/report_1_abcd1234',
             score: 7.8,
             status: 'completed',
@@ -53,7 +53,7 @@ export const useReports = () => {
             type: '360',
             category: 'communication',
             url: '/report/report_2',
-            pdfAvailable: FeatureFlags.isPdfEnabled(),
+            pdfAvailable: featureFlags.isPdfEnabled(),
             shareableLink: '/shared/report_2_efgh5678',
             score: 8.2,
             status: 'completed',
@@ -69,7 +69,7 @@ export const useReports = () => {
             type: '180',
             category: 'teamwork',
             url: '/report/report_3',
-            pdfAvailable: FeatureFlags.isPdfEnabled(),
+            pdfAvailable: featureFlags.isPdfEnabled(),
             shareableLink: '/shared/report_3_ijkl9012',
             score: 7.5,
             status: 'completed',

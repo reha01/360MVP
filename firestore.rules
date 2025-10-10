@@ -1,41 +1,232 @@
 rules_version = '2';
 service cloud.firestore {
-  match /databases/{db}/documents {
-
-    function isActiveMember(orgId) {
-      return request.auth != null
-             && exists(/databases/$(db)/documents/organization_members/$(orgId + ':' + request.auth.uid))
-             && get(/databases/$(db)/documents/organization_members/$(orgId + ':' + request.auth.uid)).data.status == 'active';
+  match /databases/{database}/documents {
+    
+    // ============================================
+    // Helper Functions
+    // ============================================
+    
+    // Verificar si el usuario está autenticado
+    function isSignedIn() {
+      return request.auth != null;
     }
     
-    function hasRole(orgId, allowedRoles) {
-      return isActiveMember(orgId)
-             && get(/databases/$(db)/documents/organization_members/$(orgId + ':' + request.auth.uid)).data.role in allowedRoles;
+    // Obtener UID del usuario actual
+    function currentUserId() {
+      return request.auth.uid;
     }
-
-    // Orgs (metadatos)
-    match /organizations/{orgId} {
-      allow read: if isActiveMember(orgId);
-      allow create, update, delete: if hasRole(orgId, ['owner','admin']);
+    
+    // Verificar si el usuario es miembro de una organización
+    function isMemberOf(orgId) {
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/orgs/$(orgId)/members/$(orgId + ':' + currentUserId()));
     }
-
-    // Subcolecciones bajo org (evaluations, reports, etc.)
-    match /organizations/{orgId}/{collection}/{docId} {
-      allow read: if isActiveMember(orgId);
-      allow create: if hasRole(orgId, ['owner','admin','member']);
-      allow update, delete: if hasRole(orgId, ['owner','admin']);
+    
+    // Obtener rol del usuario en una organización
+    function getMemberRole(orgId) {
+      return get(/databases/$(database)/documents/orgs/$(orgId)/members/$(orgId + ':' + currentUserId())).data.role;
     }
-
-    // Colección plana de memberships (solo admins/owners)
-    match /organization_members/{membershipId} {
-      // membershipId esperado: "<orgId>:<uid>"
-      allow read: if request.auth != null
-                  && resource.data.user_id == request.auth.uid;
-      allow create, update, delete: if request.auth != null
-                  && request.resource.data.role in ['owner','admin'];
+    
+    // Verificar si el usuario tiene un rol específico o superior
+    function hasRole(orgId, role) {
+      let userRole = getMemberRole(orgId);
+      
+      return (role == 'viewer' && userRole in ['viewer', 'member', 'manager', 'admin', 'owner']) ||
+             (role == 'member' && userRole in ['member', 'manager', 'admin', 'owner']) ||
+             (role == 'manager' && userRole in ['manager', 'admin', 'owner']) ||
+             (role == 'admin' && userRole in ['admin', 'owner']) ||
+             (role == 'owner' && userRole == 'owner');
     }
-
-    // Denegar todo lo no contemplado
-    match /{document=**} { allow read, write: if false; }
+    
+    // Verificar si es admin u owner
+    function isAdminOrOwner(orgId) {
+      return hasRole(orgId, 'admin');
+    }
+    
+    // Feature flag para multi-tenancy
+    function tenancyV1Enabled() {
+      return request.resource.data.keys().hasAll(['orgId']) || 
+             resource.data.keys().hasAll(['orgId']);
+    }
+    
+    // ============================================
+    // Organizations Collection
+    // ============================================
+    
+    match /orgs/{orgId} {
+      // Leer: solo miembros
+      allow read: if isMemberOf(orgId);
+      
+      // Crear: cualquier usuario autenticado (para workspace personal)
+      allow create: if isSignedIn() && 
+                       request.resource.data.ownerId == currentUserId();
+      
+      // Actualizar/Eliminar: solo owner
+      allow update, delete: if hasRole(orgId, 'owner');
+      
+      // ============================================
+      // Organization Members Subcollection
+      // ============================================
+      
+      match /members/{memberId} {
+        // Leer: todos los miembros de la org
+        allow read: if isMemberOf(orgId);
+        
+        // Crear: owner o admin pueden agregar miembros
+        allow create: if isAdminOrOwner(orgId);
+        
+        // Actualizar/Eliminar: owner o admin
+        allow update, delete: if isAdminOrOwner(orgId);
+      }
+      
+      // ============================================
+      // Test Definitions Subcollection (NUEVO)
+      // ============================================
+      
+      match /testDefinitions/{testDefId} {
+        // Leer: 
+        // - Admin/Owner: pueden ver todos (incluyendo drafts)
+        // - Otros: solo tests activos
+        allow read: if isAdminOrOwner(orgId) ||
+                       (isMemberOf(orgId) && resource.data.status == 'active');
+        
+        // Crear/Actualizar/Eliminar: solo admin u owner
+        allow create: if isAdminOrOwner(orgId) && 
+                         request.resource.data.orgId == orgId;
+        
+        allow update: if isAdminOrOwner(orgId) &&
+                         resource.data.orgId == orgId;
+        
+        allow delete: if isAdminOrOwner(orgId) &&
+                         resource.data.orgId == orgId;
+      }
+      
+      // ============================================
+      // Evaluation Sessions Subcollection (NUEVO)
+      // ============================================
+      
+      match /evaluationSessions/{sessionId} {
+        // Leer:
+        // - Propio: el usuario puede ver sus propias sesiones
+        // - Manager: puede ver sesiones de su equipo (si teamId coincide)
+        // - Admin/Owner: pueden ver todas
+        allow read: if resource.data.userId == currentUserId() ||
+                       isAdminOrOwner(orgId) ||
+                       (hasRole(orgId, 'manager') && 
+                        resource.data.teamId == get(/databases/$(database)/documents/orgs/$(orgId)/members/$(orgId + ':' + currentUserId())).data.teamId);
+        
+        // Crear: cualquier miembro puede crear su sesión
+        allow create: if isMemberOf(orgId) &&
+                         request.resource.data.userId == currentUserId() &&
+                         request.resource.data.orgId == orgId;
+        
+        // Actualizar: solo el dueño de la sesión
+        allow update: if resource.data.userId == currentUserId() &&
+                         resource.data.orgId == orgId;
+        
+        // Eliminar: dueño, manager de su equipo, o admin/owner
+        allow delete: if resource.data.userId == currentUserId() ||
+                         isAdminOrOwner(orgId) ||
+                         (hasRole(orgId, 'manager') && 
+                          resource.data.teamId == get(/databases/$(database)/documents/orgs/$(orgId)/members/$(orgId + ':' + currentUserId())).data.teamId);
+      }
+    }
+    
+    // ============================================
+    // Global Platform Collections (Super Admin)
+    // ============================================
+    
+    // Función para verificar si el usuario es Super Admin
+    function isSuperAdmin() {
+      return request.auth != null && 
+             request.auth.token.email == 'reha01@gmail.com';
+    }
+    
+    // Global Test Definitions Collection
+    match /global/platform/testDefinitions/{testDoc} {
+      // Leer: todos los usuarios autenticados pueden leer tests globales
+      allow read: if isSignedIn();
+      
+      // Escribir: solo Super Admin
+      allow write: if isSuperAdmin();
+    }
+    
+    // ============================================
+    // Legacy Collections (Backward Compatibility)
+    // ============================================
+    
+    // Users collection
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow write: if currentUserId() == userId;
+    }
+    
+    // Evaluations (Legacy - sin multi-tenant)
+    match /evaluations/{evaluationId} {
+      // Si tiene orgId, aplicar reglas multi-tenant
+      allow read: if tenancyV1Enabled() 
+                     ? (isMemberOf(resource.data.orgId) &&
+                        (resource.data.userId == currentUserId() || 
+                         isAdminOrOwner(resource.data.orgId)))
+                     : (isSignedIn() && resource.data.userId == currentUserId());
+      
+      allow create: if tenancyV1Enabled()
+                       ? (isSignedIn() && 
+                          isMemberOf(request.resource.data.orgId) &&
+                          request.resource.data.userId == currentUserId())
+                       : (isSignedIn() && 
+                          request.resource.data.userId == currentUserId());
+      
+      allow update, delete: if tenancyV1Enabled()
+                               ? (isMemberOf(resource.data.orgId) &&
+                                  resource.data.userId == currentUserId())
+                               : (isSignedIn() && 
+                                  resource.data.userId == currentUserId());
+      
+      // Responses subcollection
+      match /responses/{responseId} {
+        allow read, write: if tenancyV1Enabled()
+                              ? (isMemberOf(get(/databases/$(database)/documents/evaluations/$(evaluationId)).data.orgId) &&
+                                 get(/databases/$(database)/documents/evaluations/$(evaluationId)).data.userId == currentUserId())
+                              : (isSignedIn() &&
+                                 get(/databases/$(database)/documents/evaluations/$(evaluationId)).data.userId == currentUserId());
+      }
+    }
+    
+    // Reports (Legacy - sin multi-tenant)
+    match /reports/{reportId} {
+      allow read: if tenancyV1Enabled()
+                     ? (isMemberOf(resource.data.orgId) &&
+                        (resource.data.userId == currentUserId() ||
+                         isAdminOrOwner(resource.data.orgId)))
+                     : (isSignedIn() && resource.data.userId == currentUserId());
+      
+      allow create: if tenancyV1Enabled()
+                       ? (isSignedIn() &&
+                          isMemberOf(request.resource.data.orgId) &&
+                          request.resource.data.userId == currentUserId())
+                       : (isSignedIn() &&
+                          request.resource.data.userId == currentUserId());
+      
+      allow update, delete: if tenancyV1Enabled()
+                               ? (isMemberOf(resource.data.orgId) &&
+                                  resource.data.userId == currentUserId())
+                               : (isSignedIn() &&
+                                  resource.data.userId == currentUserId());
+    }
+    
+    // Questions (Legacy - read-only para todos)
+    match /questions/{questionId} {
+      allow read: if isSignedIn();
+      allow write: if false; // Solo via backend
+    }
+    
+    // ============================================
+    // Deny all other access
+    // ============================================
+    
+    match /{document=**} {
+      allow read, write: if false;
+    }
   }
 }

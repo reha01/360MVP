@@ -49,6 +49,14 @@ const Header = () => {
           <h1>360MVP</h1>
         </div>
 
+        {/* Navigation Menu */}
+        <nav className="header-nav">
+          <Link to="/dashboard" className="nav-link">Dashboard</Link>
+          <Link to="/evaluations" className="nav-link">Evaluaciones</Link>
+          <Link to="/reports" className="nav-link">Reportes</Link>
+          <Link to="/admin/tests" className="nav-link admin-link">Admin Tests</Link>
+        </nav>
+
         {/* Workspace Switcher */}
         <div className="header-workspace">
           <WorkspaceSwitcher />

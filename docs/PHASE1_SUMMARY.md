@@ -157,3 +157,10 @@ npm run multitenant:backfill      # Ejecución real
 **Estado**: 🚧 EN PROGRESO (40% completado)
 
 
+
+
+
+
+
+
+
