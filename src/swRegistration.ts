@@ -238,7 +238,8 @@ class ServiceWorkerManager {
 export const swManager = new ServiceWorkerManager();
 
 // Auto-register when module is imported
-if (typeof window !== 'undefined') {
+// TEMPORARILY DISABLED to fix console errors
+if (typeof window !== 'undefined' && false) {
   swManager.register().catch(console.error);
 }
 
