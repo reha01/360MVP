@@ -7,6 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import UnifiedTestManagement from './UnifiedTestManagement';
+import TestPreview from './TestPreview';
 import './UnifiedTestManagement.css';
 import { useAuth } from '../context/AuthContext';
 import { useOrg } from '../context/OrgContext';
@@ -73,6 +74,7 @@ const TestEditor = ({ mode = 'create', testId = null, testData = null }) => {
   const [error, setError] = useState(null);
   const [organizations, setOrganizations] = useState([]); // Lista de todas las organizaciones
   const [loadingOrgs, setLoadingOrgs] = useState(false);
+  const [showPreview, setShowPreview] = useState(false); // Estado para el modal de preview
 
   // Estado para controlar las secciones desplegables
   const [expandedSections, setExpandedSections] = useState({
@@ -810,6 +812,15 @@ const TestEditor = ({ mode = 'create', testId = null, testData = null }) => {
             Cancelar
           </button>
           <button
+            type="button"
+            onClick={() => setShowPreview(true)}
+            disabled={isSubmitting}
+            className="btn-preview"
+            title="Ver cómo se verá el test para los evaluadores"
+          >
+            👁️ Vista Previa
+          </button>
+          <button
             type="submit"
             disabled={isSubmitting}
             className="btn-primary"
@@ -818,6 +829,28 @@ const TestEditor = ({ mode = 'create', testId = null, testData = null }) => {
           </button>
         </div>
       </form>
+
+      {/* Modal de Vista Previa */}
+      {showPreview && (
+        <TestPreview 
+          testDefinition={{
+            title: formData.title || 'Test sin título',
+            description: formData.description,
+            categories: formData.categories,
+            questions: formData.customQuestions,
+            scale: {
+              min: formData.scaleMin,
+              max: formData.scaleMax,
+              labels: {
+                [formData.scaleMin]: 'Muy bajo',
+                [Math.floor((formData.scaleMin + formData.scaleMax) / 2)]: 'Medio',
+                [formData.scaleMax]: 'Muy alto'
+              }
+            }
+          }}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
     </div>
   );
 };
