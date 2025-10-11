@@ -818,7 +818,22 @@ const TestEditor = ({ mode = 'create', testId = null, testData = null }) => {
             onClick={() => {
               console.log('[TestEditor] Vista Previa clicked');
               console.log('[TestEditor] formData:', formData);
+              console.log('[TestEditor] formData.categories:', formData.categories);
               console.log('[TestEditor] isSubmitting:', isSubmitting);
+              
+              // Debug de la extracción de preguntas
+              const extractedQuestions = formData.categories.flatMap(category => {
+                console.log('[TestEditor] Processing category:', category.name, category);
+                const categoryQuestions = category.subdimensions?.flatMap(subdimension => {
+                  console.log('[TestEditor] Processing subdimension:', subdimension.name, subdimension);
+                  console.log('[TestEditor] Subdimension questions:', subdimension.questions);
+                  return subdimension.questions || [];
+                }) || [];
+                console.log('[TestEditor] Category questions:', categoryQuestions);
+                return categoryQuestions;
+              });
+              console.log('[TestEditor] Final extracted questions:', extractedQuestions);
+              
               setShowPreview(true);
             }}
             className="btn-preview"
