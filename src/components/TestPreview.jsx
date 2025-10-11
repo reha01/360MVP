@@ -15,7 +15,10 @@ const TestPreview = ({ testDefinition, onClose }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [previewAnswers, setPreviewAnswers] = useState({});
 
+  console.log('[TestPreview] Rendering with testDefinition:', testDefinition);
+
   if (!testDefinition) {
+    console.log('[TestPreview] No testDefinition, returning null');
     return null;
   }
 

@@ -818,9 +818,9 @@ const TestEditor = ({ mode = 'create', testId = null, testData = null }) => {
             onClick={() => {
               console.log('[TestEditor] Vista Previa clicked');
               console.log('[TestEditor] formData:', formData);
+              console.log('[TestEditor] isSubmitting:', isSubmitting);
               setShowPreview(true);
             }}
-            disabled={isSubmitting}
             className="btn-preview"
             title="Ver cómo se verá el test para los evaluadores"
           >
