@@ -137,7 +137,9 @@ const TestEditor = ({ mode = 'create', testId = null, testData = null }) => {
         setOrganizations(orgs);
         console.log('[TestEditor] Loaded organizations:', orgs.length);
       } catch (error) {
-        console.error('[TestEditor] Error loading organizations:', error);
+        console.warn('[TestEditor] Could not load organizations (non-critical):', error.message);
+        // No bloquear el funcionamiento si no se pueden cargar organizaciones
+        setOrganizations([]);
       } finally {
         setLoadingOrgs(false);
       }
@@ -813,7 +815,11 @@ const TestEditor = ({ mode = 'create', testId = null, testData = null }) => {
           </button>
           <button
             type="button"
-            onClick={() => setShowPreview(true)}
+            onClick={() => {
+              console.log('[TestEditor] Vista Previa clicked');
+              console.log('[TestEditor] formData:', formData);
+              setShowPreview(true);
+            }}
             disabled={isSubmitting}
             className="btn-preview"
             title="Ver cómo se verá el test para los evaluadores"
@@ -832,30 +838,33 @@ const TestEditor = ({ mode = 'create', testId = null, testData = null }) => {
 
       {/* Modal de Vista Previa */}
       {showPreview && (
-        <TestPreview 
-          testDefinition={{
-            title: formData.title || 'Test sin título',
-            description: formData.description,
-            categories: formData.categories,
-            questions: formData.categories.flatMap(category => 
-              category.subdimensions?.flatMap(subdimension => 
-                subdimension.questions || []
-              ) || []
-            ),
-            scale: {
-              min: formData.scaleMin,
-              max: formData.scaleMax,
-              labels: {
-                1: 'Muy en desacuerdo',
-                2: 'En desacuerdo',
-                3: 'Medio',
-                4: 'De acuerdo',
-                5: 'Muy de acuerdo'
+        <div>
+          {console.log('[TestEditor] Rendering TestPreview with showPreview:', showPreview)}
+          <TestPreview 
+            testDefinition={{
+              title: formData.title || 'Test sin título',
+              description: formData.description,
+              categories: formData.categories,
+              questions: formData.categories.flatMap(category => 
+                category.subdimensions?.flatMap(subdimension => 
+                  subdimension.questions || []
+                ) || []
+              ),
+              scale: {
+                min: formData.scaleMin,
+                max: formData.scaleMax,
+                labels: {
+                  1: 'Muy en desacuerdo',
+                  2: 'En desacuerdo',
+                  3: 'Medio',
+                  4: 'De acuerdo',
+                  5: 'Muy de acuerdo'
+                }
               }
-            }
-          }}
-          onClose={() => setShowPreview(false)}
-        />
+            }}
+            onClose={() => setShowPreview(false)}
+          />
+        </div>
       )}
     </div>
   );
