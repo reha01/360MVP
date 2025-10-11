@@ -860,11 +860,7 @@ const TestEditor = ({ mode = 'create', testId = null, testData = null }) => {
               title: formData.title || 'Test sin título',
               description: formData.description,
               categories: formData.categories,
-              questions: formData.categories.flatMap(category => 
-                category.subdimensions?.flatMap(subdimension => 
-                  subdimension.questions || []
-                ) || []
-              ),
+              questions: formData.customQuestions || [],
               scale: {
                 min: formData.scaleMin,
                 max: formData.scaleMax,
