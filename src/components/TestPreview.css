@@ -134,16 +134,42 @@
   overflow-y: auto;
 }
 
-.preview-category-badge {
-  display: inline-block;
-  padding: 6px 14px;
-  background: rgba(0, 122, 255, 0.08);
-  border-radius: 8px;
+/* ============================================
+   Context Info - Título, Categoría, Subdimensión
+   ============================================ */
+
+.preview-context-info {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.context-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1d1d1f;
+  margin-bottom: 8px;
+  letter-spacing: -0.2px;
+}
+
+.context-breadcrumb {
   font-size: 13px;
-  font-weight: 500;
-  color: #007aff;
-  margin-bottom: 40px;
+  font-weight: 400;
+  color: #86868b;
   letter-spacing: -0.08px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.context-separator {
+  color: #d1d1d6;
+  font-weight: 300;
+}
+
+.context-subdimension {
+  font-style: italic;
 }
 
 /* ============================================

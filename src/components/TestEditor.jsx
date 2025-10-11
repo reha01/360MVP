@@ -842,9 +842,11 @@ const TestEditor = ({ mode = 'create', testId = null, testData = null }) => {
               min: formData.scaleMin,
               max: formData.scaleMax,
               labels: {
-                [formData.scaleMin]: 'Muy bajo',
-                [Math.floor((formData.scaleMin + formData.scaleMax) / 2)]: 'Medio',
-                [formData.scaleMax]: 'Muy alto'
+                1: 'Muy en desacuerdo',
+                2: 'En desacuerdo',
+                3: 'Medio',
+                4: 'De acuerdo',
+                5: 'Muy de acuerdo'
               }
             }
           }}

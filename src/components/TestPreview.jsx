@@ -24,6 +24,9 @@ const TestPreview = ({ testDefinition, onClose }) => {
   // Obtener pregunta actual
   const currentQuestion = questions[currentQuestionIndex];
   const currentCategory = categories.find(cat => cat.id === currentQuestion?.category);
+  const currentSubdimension = currentCategory?.subdimensions?.find(
+    sub => sub.id === currentQuestion?.subdimension
+  );
   
   // Calcular progreso
   const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
@@ -96,9 +99,18 @@ const TestPreview = ({ testDefinition, onClose }) => {
         {/* Content - Minimalista */}
         <div className="test-preview-content">
           
-          {/* Category Badge - Simple */}
-          <div className="preview-category-badge">
-            {currentCategory?.name}
+          {/* Context Info - Título, Categoría, Subdimensión */}
+          <div className="preview-context-info">
+            <div className="context-title">{title}</div>
+            <div className="context-breadcrumb">
+              {currentCategory?.name}
+              {currentSubdimension?.description && (
+                <span className="context-separator">→</span>
+              )}
+              {currentSubdimension?.description && (
+                <span className="context-subdimension">{currentSubdimension.description}</span>
+              )}
+            </div>
           </div>
 
           {/* Question - Una sola pregunta visible (estilo Apple) */}
