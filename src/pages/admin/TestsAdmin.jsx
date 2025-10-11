@@ -727,12 +727,33 @@ const TestsAdmin = ({ mode = 'list' }) => {
           </div>
         ) : (
           <div className="test-editor">
-            <p>❌ Test no encontrado: {testId}</p>
-            <p>Tests disponibles: {tests.map(t => t.testId).join(', ')}</p>
-            <p>Espera un momento mientras cargamos los tests...</p>
-            <button className="btn-primary" onClick={() => navigate('/admin/tests')}>
-              ← Volver a Tests
-            </button>
+            <div className="error-message">
+              <h3>❌ Test no encontrado</h3>
+              <p><strong>ID buscado:</strong> {testId}</p>
+              <p><strong>Tests disponibles:</strong> {tests.length > 0 ? tests.map(t => t.testId).join(', ') : 'Ninguno'}</p>
+              
+              <div className="error-details">
+                <h4>Posibles causas:</h4>
+                <ul>
+                  <li>El test no existe o fue eliminado</li>
+                  <li>No tienes permisos para ver este test</li>
+                  <li>Problema de conexión con Firebase</li>
+                  <li>Los tests aún se están cargando</li>
+                </ul>
+              </div>
+              
+              <div className="error-actions">
+                <button className="btn-primary" onClick={() => window.location.reload()}>
+                  🔄 Recargar página
+                </button>
+                <button className="btn-secondary" onClick={() => navigate('/admin/tests')}>
+                  ← Volver a Tests
+                </button>
+                <button className="btn-secondary" onClick={() => loadTests()}>
+                  🔄 Recargar tests
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -755,9 +776,14 @@ const TestsAdmin = ({ mode = 'list' }) => {
             }
           </p>
         </div>
-        <button className="btn-primary" onClick={handleCreate}>
-          + Crear Test
-        </button>
+        <div className="header-actions">
+          <button className="btn-secondary" onClick={() => loadTests()} disabled={isLoading}>
+            🔄 Recargar
+          </button>
+          <button className="btn-primary" onClick={handleCreate}>
+            + Crear Test
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
