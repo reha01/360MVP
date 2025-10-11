@@ -6,6 +6,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import UnifiedTestManagement from './UnifiedTestManagement';
+import './UnifiedTestManagement.css';
 import { useAuth } from '../context/AuthContext';
 import { useOrg } from '../context/OrgContext';
 import { useSuperAdmin } from '../hooks/useSuperAdmin';
@@ -32,18 +34,62 @@ const TestEditor = ({ mode = 'create', testId = null, testData = null }) => {
     visibility: 'private', // 'public' o 'private'
     allowedOrgs: [], // Organizaciones permitidas (solo para tests privados)
     categories: [
-      { id: 'leadership', name: 'Liderazgo', color: '#3b82f6', weight: 1, description: '' },
-      { id: 'communication', name: 'Comunicación', color: '#10b981', weight: 1, description: '' },
-      { id: 'teamwork', name: 'Trabajo en Equipo', color: '#f59e0b', weight: 1, description: '' }
+      { 
+        id: 'leadership', 
+        name: 'Liderazgo', 
+        color: '#3b82f6', 
+        weight: 1, 
+        description: '',
+        subdimensions: [
+          { id: 'leadership_vision', name: 'Visión Estratégica', description: '', weight: 1 }
+        ]
+      },
+      { 
+        id: 'communication', 
+        name: 'Comunicación', 
+        color: '#10b981', 
+        weight: 1, 
+        description: '',
+        subdimensions: [
+          { id: 'communication_verbal', name: 'Comunicación Verbal', description: '', weight: 1 }
+        ]
+      },
+      { 
+        id: 'teamwork', 
+        name: 'Trabajo en Equipo', 
+        color: '#f59e0b', 
+        weight: 1, 
+        description: '',
+        subdimensions: [
+          { id: 'teamwork_collaboration', name: 'Colaboración', description: '', weight: 1 }
+        ]
+      }
     ],
-    customQuestions: [] // Preguntas personalizadas por categoría
+    customQuestions: [], // Preguntas personalizadas por categoría y subdimensión
+    conditionalRules: [] // Reglas condicionales
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
-  const [activeCategoryId, setActiveCategoryId] = useState(null); // Para navegación por categorías
   const [organizations, setOrganizations] = useState([]); // Lista de todas las organizaciones
   const [loadingOrgs, setLoadingOrgs] = useState(false);
+
+  // Estado para controlar las secciones desplegables
+  const [expandedSections, setExpandedSections] = useState({
+    description: false,
+    scale: false,
+    visibility: false
+  });
+
+  /**
+   * Toggle para expandir/colapsar secciones
+   */
+  const toggleSection = (sectionName) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [sectionName]: !prev[sectionName]
+    }));
+  };
 
   /**
    * Detectar si estamos en modo demo
@@ -54,19 +100,23 @@ const TestEditor = ({ mode = 'create', testId = null, testData = null }) => {
   };
 
   /**
-   * Obtener el servicio de tests correcto (demo o real)
+   * Obtener el servicio de tests correcto (demo, global o real)
    */
   const getTestService = () => {
     const demoMode = isDemoMode();
     console.log('[TestEditor] isDemoMode result:', demoMode);
     console.log('[TestEditor] user email:', user?.email);
+    console.log('[TestEditor] isSuperAdmin:', isSuperAdmin);
     console.log('[TestEditor] demo config exists:', !!localStorage.getItem('demo_user_config'));
     
     if (demoMode) {
       console.log('[TestEditor] Using TestDefinitionServiceDemo');
       return TestDefinitionServiceDemo;
+    } else if (isSuperAdmin) {
+      console.log('[TestEditor] Using GlobalTestService for Super Admin');
+      return GlobalTestService;
     } else {
-      console.log('[TestEditor] Using real service');
+      console.log('[TestEditor] Using TestDefinitionService for org users');
       return {
         createTest,
         updateTest
@@ -97,6 +147,14 @@ const TestEditor = ({ mode = 'create', testId = null, testData = null }) => {
   // Cargar datos del test cuando está en modo edit
   useEffect(() => {
     if (mode === 'edit' && testData) {
+      // Asegurar que cada categoría tenga subdimensiones
+      const categoriesWithSubdimensions = (testData.categories || []).map(cat => ({
+        ...cat,
+        subdimensions: cat.subdimensions || [
+          { id: `${cat.id}_sub1`, name: 'Subdimensión 1', description: '', weight: 1 }
+        ]
+      }));
+      
       setFormData({
         testId: testData.testId || '',
         title: testData.title || '',
@@ -105,20 +163,12 @@ const TestEditor = ({ mode = 'create', testId = null, testData = null }) => {
         scaleMax: testData.scale?.max || 5,
         visibility: testData.visibility || 'private',
         allowedOrgs: testData.allowedOrgs || [],
-        categories: testData.categories || [
-          { id: 'leadership', name: 'Liderazgo', color: '#3b82f6', weight: 1, description: '' }
-        ],
-        customQuestions: testData.questions || [] // Preguntas personalizadas
+        categories: categoriesWithSubdimensions,
+        customQuestions: testData.questions || [], // Preguntas personalizadas
+        conditionalRules: testData.conditionalRules || []
       });
     }
   }, [mode, testData]);
-
-  // Inicializar categoría activa
-  useEffect(() => {
-    if (formData.categories.length > 0 && !activeCategoryId) {
-      setActiveCategoryId(formData.categories[0].id);
-    }
-  }, [formData.categories, activeCategoryId]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -164,13 +214,64 @@ const TestEditor = ({ mode = 'create', testId = null, testData = null }) => {
     }));
   };
 
+  // Manejar cambios en reglas condicionales
+  const handleConditionalRuleChange = (catIndex, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      categories: prev.categories.map((cat, index) => {
+        if (index !== catIndex) return cat;
+        
+        const updatedCategory = { ...cat };
+        
+        if (!updatedCategory.conditionalRule) {
+          updatedCategory.conditionalRule = {
+            condition: {
+              questionId: '',
+              operator: 'equals',
+              value: null
+            },
+            action: 'exclude_from_scoring'
+          };
+        }
+        
+        if (field === 'questionId' || field === 'operator' || field === 'value') {
+          updatedCategory.conditionalRule.condition[field] = value;
+        } else if (field === 'action') {
+          updatedCategory.conditionalRule.action = value;
+        }
+        
+        return updatedCategory;
+      })
+    }));
+  };
+
+  // Obtener texto de pregunta por ID
+  const getQuestionText = (questionId) => {
+    const question = formData.customQuestions.find(q => q.id === questionId);
+    return question ? (question.text || 'Pregunta sin texto') : 'Pregunta no encontrada';
+  };
+
+  // Obtener texto del operador
+  const getOperatorText = (operator) => {
+    const operators = {
+      'equals': 'es igual a',
+      'not_equals': 'es diferente de',
+      'greater_than': 'es mayor que',
+      'less_than': 'es menor que'
+    };
+    return operators[operator] || 'es igual a';
+  };
+
   const addCategory = () => {
     const newCategory = {
       id: `category_${Date.now()}`,
       name: 'Nueva Categoría',
       color: '#6b7280',
       weight: 1,
-      description: ''
+      description: '',
+      subdimensions: [
+        { id: `category_${Date.now()}_sub1`, name: 'Subdimensión 1', description: '', weight: 1 }
+      ]
     };
     setFormData(prev => ({
       ...prev,
@@ -193,11 +294,91 @@ const TestEditor = ({ mode = 'create', testId = null, testData = null }) => {
     }
   };
 
+  // Funciones para manejar subdimensiones
+  const addSubdimension = (categoryId) => {
+    setFormData(prev => ({
+      ...prev,
+      categories: prev.categories.map(cat => {
+        if (cat.id === categoryId) {
+          const newSubdim = {
+            id: `${categoryId}_sub${Date.now()}`,
+            name: `Subdimensión ${(cat.subdimensions?.length || 0) + 1}`,
+            description: '',
+            weight: 1
+          };
+          return {
+            ...cat,
+            subdimensions: [...(cat.subdimensions || []), newSubdim]
+          };
+        }
+        return cat;
+      })
+    }));
+  };
+
+  const updateSubdimension = (categoryId, subdimId, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      categories: prev.categories.map(cat => {
+        if (cat.id === categoryId) {
+          return {
+            ...cat,
+            subdimensions: cat.subdimensions.map(sub =>
+              sub.id === subdimId ? { ...sub, [field]: value } : sub
+            )
+          };
+        }
+        return cat;
+      })
+    }));
+  };
+
+  const removeSubdimension = (categoryId, subdimId) => {
+    setFormData(prev => {
+      // Encontrar la categoría
+      const category = prev.categories.find(cat => cat.id === categoryId);
+      if (!category || category.subdimensions.length <= 1) {
+        return prev; // No permitir eliminar si solo hay una subdimensión
+      }
+
+      // Eliminar preguntas de esta subdimensión
+      const newQuestions = prev.customQuestions.filter(
+        q => !(q.category === categoryId && q.subdimension === subdimId)
+      );
+
+      return {
+        ...prev,
+        categories: prev.categories.map(cat => {
+          if (cat.id === categoryId) {
+            return {
+              ...cat,
+              subdimensions: cat.subdimensions.filter(sub => sub.id !== subdimId)
+            };
+          }
+          return cat;
+        }),
+        customQuestions: newQuestions
+      };
+    });
+  };
+
   // Funciones para manejar preguntas personalizadas
-  const addCustomQuestion = (categoryId) => {
+  const addCustomQuestion = (categoryId, subdimensionId) => {
+    // Generar ID automático basado en el formato P_CAT#_SUB#_Q#
+    const category = formData.categories.find(cat => cat.id === categoryId);
+    const categoryIndex = formData.categories.indexOf(category);
+    const subdimension = category?.subdimensions?.find(sub => sub.id === subdimensionId);
+    const subdimensionIndex = category?.subdimensions?.indexOf(subdimension) || 0;
+    const questionIndex = formData.customQuestions.filter(
+      q => q.category === categoryId && q.subdimension === subdimensionId
+    ).length;
+    
+    const autoId = `P_CAT${categoryIndex + 1}_SUB${subdimensionIndex + 1}_Q${questionIndex + 1}`;
+    
     const newQuestion = {
-      id: `q_${categoryId}_${Date.now()}`,
+      id: autoId,
       category: categoryId,
+      subdimension: subdimensionId,
       text: '',
       weight: 1,
       type: 'scale',
@@ -230,12 +411,10 @@ const TestEditor = ({ mode = 'create', testId = null, testData = null }) => {
     return formData.customQuestions.filter(q => q.category === categoryId);
   };
 
-  const getActiveCategory = () => {
-    return formData.categories.find(cat => cat.id === activeCategoryId);
-  };
-
-  const getTotalQuestions = () => {
-    return formData.customQuestions.length;
+  const getQuestionsForSubdimension = (categoryId, subdimensionId) => {
+    return formData.customQuestions.filter(
+      q => q.category === categoryId && q.subdimension === subdimensionId
+    );
   };
 
   const handleSubmit = async (e) => {
@@ -272,25 +451,38 @@ const TestEditor = ({ mode = 'create', testId = null, testData = null }) => {
           name: cat.name,
           color: cat.color,
           weight: parseInt(cat.weight),
-          description: cat.description || ''
+          description: cat.description || '',
+          subdimensions: (cat.subdimensions || []).map(sub => ({
+            id: sub.id,
+            name: sub.name,
+            description: sub.description || '',
+            weight: parseInt(sub.weight) || 1
+          })),
+          isConditional: cat.isConditional || false,
+          conditionalRule: cat.conditionalRule || null
         })),
         questions: formData.customQuestions.length > 0 ? formData.customQuestions.map(q => ({
           ...q,
           isNegative: q.isNegative || false
         })) : [
           // Generar preguntas automáticas si no hay preguntas personalizadas
-          ...formData.categories.flatMap(cat => {
-            const numQuestions = parseInt(cat.weight) || 1;
-            return Array.from({ length: numQuestions }, (_, index) => ({
-              id: `q_${cat.id}_${index + 1}`,
-              category: cat.id,
-              text: `¿Cómo evalúas tu ${cat.name.toLowerCase()}? (Pregunta ${index + 1})`,
-              weight: 1,
-              type: 'scale',
-              isNegative: false
-            }));
+          ...formData.categories.flatMap((cat, catIndex) => {
+            const subdimensions = cat.subdimensions || [];
+            return subdimensions.flatMap((subdim, subIndex) => {
+              const numQuestions = parseInt(subdim.weight) || 1;
+              return Array.from({ length: numQuestions }, (_, qIndex) => ({
+                id: `P_CAT${catIndex + 1}_SUB${subIndex + 1}_Q${qIndex + 1}`,
+                category: cat.id,
+                subdimension: subdim.id,
+                text: `¿Cómo evalúas tu ${subdim.name.toLowerCase()}? (Pregunta ${qIndex + 1})`,
+                weight: 1,
+                type: 'scale',
+                isNegative: false
+              }));
+            });
           })
         ],
+        conditionalRules: formData.conditionalRules || [],
         scoring: {
           method: 'weighted_average',
           rules: {}
@@ -301,13 +493,13 @@ const TestEditor = ({ mode = 'create', testId = null, testData = null }) => {
       console.log('[TestEditor] Form data:', formData);
       console.log('[TestEditor] Test definition to save:', testDefinition);
 
-      // Forzar uso del servicio demo si estamos en modo demo
-      const demoMode = isDemoMode();
-      console.log('[TestEditor] Demo mode:', demoMode);
+      // Obtener el servicio correcto
+      const testService = getTestService();
+      console.log('[TestEditor] Using service:', testService);
       
       let result;
 
-      if (demoMode) {
+      if (isDemoMode()) {
         console.log('[TestEditor] Using TestDefinitionServiceDemo for all operations');
         if (mode === 'edit') {
           // Actualizar test existente con servicio demo
@@ -322,10 +514,24 @@ const TestEditor = ({ mode = 'create', testId = null, testData = null }) => {
           // Crear nuevo test con servicio demo
           result = await TestDefinitionServiceDemo.createTest(activeOrgId, testDefinition, user.uid);
         }
-      } else {
-        console.log('[TestEditor] Using real service');
+      } else if (isSuperAdmin) {
+        console.log('[TestEditor] Using GlobalTestService for Super Admin');
         if (mode === 'edit') {
-          // Actualizar test existente con servicio real
+          // Actualizar test existente con servicio global
+          result = await GlobalTestService.updateGlobalTest(
+            formData.testId, 
+            testData?.version || 'v1', 
+            testDefinition, 
+            user.uid
+          );
+        } else {
+          // Crear nuevo test con servicio global
+          result = await GlobalTestService.createGlobalTest(testDefinition, user.uid);
+        }
+      } else {
+        console.log('[TestEditor] Using TestDefinitionService for org users');
+        if (mode === 'edit') {
+          // Actualizar test existente con servicio de org
           result = await updateTest(
             activeOrgId, 
             formData.testId, 
@@ -333,7 +539,7 @@ const TestEditor = ({ mode = 'create', testId = null, testData = null }) => {
             testDefinition
           );
         } else {
-          // Crear nuevo test con servicio real
+          // Crear nuevo test con servicio de org
           result = await createTest(activeOrgId, testDefinition);
         }
       }
@@ -358,473 +564,234 @@ const TestEditor = ({ mode = 'create', testId = null, testData = null }) => {
   return (
     <div className="test-editor">
       <form onSubmit={handleSubmit} className="editor-form">
-        <div className="form-section">
-          <h3>{mode === 'edit' ? 'Editar Test' : 'Información Básica'}</h3>
-          
-          <div className="form-group">
-            <label htmlFor="testId">ID del Test *</label>
-            <input
-              id="testId"
-              type="text"
-              value={formData.testId}
-              onChange={(e) => handleInputChange('testId', e.target.value)}
-              placeholder="ej: leadership_2024"
-              required
-              readOnly={mode === 'edit'}
-              disabled={isSubmitting}
-              style={mode === 'edit' ? { backgroundColor: '#f3f4f6', cursor: 'not-allowed' } : {}}
-            />
-            <small>Identificador único para el test (sin espacios)</small>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="title">Título *</label>
-            <input
-              id="title"
-              type="text"
-              value={formData.title}
-              onChange={(e) => handleInputChange('title', e.target.value)}
-              placeholder="ej: Evaluación de Liderazgo 2024"
-              required
-              disabled={isSubmitting}
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="description">Descripción</label>
-            <textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => handleInputChange('description', e.target.value)}
-              placeholder="Descripción del test..."
-              rows={3}
-              disabled={isSubmitting}
-            />
-          </div>
-        </div>
-
-        <div className="form-section">
-          <h3>Escala de Evaluación</h3>
-          
-          <div className="scale-group">
-            <div className="form-group">
-              <label htmlFor="scaleMin">Valor Mínimo</label>
-              <input
-                id="scaleMin"
-                type="number"
-                value={formData.scaleMin}
-                onChange={(e) => handleInputChange('scaleMin', parseInt(e.target.value))}
-                min="1"
-                max="10"
-                disabled={isSubmitting}
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="scaleMax">Valor Máximo</label>
-              <input
-                id="scaleMax"
-                type="number"
-                value={formData.scaleMax}
-                onChange={(e) => handleInputChange('scaleMax', parseInt(e.target.value))}
-                min="2"
-                max="10"
-                disabled={isSubmitting}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Sección de Configuración de Visibilidad */}
-        <div className="form-section">
-          <h3>Configuración de Visibilidad</h3>
-          <p className="section-description">
-            Define quién puede acceder y tomar este test de evaluación.
-          </p>
-          
-          <div className="visibility-options">
-            <div className="visibility-option">
-              <label className="visibility-label">
-                <input
-                  type="radio"
-                  name="visibility"
-                  value="private"
-                  checked={formData.visibility === 'private'}
-                  onChange={(e) => handleInputChange('visibility', e.target.value)}
-                  disabled={isSubmitting}
-                  className="visibility-radio"
-                />
-                <div className="visibility-card">
-                  <div className="visibility-header">
-                    <span className="visibility-icon">🏢</span>
-                    <span className="visibility-title">Privado - Organizaciones Específicas</span>
-                  </div>
-                  <div className="visibility-description">
-                    {isSuperAdmin 
-                      ? 'Solo las organizaciones que selecciones podrán ver y usar este test.' 
-                      : 'Solo los miembros de organizaciones específicas pueden ver y tomar este test.'
-                    }
-                  </div>
-                  <div className="visibility-features">
-                    <span className="feature-tag">Restringido</span>
-                    <span className="feature-tag">Seguro</span>
-                    <span className="feature-tag">Controlado</span>
-                  </div>
-                </div>
-              </label>
-            </div>
-            
-            <div className="visibility-option">
-              <label className="visibility-label">
-                <input
-                  type="radio"
-                  name="visibility"
-                  value="public"
-                  checked={formData.visibility === 'public'}
-                  onChange={(e) => handleInputChange('visibility', e.target.value)}
-                  disabled={isSubmitting}
-                  className="visibility-radio"
-                />
-                <div className="visibility-card">
-                  <div className="visibility-header">
-                    <span className="visibility-icon">🌍</span>
-                    <span className="visibility-title">Público - Acceso Libre</span>
-                  </div>
-                  <div className="visibility-description">
-                    Cualquier persona puede encontrar y tomar este test.
-                    Ideal para evaluaciones abiertas, investigación o demostraciones.
-                  </div>
-                  <div className="visibility-features">
-                    <span className="feature-tag">Abierto</span>
-                    <span className="feature-tag">Global</span>
-                    <span className="feature-tag">Investigación</span>
-                  </div>
-                </div>
-              </label>
-            </div>
-          </div>
-
-          {/* Selector de Organizaciones (solo para tests privados y Super Admin) */}
-          {isSuperAdmin && formData.visibility === 'private' && (
-            <div className="organizations-selector">
-              <h4>Seleccionar Organizaciones</h4>
-              <p className="selector-description">
-                Elige qué organizaciones podrán acceder a este test. Solo sus miembros podrán verlo y tomarlo.
-              </p>
-              
-              {loadingOrgs ? (
-                <p className="loading-message">Cargando organizaciones...</p>
-              ) : (
-                <>
-                  <div className="selector-actions">
-                    <button
-                      type="button"
-                      onClick={() => handleSelectAllOrgs(true)}
-                      className="btn-select-action"
-                      disabled={isSubmitting}
-                    >
-                      Seleccionar Todas
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSelectAllOrgs(false)}
-                      className="btn-select-action"
-                      disabled={isSubmitting}
-                    >
-                      Desseleccionar Todas
-                    </button>
-                    <span className="selection-count">
-                      {formData.allowedOrgs.length} de {organizations.length} seleccionadas
-                    </span>
-                  </div>
-
-                  <div className="organizations-list">
-                    {organizations.length === 0 ? (
-                      <p className="no-organizations">No hay organizaciones disponibles</p>
-                    ) : (
-                      organizations.map(org => (
-                        <label key={org.orgId} className="org-checkbox-label">
-                          <input
-                            type="checkbox"
-                            checked={formData.allowedOrgs.includes(org.orgId)}
-                            onChange={() => handleOrgToggle(org.orgId)}
-                            disabled={isSubmitting}
-                            className="org-checkbox"
-                          />
-                          <div className="org-info">
-                            <span className="org-name">{org.name || org.orgId}</span>
-                            <span className="org-id">{org.orgId}</span>
-                          </div>
-                        </label>
-                      ))
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="form-section">
-          <h3>Categorías</h3>
-          <p className="section-description">
-            Define las categorías de evaluación. El peso se usa para generar preguntas automáticas 
-            si no agregas preguntas personalizadas en la sección siguiente.
-          </p>
-          
-          {formData.categories.map((category, index) => {
-            const hasCustomQuestions = getQuestionsForCategory(category.id).length > 0;
-            
-            return (
-              <div key={index} className="category-item">
-                <div className="category-header">
-                  <div className="category-name-container">
+            {/* Sección Desplegable: Descripción del Test */}
+            <div className="collapsible-section">
+              <div 
+                className={`collapsible-header ${expandedSections.description ? 'active' : ''}`}
+                onClick={() => toggleSection('description')}
+              >
+                <h3 className="collapsible-title">Descripción del Test</h3>
+                <span className="collapsible-icon">▼</span>
+              </div>
+              <div className={`collapsible-content ${expandedSections.description ? 'expanded' : 'collapsed'}`}>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="testId">ID del Test *</label>
                     <input
+                      id="testId"
                       type="text"
-                      value={category.name}
-                      onChange={(e) => handleCategoryChange(index, 'name', e.target.value)}
-                      placeholder="Nombre de categoría"
+                      value={formData.testId}
+                      onChange={(e) => handleInputChange('testId', e.target.value)}
+                      placeholder="ej: leadership_2024"
+                      required
+                      readOnly={mode === 'edit'}
+                      disabled={isSubmitting}
+                      style={mode === 'edit' ? { backgroundColor: '#f3f4f6', cursor: 'not-allowed' } : {}}
+                    />
+                    <small>Identificador único para el test (sin espacios)</small>
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="title">Título *</label>
+                    <input
+                      id="title"
+                      type="text"
+                      value={formData.title}
+                      onChange={(e) => handleInputChange('title', e.target.value)}
+                      placeholder="ej: Evaluación de Liderazgo 2024"
+                      required
                       disabled={isSubmitting}
                     />
-                    {hasCustomQuestions && (
-                      <span className="custom-questions-indicator" title="Tiene preguntas personalizadas">
-                        ✏️
-                      </span>
-                    )}
                   </div>
-                  <input
-                    type="color"
-                    value={category.color}
-                    onChange={(e) => handleCategoryChange(index, 'color', e.target.value)}
-                    disabled={isSubmitting}
-                  />
-                  {/* Campo oculto para mantener el peso por defecto */}
-                  <input
-                    type="hidden"
-                    value={category.weight}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeCategory(index)}
-                    disabled={formData.categories.length <= 1 || isSubmitting}
-                    className="btn-remove"
-                  >
-                    ✕
-                  </button>
                 </div>
-                <div className="category-description-container">
+
+                <div className="form-group">
+                  <label htmlFor="description">Descripción</label>
                   <textarea
-                    value={category.description}
-                    onChange={(e) => handleCategoryChange(index, 'description', e.target.value)}
-                    placeholder="Descripción opcional de la categoría (ej: habilidades de liderazgo, comunicación efectiva, etc.)"
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => handleInputChange('description', e.target.value)}
+                    placeholder="Descripción del test..."
+                    rows={3}
                     disabled={isSubmitting}
-                    rows={2}
-                    className="category-description-input"
                   />
                 </div>
               </div>
-            );
-          })}
-
-          <button
-            type="button"
-            onClick={addCategory}
-            disabled={isSubmitting}
-            className="btn-add-category"
-          >
-            + Añadir Categoría
-          </button>
-        </div>
-
-        {/* Sección de Preguntas Personalizadas con Navegación Mejorada */}
-        <div className="form-section">
-          <div className="questions-header">
-            <h3>Preguntas Personalizadas</h3>
-            <div className="questions-summary">
-              <span className="total-questions">
-                Total: {getTotalQuestions()} preguntas
-              </span>
             </div>
-          </div>
-          <p className="section-description">
-            Agrega preguntas específicas para cada categoría. Si no agregas preguntas personalizadas, 
-            se generarán automáticamente según el peso de cada categoría.
-          </p>
-          
-          <div className="questions-editor">
-            {/* Sidebar de Categorías */}
-            <div className="categories-sidebar">
-              <div className="sidebar-header">
-                <h4>Categorías</h4>
+
+            {/* Sección Desplegable: Escala de Evaluación */}
+            <div className="collapsible-section">
+              <div 
+                className={`collapsible-header ${expandedSections.scale ? 'active' : ''}`}
+                onClick={() => toggleSection('scale')}
+              >
+                <h3 className="collapsible-title">Escala de Evaluación</h3>
+                <span className="collapsible-icon">▼</span>
               </div>
-              <div className="categories-list">
-                {formData.categories.map((category) => {
-                  const categoryQuestions = getQuestionsForCategory(category.id);
-                  const negativeQuestions = categoryQuestions.filter(q => q.isNegative).length;
-                  const isActive = category.id === activeCategoryId;
+              <div className={`collapsible-content ${expandedSections.scale ? 'expanded' : 'collapsed'}`}>
+                <div className="scale-group">
+                  <div className="form-group">
+                    <label htmlFor="scaleMin">Valor Mínimo</label>
+                    <input
+                      id="scaleMin"
+                      type="number"
+                      value={formData.scaleMin}
+                      onChange={(e) => handleInputChange('scaleMin', parseInt(e.target.value))}
+                      min="1"
+                      max="10"
+                      disabled={isSubmitting}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="scaleMax">Valor Máximo</label>
+                    <input
+                      id="scaleMax"
+                      type="number"
+                      value={formData.scaleMax}
+                      onChange={(e) => handleInputChange('scaleMax', parseInt(e.target.value))}
+                      min="2"
+                      max="10"
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Sección Desplegable: Configuración de Visibilidad */}
+            <div className="collapsible-section">
+              <div 
+                className={`collapsible-header ${expandedSections.visibility ? 'active' : ''}`}
+                onClick={() => toggleSection('visibility')}
+              >
+                <h3 className="collapsible-title">Configuración de Visibilidad</h3>
+                <span className="collapsible-icon">▼</span>
+              </div>
+              <div className={`collapsible-content ${expandedSections.visibility ? 'expanded' : 'collapsed'}`}>
+                <p className="section-description">
+                  Define quién puede acceder y tomar este test de evaluación.
+                </p>
+                
+                <div className="visibility-compact">
+                  <div 
+                    className={`visibility-compact-option ${formData.visibility === 'private' ? 'selected' : ''}`}
+                    onClick={() => !isSubmitting && handleInputChange('visibility', 'private')}
+                  >
+                    <span className="visibility-compact-icon">🏢</span>
+                    <div className="visibility-compact-content">
+                      <div className="visibility-compact-title">Privado</div>
+                      <div className="visibility-compact-description">
+                        Solo organizaciones específicas
+                      </div>
+                    </div>
+                  </div>
                   
-                  return (
-                    <button
-                      key={category.id}
-                      type="button"
-                      onClick={() => setActiveCategoryId(category.id)}
-                      className={`category-tab ${isActive ? 'active' : ''}`}
-                      style={{ 
-                        borderLeftColor: category.color,
-                        backgroundColor: isActive ? `${category.color}15` : 'transparent'
-                      }}
-                    >
-                      <div className="category-tab-content">
-                        <div className="category-tab-header">
-                          <span 
-                            className="category-color-dot"
-                            style={{ backgroundColor: category.color }}
-                          />
-                          <span className="category-name">{category.name}</span>
-                          <span className="questions-count">{categoryQuestions.length}</span>
-                          {negativeQuestions > 0 && (
-                            <span className="negative-indicator" title={`${negativeQuestions} pregunta(s) negativa(s)`}>
-                              ↻
-                            </span>
+                  <div 
+                    className={`visibility-compact-option ${formData.visibility === 'public' ? 'selected' : ''}`}
+                    onClick={() => !isSubmitting && handleInputChange('visibility', 'public')}
+                  >
+                    <span className="visibility-compact-icon">🌍</span>
+                    <div className="visibility-compact-content">
+                      <div className="visibility-compact-title">Público</div>
+                      <div className="visibility-compact-description">
+                        Acceso libre para todos
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Selector de Organizaciones (solo para tests privados y Super Admin) */}
+                {isSuperAdmin && formData.visibility === 'private' && (
+                  <div className="organizations-selector">
+                    <h4>Seleccionar Organizaciones</h4>
+                    <p className="selector-description">
+                      Elige qué organizaciones podrán acceder a este test. Solo sus miembros podrán verlo y tomarlo.
+                    </p>
+                    
+                    {loadingOrgs ? (
+                      <p className="loading-message">Cargando organizaciones...</p>
+                    ) : (
+                      <>
+                        <div className="selector-actions">
+                          <button
+                            type="button"
+                            onClick={() => handleSelectAllOrgs(true)}
+                            className="btn-select-action"
+                            disabled={isSubmitting}
+                          >
+                            Seleccionar Todas
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSelectAllOrgs(false)}
+                            className="btn-select-action"
+                            disabled={isSubmitting}
+                          >
+                            Desseleccionar Todas
+                          </button>
+                          <span className="selection-count">
+                            {formData.allowedOrgs.length} de {organizations.length} seleccionadas
+                          </span>
+                        </div>
+
+                        <div className="organizations-list">
+                          {organizations.length === 0 ? (
+                            <p className="no-organizations">No hay organizaciones disponibles</p>
+                          ) : (
+                            organizations.map(org => (
+                              <label key={org.orgId} className="org-checkbox-label">
+                                <input
+                                  type="checkbox"
+                                  checked={formData.allowedOrgs.includes(org.orgId)}
+                                  onChange={() => handleOrgToggle(org.orgId)}
+                                  disabled={isSubmitting}
+                                  className="org-checkbox"
+                                />
+                                <div className="org-info">
+                                  <span className="org-name">{org.name || org.orgId}</span>
+                                  <span className="org-id">{org.orgId}</span>
+                                </div>
+                              </label>
+                            ))
                           )}
                         </div>
-                        {category.description && (
-                          <div className="category-description-small">
-                            {category.description}
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Panel Principal de Preguntas */}
-            <div className="questions-panel">
-              {activeCategoryId && (() => {
-                const activeCategory = getActiveCategory();
-                const categoryQuestions = getQuestionsForCategory(activeCategoryId);
-                
-                return (
-                  <div className="category-questions-panel">
-                    <div className="panel-header">
-                      <div className="panel-title">
-                        <span 
-                          className="category-icon"
-                          style={{ color: activeCategory.color }}
-                        >
-                          ●
-                        </span>
-                        <h4 style={{ color: activeCategory.color }}>
-                          {activeCategory.name}
-                        </h4>
-                        <span className="questions-count-badge">
-                          {categoryQuestions.length} preguntas
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => addCustomQuestion(activeCategoryId)}
-                        disabled={isSubmitting}
-                        className="btn-add-question-primary"
-                      >
-                        + Agregar Pregunta
-                      </button>
-                    </div>
-                    
-                    {activeCategory.description && (
-                      <div className="category-description-panel">
-                        {activeCategory.description}
-                      </div>
-                    )}
-                    
-                    <div className="questions-list">
-                      {categoryQuestions.map((question, questionIndex) => (
-                        <div 
-                          key={question.id} 
-                          className={`question-item ${question.isNegative ? 'question-negative' : 'question-positive'}`}
-                        >
-                          <div className="question-content">
-                            <div className="question-header">
-                              <div className="question-header-left">
-                                <span 
-                                  className={`question-status-indicator ${question.isNegative ? 'negative' : 'positive'}`}
-                                  title={question.isNegative ? 'Pregunta Negativa' : 'Pregunta Positiva'}
-                                >
-                                  {question.isNegative ? '↻' : '✓'}
-                                </span>
-                                <span className="question-number">
-                                  Pregunta {questionIndex + 1}
-                                </span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => removeCustomQuestion(question.id)}
-                                disabled={isSubmitting}
-                                className="btn-remove-question"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                            <textarea
-                              value={question.text}
-                              onChange={(e) => updateCustomQuestion(question.id, 'text', e.target.value)}
-                              placeholder={`Pregunta para ${activeCategory.name.toLowerCase()}...`}
-                              disabled={isSubmitting}
-                              rows={3}
-                              className="question-text"
-                            />
-                            <div className="question-settings">
-                              <div className="negative-toggle">
-                                <label className="toggle-label">
-                                  <input
-                                    type="checkbox"
-                                    checked={question.isNegative || false}
-                                    onChange={(e) => updateCustomQuestion(question.id, 'isNegative', e.target.checked)}
-                                    disabled={isSubmitting}
-                                    className="toggle-input"
-                                  />
-                                  <span className={`toggle-slider ${question.isNegative ? 'toggle-negative' : 'toggle-positive'}`}></span>
-                                  <span className="toggle-text">
-                                    {question.isNegative ? 'Pregunta Negativa' : 'Pregunta Positiva'}
-                                  </span>
-                                </label>
-                                <span className="toggle-description">
-                                  {question.isNegative 
-                                    ? 'Esta pregunta se valorará al revés (5→1, 4→2, etc.)' 
-                                    : 'Esta pregunta se valorará normalmente (1→1, 5→5)'
-                                  }
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                      
-                      {categoryQuestions.length === 0 && (
-                        <div className="no-questions">
-                          <div className="no-questions-content">
-                            <span className="no-questions-icon">❓</span>
-                            <h5>No hay preguntas personalizadas</h5>
-                            <p>Agrega preguntas específicas para esta categoría o déjala vacía para usar preguntas automáticas.</p>
-                            <button
-                              type="button"
-                              onClick={() => addCustomQuestion(activeCategoryId)}
-                              disabled={isSubmitting}
-                              className="btn-add-first-question"
-                            >
-                              + Agregar Primera Pregunta
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
+        {/* Sección Unificada: Gestión de Categorías, Subdimensiones y Preguntas */}
+        <div className="form-section">
+          <div className="unified-header">
+            <h3>Gestión de Test</h3>
+            <p className="section-description">
+              Crea y organiza categorías, subdimensiones y preguntas en una sola interfaz. 
+              Las subdimensiones permiten agrupar preguntas relacionadas dentro de cada categoría.
+            </p>
           </div>
+          
+          <UnifiedTestManagement
+            formData={formData}
+            setFormData={setFormData}
+            isSubmitting={isSubmitting}
+            handleCategoryChange={handleCategoryChange}
+            handleConditionalRuleChange={handleConditionalRuleChange}
+            updateSubdimension={updateSubdimension}
+            addSubdimension={addSubdimension}
+            removeSubdimension={removeSubdimension}
+            getQuestionsForCategory={getQuestionsForCategory}
+            getQuestionsForSubdimension={getQuestionsForSubdimension}
+            addCustomQuestion={addCustomQuestion}
+            updateCustomQuestion={updateCustomQuestion}
+            removeCustomQuestion={removeCustomQuestion}
+            getQuestionText={getQuestionText}
+            getOperatorText={getOperatorText}
+            addCategory={addCategory}
+            removeCategory={removeCategory}
+          />
         </div>
 
         {error && (

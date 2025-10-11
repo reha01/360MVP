@@ -147,8 +147,14 @@ service cloud.firestore {
       // Leer: todos los usuarios autenticados pueden leer tests globales
       allow read: if isSignedIn();
       
-      // Escribir: solo Super Admin
-      allow write: if isSuperAdmin();
+      // Crear: solo Super Admin
+      allow create: if isSuperAdmin();
+      
+      // Actualizar: solo Super Admin
+      allow update: if isSuperAdmin();
+      
+      // Eliminar: solo Super Admin
+      allow delete: if isSuperAdmin();
     }
     
     // ============================================

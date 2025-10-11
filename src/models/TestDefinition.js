@@ -25,6 +25,20 @@ export const SCORING_METHODS = {
   CUSTOM: 'custom'
 };
 
+// Operadores condicionales
+export const CONDITIONAL_OPERATORS = {
+  EQUALS: 'equals',
+  NOT_EQUALS: 'not_equals',
+  GREATER_THAN: 'greater_than',
+  LESS_THAN: 'less_than'
+};
+
+// Acciones condicionales
+export const CONDITIONAL_ACTIONS = {
+  EXCLUDE_FROM_SCORING: 'exclude_from_scoring',
+  MARK_AS_NOT_APPLICABLE: 'mark_as_not_applicable'
+};
+
 /**
  * Crear una definición de test por defecto
  */
@@ -50,48 +64,88 @@ export const createDefaultTestDefinition = (orgId, testId, title) => {
       {
         id: 'leadership',
         name: 'Liderazgo',
+        description: '',
         color: '#3b82f6',
-        weight: 1
+        weight: 1,
+        isConditional: false,
+        conditionalRule: null,
+        subdimensions: [
+          {
+            id: 'leadership_vision',
+            name: 'Visión Estratégica',
+            description: '',
+            weight: 1
+          }
+        ]
       },
       {
         id: 'communication',
         name: 'Comunicación',
+        description: '',
         color: '#10b981',
-        weight: 1
+        weight: 1,
+        isConditional: false,
+        conditionalRule: null,
+        subdimensions: [
+          {
+            id: 'communication_verbal',
+            name: 'Comunicación Verbal',
+            description: '',
+            weight: 1
+          }
+        ]
       },
       {
         id: 'teamwork',
         name: 'Trabajo en Equipo',
+        description: '',
         color: '#f59e0b',
-        weight: 1
+        weight: 1,
+        isConditional: false,
+        conditionalRule: null,
+        subdimensions: [
+          {
+            id: 'teamwork_collaboration',
+            name: 'Colaboración',
+            description: '',
+            weight: 1
+          }
+        ]
       }
     ],
     questions: [
       {
-        id: 'q_leadership_1',
+        id: 'P_CAT1_SUB1_Q1',
         category: 'leadership',
+        subdimension: 'leadership_vision',
         text: '¿Cómo evalúas tu liderazgo?',
         weight: 1,
         type: QUESTION_TYPES.SCALE,
+        isNegative: false,
         help: 'Evalúa tu capacidad para liderar equipos'
       },
       {
-        id: 'q_communication_1',
+        id: 'P_CAT2_SUB1_Q1',
         category: 'communication',
+        subdimension: 'communication_verbal',
         text: '¿Cómo evalúas tu comunicación?',
         weight: 1,
         type: QUESTION_TYPES.SCALE,
+        isNegative: false,
         help: 'Evalúa tu habilidad para comunicarte efectivamente'
       },
       {
-        id: 'q_teamwork_1',
+        id: 'P_CAT3_SUB1_Q1',
         category: 'teamwork',
+        subdimension: 'teamwork_collaboration',
         text: '¿Cómo evalúas tu trabajo en equipo?',
         weight: 1,
         type: QUESTION_TYPES.SCALE,
+        isNegative: false,
         help: 'Evalúa tu capacidad para colaborar en equipo'
       }
     ],
+    conditionalRules: [],
     scoring: {
       method: SCORING_METHODS.WEIGHTED_AVERAGE,
       rules: {}
@@ -154,6 +208,21 @@ export const validateTestDefinition = (testDefinition) => {
       if (typeof category.weight !== 'number' || category.weight <= 0) {
         errors.push(`Categoría ${index + 1}: Peso debe ser > 0`);
       }
+      
+      // Validar subdimensiones
+      if (category.subdimensions && category.subdimensions.length > 0) {
+        category.subdimensions.forEach((subdim, subIndex) => {
+          if (!subdim.id?.trim()) {
+            errors.push(`Categoría ${index + 1}, Subdimensión ${subIndex + 1}: ID es requerido`);
+          }
+          if (!subdim.name?.trim()) {
+            errors.push(`Categoría ${index + 1}, Subdimensión ${subIndex + 1}: Nombre es requerido`);
+          }
+          if (typeof subdim.weight !== 'number' || subdim.weight <= 0) {
+            errors.push(`Categoría ${index + 1}, Subdimensión ${subIndex + 1}: Peso debe ser > 0`);
+          }
+        });
+      }
     });
   }
 
@@ -176,9 +245,15 @@ export const validateTestDefinition = (testDefinition) => {
       }
       
       // Verificar que la categoría existe
-      const categoryExists = testDefinition.categories.some(cat => cat.id === question.category);
-      if (!categoryExists) {
+      const category = testDefinition.categories.find(cat => cat.id === question.category);
+      if (!category) {
         errors.push(`Pregunta ${index + 1}: Categoría "${question.category}" no existe`);
+      } else if (question.subdimension) {
+        // Verificar que la subdimensión existe dentro de la categoría
+        const subdimensionExists = category.subdimensions?.some(sub => sub.id === question.subdimension);
+        if (!subdimensionExists) {
+          errors.push(`Pregunta ${index + 1}: Subdimensión "${question.subdimension}" no existe en categoría "${question.category}"`);
+        }
       }
     });
   }
@@ -208,5 +283,75 @@ export const parseTestDocId = (docId) => {
     orgId: parts[0],
     testId: parts[1],
     version: parts[2]
+  };
+};
+
+/**
+ * Generar ID único para pregunta
+ * Formato: P_CAT{catIndex}_SUB{subIndex}_Q{qIndex}
+ */
+export const generateQuestionId = (categoryIndex, subdimensionIndex, questionIndex) => {
+  const catNum = String(categoryIndex + 1).padStart(1, '0');
+  const subNum = String(subdimensionIndex + 1).padStart(1, '0');
+  const qNum = String(questionIndex + 1).padStart(1, '0');
+  return `P_CAT${catNum}_SUB${subNum}_Q${qNum}`;
+};
+
+/**
+ * Regenerar todos los IDs de preguntas en un test
+ * (Solo usar al crear tests, no al editar)
+ */
+export const regenerateQuestionIds = (testDefinition) => {
+  const updatedQuestions = [];
+  
+  testDefinition.categories.forEach((category, catIndex) => {
+    const subdimensions = category.subdimensions || [];
+    
+    subdimensions.forEach((subdimension, subIndex) => {
+      // Encontrar todas las preguntas de esta subdimensión
+      const subdimQuestions = testDefinition.questions.filter(
+        q => q.category === category.id && q.subdimension === subdimension.id
+      );
+      
+      subdimQuestions.forEach((question, qIndex) => {
+        updatedQuestions.push({
+          ...question,
+          id: generateQuestionId(catIndex, subIndex, qIndex)
+        });
+      });
+    });
+  });
+  
+  return {
+    ...testDefinition,
+    questions: updatedQuestions
+  };
+};
+
+/**
+ * Crear una nueva subdimensión por defecto
+ */
+export const createDefaultSubdimension = (categoryId, index) => {
+  return {
+    id: `${categoryId}_sub${index + 1}`,
+    name: `Subdimensión ${index + 1}`,
+    description: '',
+    weight: 1
+  };
+};
+
+/**
+ * Crear una nueva regla condicional por defecto
+ */
+export const createDefaultConditionalRule = (categoryId) => {
+  return {
+    id: `rule_${Date.now()}`,
+    categoryId,
+    condition: {
+      questionId: '',
+      operator: CONDITIONAL_OPERATORS.EQUALS,
+      value: null
+    },
+    action: CONDITIONAL_ACTIONS.EXCLUDE_FROM_SCORING
   };
 };
