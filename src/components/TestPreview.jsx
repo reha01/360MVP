@@ -92,7 +92,7 @@ const TestPreview = ({ testDefinition, onClose }) => {
             />
           </div>
           <div className="progress-text">
-            {currentQuestionIndex + 1} de {questions.length}
+            Pregunta {currentQuestionIndex + 1} de {questions.length}
           </div>
         </div>
 
