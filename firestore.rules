@@ -102,6 +102,158 @@ service cloud.firestore {
       }
       
       // ============================================
+      // Organizational Structure Subcollection (NUEVO)
+      // ============================================
+      
+      match /orgStructure/{areaId} {
+        // Leer: todos los miembros de la org
+        allow read: if isMemberOf(orgId);
+        
+        // Crear/Actualizar/Eliminar: solo admin u owner
+        allow create: if isAdminOrOwner(orgId) && 
+                         request.resource.data.orgId == orgId;
+        
+        allow update: if isAdminOrOwner(orgId) &&
+                         resource.data.orgId == orgId;
+        
+        allow delete: if isAdminOrOwner(orgId) &&
+                         resource.data.orgId == orgId;
+      }
+      
+      // ============================================
+      // Job Families Subcollection (NUEVO)
+      // ============================================
+      
+      match /jobFamilies/{familyId} {
+        // Leer: todos los miembros de la org
+        allow read: if isMemberOf(orgId);
+        
+        // Crear/Actualizar/Eliminar: solo admin u owner
+        allow create: if isAdminOrOwner(orgId) && 
+                         request.resource.data.orgId == orgId;
+        
+        allow update: if isAdminOrOwner(orgId) &&
+                         resource.data.orgId == orgId;
+        
+        allow delete: if isAdminOrOwner(orgId) &&
+                         resource.data.orgId == orgId;
+      }
+      
+      // ============================================
+      // Campaigns Subcollection (NUEVO)
+      // ============================================
+      
+      match /campaigns/{campaignId} {
+        // Leer: todos los miembros de la org
+        allow read: if isMemberOf(orgId);
+        
+        // Crear/Actualizar/Eliminar: solo admin u owner
+        allow create: if isAdminOrOwner(orgId) && 
+                         request.resource.data.orgId == orgId;
+        
+        allow update: if isAdminOrOwner(orgId) &&
+                         resource.data.orgId == orgId;
+        
+        allow delete: if isAdminOrOwner(orgId) &&
+                         resource.data.orgId == orgId;
+      }
+      
+      // ============================================
+      // Evaluation360Sessions Subcollection (NUEVO)
+      // ============================================
+      
+      match /evaluation360Sessions/{session360Id} {
+        // Leer: todos los miembros de la org
+        allow read: if isMemberOf(orgId);
+        
+        // Crear/Actualizar/Eliminar: solo admin u owner
+        allow create: if isAdminOrOwner(orgId) && 
+                         request.resource.data.orgId == orgId;
+        
+        allow update: if isAdminOrOwner(orgId) &&
+                         resource.data.orgId == orgId;
+        
+        allow delete: if isAdminOrOwner(orgId) &&
+                         resource.data.orgId == orgId;
+      }
+      
+      // ============================================
+      // EvaluatorAssignments Subcollection (NUEVO)
+      // ============================================
+      
+      match /evaluatorAssignments/{assignmentId} {
+        // Leer: todos los miembros de la org
+        allow read: if isMemberOf(orgId);
+        
+        // Crear/Actualizar/Eliminar: solo admin u owner
+        allow create: if isAdminOrOwner(orgId) && 
+                         request.resource.data.orgId == orgId;
+        
+        allow update: if isAdminOrOwner(orgId) &&
+                         resource.data.orgId == orgId;
+        
+        allow delete: if isAdminOrOwner(orgId) &&
+                         resource.data.orgId == orgId;
+      }
+      
+      // ============================================
+      // Evaluation360Responses Subcollection (NUEVO)
+      // ============================================
+      
+      match /evaluation360Responses/{responseId} {
+        // Leer: todos los miembros de la org
+        allow read: if isMemberOf(orgId);
+        
+        // Crear/Actualizar/Eliminar: solo admin u owner
+        allow create: if isAdminOrOwner(orgId) && 
+                         request.resource.data.orgId == orgId;
+        
+        allow update: if isAdminOrOwner(orgId) &&
+                         resource.data.orgId == orgId;
+        
+        allow delete: if isAdminOrOwner(orgId) &&
+                         resource.data.orgId == orgId;
+      }
+      
+      // ============================================
+      // Evaluation360Aggregations Subcollection (NUEVO)
+      // ============================================
+      
+      match /evaluation360Aggregations/{aggregationId} {
+        // Leer: todos los miembros de la org
+        allow read: if isMemberOf(orgId);
+        
+        // Crear/Actualizar/Eliminar: solo admin u owner
+        allow create: if isAdminOrOwner(orgId) && 
+                         request.resource.data.orgId == orgId;
+        
+        allow update: if isAdminOrOwner(orgId) &&
+                         resource.data.orgId == orgId;
+        
+        allow delete: if isAdminOrOwner(orgId) &&
+                         resource.data.orgId == orgId;
+      }
+      
+      // ============================================
+      // Reports360 Subcollection (NUEVO)
+      // ============================================
+      
+      match /reports360/{reportId} {
+        // Leer: todos los miembros de la org
+        allow read: if isMemberOf(orgId);
+        
+        // Crear/Actualizar/Eliminar: solo admin u owner
+        allow create: if isAdminOrOwner(orgId) && 
+                         request.resource.data.orgId == orgId;
+        
+        allow update: if isAdminOrOwner(orgId) &&
+                         resource.data.orgId == orgId;
+        
+        allow delete: if isAdminOrOwner(orgId) &&
+                         resource.data.orgId == orgId;
+      }
+      
+      // ============================================
       // Evaluation Sessions Subcollection (NUEVO)
       // ============================================
       

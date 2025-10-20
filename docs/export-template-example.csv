@@ -1,0 +1,38 @@
+# PLANTILLA DE EXPORT - RESULTADOS DE CAMPAÑA 360°
+# Generado: 2025-01-20T15:30:00Z
+# Campaña: Evaluación 360° Q1 2025
+# Organización: Empresa ABC S.A.
+# Test: Liderazgo Ejecutivo@v3
+# Checksum: a3f5b8c2d1e4f9a7
+
+# METADATA
+export_id,campaign_id,org_id,exported_by,exported_at,test_snapshot,record_count,format,version
+exp_abc123,camp_q1_2025,org_abc,user_admin01,2025-01-20T15:30:00Z,leadership_v3,47,csv,1.0
+
+# RESULTADOS AGREGADOS (SIN PII DE EVALUADORES ANÓNIMOS)
+evaluatee_id,evaluatee_name,test_id,test_version,overall_score,overall_level,self_score,managers_score,managers_count,peers_score,peers_count,subordinates_score,subordinates_count,category_leadership,category_communication,category_teamwork,status,completed_at
+eval_001,Juan Pérez,leadership,v3,4.2,advanced,4.5,4.0,2,4.1,5,3.9,8,4.3,4.2,4.0,completed,2025-01-18T10:30:00Z
+eval_002,María García,leadership,v3,3.8,advanced,4.0,3.9,1,3.7,4,3.6,6,3.9,3.8,3.7,completed,2025-01-19T14:20:00Z
+eval_003,Carlos López,leadership,v3,4.5,expert,4.8,4.6,2,4.4,5,4.3,10,4.6,4.5,4.4,completed,2025-01-17T09:15:00Z
+eval_004,Ana Martínez,leadership,v3,3.5,intermediate,3.8,3.6,1,3.4,3,null,2,3.6,3.5,3.4,completed,2025-01-20T11:45:00Z
+
+# NOTAS:
+# - Scores: Escala 1.0-5.0 (1=muy bajo, 5=muy alto)
+# - Levels: beginner(<1.5), developing(1.5-2.5), intermediate(2.5-3.5), advanced(3.5-4.5), expert(4.5+)
+# - null: Grupo no mostrado por no cumplir umbral de anonimato
+# - *_count: Número de evaluadores que respondieron (NO identidades)
+# - Este export NO incluye nombres/emails de evaluadores anónimos
+# - Para verificar integridad: calcular SHA-256 de sección RESULTADOS AGREGADOS y comparar con checksum
+
+# ESTADÍSTICAS DE PARTICIPACIÓN (AGREGADAS)
+total_evaluatees,total_invitations,completion_rate,avg_response_time_hours,threshold_issues
+47,523,89.3%,18.5,3
+
+# GRUPOS CON UMBRAL NO CUMPLIDO (SUMMARY)
+evaluatee_id,rater_type,actual_count,required_threshold,reason
+eval_004,subordinates,2,3,Umbral de anonimato no cumplido
+eval_015,peers,2,3,Umbral de anonimato no cumplido
+eval_032,subordinates,1,3,Umbral de anonimato no cumplido
+
+# FIN DEL EXPORT
+

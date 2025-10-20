@@ -15,6 +15,11 @@ import Credits from './pages/Credits.jsx';
 import FeatureAwareOrgProcesses from './pages/FeatureAwareOrgProcesses.jsx';
 import InvitePage from './pages/InvitePage.jsx';
 import AnalyticsDashboard from './pages/AnalyticsDashboard.jsx';
+import OrgStructurePage from './pages/OrgStructurePage.jsx';
+import JobFamilyPage from './pages/JobFamilyPage.jsx';
+import CampaignPage from './pages/CampaignPage.jsx';
+import EvaluationLandingPage from './pages/EvaluationLandingPage.jsx';
+import Evaluation360Page from './pages/Evaluation360Page.jsx';
 
 function AppRouter() {
   return (
@@ -146,6 +151,51 @@ function AppRouter() {
       >
         <Route index element={<div>Reports Page</div>} />
       </Route>
+      
+      <Route 
+        path={ROUTES.ORG_STRUCTURE}
+        element={
+          <ProtectedRoute>
+            <AppShell />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<OrgStructurePage />} />
+      </Route>
+      
+      <Route 
+        path={ROUTES.JOB_FAMILIES}
+        element={
+          <ProtectedRoute>
+            <AppShell />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<JobFamilyPage />} />
+      </Route>
+      
+      <Route 
+        path={ROUTES.CAMPAIGNS}
+        element={
+          <ProtectedRoute>
+            <AppShell />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<CampaignPage />} />
+      </Route>
+      
+      {/* Ruta pública para evaluadores con token */}
+      <Route 
+        path="/eval/:token"
+        element={<EvaluationLandingPage />}
+      />
+      
+      {/* Ruta para evaluación 360° */}
+      <Route 
+        path="/evaluation360/:token"
+        element={<Evaluation360Page />}
+      />
       
       <Route 
         path="/settings"

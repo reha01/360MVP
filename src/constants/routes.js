@@ -8,4 +8,7 @@ export const ROUTES = {
   EVALUATION_PARAM: '/evaluation/:evaluationId',
   REPORT_VIEW: '/report/:reportId',
   CREDITS: '/credits',
+  ORG_STRUCTURE: '/org-structure',
+  JOB_FAMILIES: '/job-families',
+  CAMPAIGNS: '/campaigns'
 };
