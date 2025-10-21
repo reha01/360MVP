@@ -12,6 +12,7 @@ import React from 'react';
 import { useMultiTenant } from '../hooks/useMultiTenant';
 import { useAuth } from '../context/AuthContext';
 import { useFeatureFlags } from '../hooks/useFeatureFlags';
+import CampaignComparison from '../components/comparison/CampaignComparison';
 import { Alert, Spinner } from '../components/ui';
 
 const ComparisonPage = () => {
@@ -68,33 +69,9 @@ const ComparisonPage = () => {
     );
   }
   
-  // Verificar feature flag
-  if (!comparisonEnabled) {
-    return (
-      <div className="max-w-4xl mx-auto p-6">
-        <Alert type="info">
-          <Alert.Title>Función no disponible</Alert.Title>
-          <Alert.Description>
-            Las comparativas entre campañas están en desarrollo. Esta función estará disponible próximamente.
-          </Alert.Description>
-        </Alert>
-      </div>
-    );
-  }
-  
   return (
-    <div className="max-w-7xl mx-auto p-6" data-testid="comparison-page">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Comparativas entre Campañas</h1>
-        <p className="text-gray-600">Compara resultados entre diferentes campañas de evaluación</p>
-      </div>
-      
-      <Alert type="info">
-        <Alert.Title>En Desarrollo</Alert.Title>
-        <Alert.Description>
-          Esta funcionalidad está siendo implementada. Próximamente podrás comparar campañas con disclaimers automáticos por diferencias de versión.
-        </Alert.Description>
-      </Alert>
+    <div data-testid="comparison-page">
+      <CampaignComparison />
     </div>
   );
 };

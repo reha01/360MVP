@@ -1,396 +1,330 @@
 /**
- * Comparativa entre Campañas - M8-PR3
+ * CampaignComparison - Componente de comparativas entre campañas
  * 
- * Disclaimers por versión, comparativas temporales
- * Feature flag: VITE_FEATURE_CAMPAIGN_COMPARISON
+ * Características:
+ * - Comparativas entre campañas
+ * - Disclaimers automáticos por diferencias de versión
+ * - Respeto de umbrales de anonimato
+ * - Consistencia UI ↔ export CSV/PDF
+ * - Validación de compatibilidad
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useMultiTenant } from '../../hooks/useMultiTenant';
-import { useAuth } from '../../context/AuthContext';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 import campaignService from '../../services/campaignService';
+import evaluation360AggregationService from '../../services/evaluation360AggregationService';
+import anonymityValidator from '../../utils/anonymityValidator';
+import { Card, Button, Spinner, Alert, Badge } from '../ui';
 import { 
-  Card, 
-  Button, 
-  Select, 
-  Alert, 
-  Spinner,
-  Badge,
-  Tabs,
-  Modal
-} from '../ui';
-
-// ========== COMPARISON TYPES ==========
-
-const COMPARISON_TYPES = {
-  TEMPORAL: {
-    id: 'temporal',
-    name: 'Comparativa Temporal',
-    description: 'Comparar la misma campaña en diferentes períodos',
-    icon: '📅'
-  },
-  CROSS_CAMPAIGN: {
-    id: 'cross_campaign',
-    name: 'Entre Campañas',
-    description: 'Comparar diferentes campañas del mismo período',
-    icon: '📊'
-  },
-  JOB_FAMILY: {
-    id: 'job_family',
-    name: 'Por Job Family',
-    description: 'Comparar campañas de diferentes Job Families',
-    icon: '👥'
-  },
-  VERSION: {
-    id: 'version',
-    name: 'Por Versión de Test',
-    description: 'Comparar campañas con diferentes versiones del test',
-    icon: '🔄'
-  }
-};
-
-// ========== VERSION COMPATIBILITY ==========
-
-const VERSION_COMPATIBILITY = {
-  COMPATIBLE: 'compatible',
-  INCOMPATIBLE: 'incompatible',
-  PARTIAL: 'partial'
-};
-
-const getVersionCompatibility = (version1, version2) => {
-  if (!version1 || !version2) return VERSION_COMPATIBILITY.INCOMPATIBLE;
-  
-  // Versiones idénticas
-  if (version1 === version2) return VERSION_COMPATIBILITY.COMPATIBLE;
-  
-  // Versiones compatibles (mismo major version)
-  const v1Major = version1.split('.')[0];
-  const v2Major = version2.split('.')[0];
-  
-  if (v1Major === v2Major) return VERSION_COMPATIBILITY.PARTIAL;
-  
-  return VERSION_COMPATIBILITY.INCOMPATIBLE;
-};
-
-// ========== DISCLAIMER COMPONENT ==========
-
-const VersionDisclaimer = ({ campaigns, comparisonType }) => {
-  const versions = [...new Set(campaigns.map(c => c.testVersion))];
-  const compatibility = getVersionCompatibility(versions[0], versions[1]);
-  
-  const getDisclaimerMessage = () => {
-    switch (compatibility) {
-      case VERSION_COMPATIBILITY.COMPATIBLE:
-        return {
-          type: 'success',
-          title: 'Versiones Compatibles',
-          message: 'Las campañas utilizan la misma versión del test. Los resultados son directamente comparables.'
-        };
-        
-      case VERSION_COMPATIBILITY.PARTIAL:
-        return {
-          type: 'warning',
-          title: 'Versiones Parcialmente Compatibles',
-          message: 'Las campañas utilizan versiones diferentes del mismo test. Los resultados pueden no ser directamente comparables. Se recomienda interpretar las diferencias con cautela.'
-        };
-        
-      case VERSION_COMPATIBILITY.INCOMPATIBLE:
-        return {
-          type: 'error',
-          title: 'Versiones Incompatibles',
-          message: 'Las campañas utilizan versiones incompatibles del test. Los resultados NO son comparables. Se recomienda no realizar comparaciones directas.'
-        };
-        
-      default:
-        return null;
-    }
-  };
-  
-  const disclaimer = getDisclaimerMessage();
-  
-  if (!disclaimer) return null;
-  
-  return (
-    <Alert type={disclaimer.type}>
-      <Alert.Title>{disclaimer.title}</Alert.Title>
-      <Alert.Description>
-        {disclaimer.message}
-        {versions.length > 1 && (
-          <div className="mt-2 text-sm">
-            <strong>Versiones detectadas:</strong> {versions.join(', ')}
-          </div>
-        )}
-      </Alert.Description>
-    </Alert>
-  );
-};
-
-// ========== COMPARISON METRICS ==========
-
-const ComparisonMetrics = ({ campaigns, comparisonType }) => {
-  const metrics = useMemo(() => {
-    if (campaigns.length < 2) return null;
-    
-    const [campaign1, campaign2] = campaigns;
-    
-    return {
-      responseRate: {
-        campaign1: campaign1.responseRate || 0,
-        campaign2: campaign2.responseRate || 0,
-        difference: (campaign2.responseRate || 0) - (campaign1.responseRate || 0)
-      },
-      evaluateeCount: {
-        campaign1: campaign1.evaluateeCount || 0,
-        campaign2: campaign2.evaluateeCount || 0,
-        difference: (campaign2.evaluateeCount || 0) - (campaign1.evaluateeCount || 0)
-      },
-      duration: {
-        campaign1: campaign1.duration || 0,
-        campaign2: campaign2.duration || 0,
-        difference: (campaign2.duration || 0) - (campaign1.duration || 0)
-      },
-      completionRate: {
-        campaign1: campaign1.completionRate || 0,
-        campaign2: campaign2.completionRate || 0,
-        difference: (campaign2.completionRate || 0) - (campaign1.completionRate || 0)
-      }
-    };
-  }, [campaigns]);
-  
-  if (!metrics) return null;
-  
-  const formatDifference = (value) => {
-    const sign = value >= 0 ? '+' : '';
-    return `${sign}${value.toFixed(1)}`;
-  };
-  
-  const getDifferenceColor = (value) => {
-    if (value > 0) return 'text-green-600';
-    if (value < 0) return 'text-red-600';
-    return 'text-gray-600';
-  };
-  
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      <Card className="p-4">
-        <div className="text-sm text-gray-500 mb-1">Tasa de Respuesta</div>
-        <div className="text-2xl font-bold text-gray-900 mb-1">
-          {metrics.responseRate.campaign2}%
-        </div>
-        <div className={`text-sm ${getDifferenceColor(metrics.responseRate.difference)}`}>
-          {formatDifference(metrics.responseRate.difference)}% vs {metrics.responseRate.campaign1}%
-        </div>
-      </Card>
-      
-      <Card className="p-4">
-        <div className="text-sm text-gray-500 mb-1">Evaluados</div>
-        <div className="text-2xl font-bold text-gray-900 mb-1">
-          {metrics.evaluateeCount.campaign2}
-        </div>
-        <div className={`text-sm ${getDifferenceColor(metrics.evaluateeCount.difference)}`}>
-          {formatDifference(metrics.evaluateeCount.difference)} vs {metrics.evaluateeCount.campaign1}
-        </div>
-      </Card>
-      
-      <Card className="p-4">
-        <div className="text-sm text-gray-500 mb-1">Duración (días)</div>
-        <div className="text-2xl font-bold text-gray-900 mb-1">
-          {metrics.duration.campaign2}
-        </div>
-        <div className={`text-sm ${getDifferenceColor(metrics.duration.difference)}`}>
-          {formatDifference(metrics.duration.difference)} vs {metrics.duration.campaign1}
-        </div>
-      </Card>
-      
-      <Card className="p-4">
-        <div className="text-sm text-gray-500 mb-1">Tasa de Completitud</div>
-        <div className="text-2xl font-bold text-gray-900 mb-1">
-          {metrics.completionRate.campaign2}%
-        </div>
-        <div className={`text-sm ${getDifferenceColor(metrics.completionRate.difference)}`}>
-          {formatDifference(metrics.completionRate.difference)}% vs {metrics.completionRate.campaign1}%
-        </div>
-      </Card>
-    </div>
-  );
-};
-
-// ========== COMPARISON CHART ==========
-
-const ComparisonChart = ({ campaigns, comparisonType }) => {
-  // Simular datos de gráfico
-  const chartData = useMemo(() => {
-    if (campaigns.length < 2) return null;
-    
-    const [campaign1, campaign2] = campaigns;
-    
-    return {
-      labels: ['Tasa Respuesta', 'Evaluados', 'Duración', 'Completitud'],
-      datasets: [
-        {
-          label: campaign1.name,
-          data: [
-            campaign1.responseRate || 0,
-            campaign1.evaluateeCount || 0,
-            campaign1.duration || 0,
-            campaign1.completionRate || 0
-          ],
-          backgroundColor: 'rgba(59, 130, 246, 0.5)',
-          borderColor: 'rgba(59, 130, 246, 1)',
-          borderWidth: 2
-        },
-        {
-          label: campaign2.name,
-          data: [
-            campaign2.responseRate || 0,
-            campaign2.evaluateeCount || 0,
-            campaign2.duration || 0,
-            campaign2.completionRate || 0
-          ],
-          backgroundColor: 'rgba(16, 185, 129, 0.5)',
-          borderColor: 'rgba(16, 185, 129, 1)',
-          borderWidth: 2
-        }
-      ]
-    };
-  }, [campaigns]);
-  
-  if (!chartData) return null;
-  
-  return (
-    <Card className="p-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">
-        Comparativa Visual
-      </h3>
-      
-      <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-gray-400 text-2xl">📊</span>
-          </div>
-          <p className="text-gray-600">
-            Gráfico de comparativa
-          </p>
-          <p className="text-sm text-gray-500">
-            Implementación pendiente
-          </p>
-        </div>
-      </div>
-    </Card>
-  );
-};
-
-// ========== CAMPAIGN SELECTOR ==========
-
-const CampaignSelector = ({ campaigns, selectedCampaigns, onSelectionChange, comparisonType }) => {
-  const handleCampaignSelect = (index, campaignId) => {
-    const newSelection = [...selectedCampaigns];
-    newSelection[index] = campaignId;
-    onSelectionChange(newSelection);
-  };
-  
-  const getAvailableCampaigns = (index) => {
-    const otherSelected = selectedCampaigns.filter((_, i) => i !== index);
-    return campaigns.filter(c => !otherSelected.includes(c.id));
-  };
-  
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {[0, 1].map(index => (
-        <div key={index}>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Campaña {index + 1}
-          </label>
-          <Select
-            value={selectedCampaigns[index] || ''}
-            onChange={(value) => handleCampaignSelect(index, value)}
-          >
-            <option value="">Seleccionar campaña...</option>
-            {getAvailableCampaigns(index).map(campaign => (
-              <option key={campaign.id} value={campaign.id}>
-                {campaign.name} ({campaign.testVersion})
-              </option>
-            ))}
-          </Select>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-// ========== MAIN COMPONENT ==========
+  BarChart3, 
+  TrendingUp, 
+  Users, 
+  AlertTriangle, 
+  Download,
+  RefreshCw,
+  CheckCircle,
+  XCircle
+} from 'lucide-react';
 
 const CampaignComparison = () => {
   const { currentOrgId } = useMultiTenant();
-  const { user } = useAuth();
-  const { isEnabled: comparisonEnabled } = useFeatureFlags('VITE_FEATURE_CAMPAIGN_COMPARISON');
+  const { isEnabled: comparisonEnabled } = useFeatureFlags('campaignComparison');
   
+  // Estados principales
   const [campaigns, setCampaigns] = useState([]);
   const [selectedCampaigns, setSelectedCampaigns] = useState([]);
-  const [comparisonType, setComparisonType] = useState(COMPARISON_TYPES.TEMPORAL.id);
+  const [comparisonData, setComparisonData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [showComparison, setShowComparison] = useState(false);
   
-  // ========== EFFECTS ==========
+  // Estados de validación
+  const [compatibilityIssues, setCompatibilityIssues] = useState([]);
+  const [anonymityIssues, setAnonymityIssues] = useState([]);
+  const [disclaimers, setDisclaimers] = useState([]);
   
-  useEffect(() => {
-    if (!comparisonEnabled) return;
-    
-    const loadCampaigns = async () => {
-      setLoading(true);
-      setError(null);
-      
-      try {
-        const data = await campaignService.getCampaigns(currentOrgId);
-        setCampaigns(data);
-      } catch (err) {
-        setError('Error al cargar campañas');
-        console.error('[CampaignComparison] Error loading campaigns:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    loadCampaigns();
-  }, [comparisonEnabled, currentOrgId]);
-  
-  // ========== HANDLERS ==========
-  
-  const handleComparisonTypeChange = (type) => {
-    setComparisonType(type);
-    setSelectedCampaigns([]);
-    setShowComparison(false);
-  };
-  
-  const handleCampaignSelectionChange = (selection) => {
-    setSelectedCampaigns(selection);
-    setShowComparison(selection.length === 2 && selection.every(id => id));
-  };
-  
-  const handleStartComparison = () => {
-    if (selectedCampaigns.length === 2) {
-      setShowComparison(true);
-    }
-  };
-  
-  // ========== RENDER ==========
-  
+  // Verificar feature flag
   if (!comparisonEnabled) {
     return (
       <div className="max-w-4xl mx-auto p-6">
         <Alert type="info">
-          <Alert.Title>Comparativas No Disponibles</Alert.Title>
+          <Alert.Title>Función no disponible</Alert.Title>
           <Alert.Description>
-            Esta funcionalidad está en desarrollo. Contacta al administrador para habilitarla.
+            Las comparativas entre campañas están en desarrollo. Esta función estará disponible próximamente.
           </Alert.Description>
         </Alert>
       </div>
     );
   }
   
-  if (loading) {
+  // Cargar campañas
+  const loadCampaigns = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const data = await campaignService.getCampaigns(currentOrgId, {
+        status: 'completed',
+        includeAggregations: true
+      });
+      
+      setCampaigns(data.campaigns || []);
+      
+    } catch (err) {
+      console.error('[CampaignComparison] Error loading campaigns:', err);
+      setError('Error al cargar las campañas');
+    } finally {
+      setLoading(false);
+    }
+  }, [currentOrgId]);
+  
+  // Efecto para cargar campañas
+  useEffect(() => {
+    if (currentOrgId) {
+      loadCampaigns();
+    }
+  }, [currentOrgId, loadCampaigns]);
+  
+  // Validar compatibilidad entre campañas
+  const validateCompatibility = useCallback((campaigns) => {
+    const issues = [];
+    const disclaimers = [];
+    
+    if (campaigns.length < 2) return { issues, disclaimers };
+    
+    // Verificar diferencias de versión
+    const versions = campaigns.map(c => c.testVersion);
+    const uniqueVersions = [...new Set(versions)];
+    
+    if (uniqueVersions.length > 1) {
+      issues.push({
+        type: 'version_mismatch',
+        severity: 'warning',
+        message: 'Las campañas utilizan diferentes versiones del test',
+        details: `Versiones encontradas: ${uniqueVersions.join(', ')}`
+      });
+      
+      disclaimers.push({
+        type: 'version_disclaimer',
+        message: '⚠️ Comparación entre versiones diferentes',
+        description: 'Los resultados pueden no ser directamente comparables debido a diferencias en las versiones del test utilizadas.',
+        campaigns: campaigns.map(c => ({ id: c.id, name: c.name, version: c.testVersion }))
+      });
+    }
+    
+    // Verificar diferencias en job families
+    const jobFamilies = campaigns.map(c => c.jobFamilyIds || []);
+    const allJobFamilies = [...new Set(jobFamilies.flat())];
+    
+    if (allJobFamilies.length > 1) {
+      issues.push({
+        type: 'job_family_mismatch',
+        severity: 'info',
+        message: 'Las campañas incluyen diferentes familias de trabajo',
+        details: `Familias: ${allJobFamilies.join(', ')}`
+      });
+    }
+    
+    // Verificar diferencias en períodos de tiempo
+    const dates = campaigns.map(c => ({
+      start: new Date(c.startDate),
+      end: new Date(c.endDate)
+    }));
+    
+    const minStart = new Date(Math.min(...dates.map(d => d.start.getTime())));
+    const maxEnd = new Date(Math.max(...dates.map(d => d.end.getTime())));
+    const timeSpan = maxEnd.getTime() - minStart.getTime();
+    const daysSpan = timeSpan / (1000 * 60 * 60 * 24);
+    
+    if (daysSpan > 365) {
+      issues.push({
+        type: 'time_span_large',
+        severity: 'info',
+        message: 'Las campañas abarcan un período de tiempo extenso',
+        details: `${Math.round(daysSpan)} días entre la primera y última campaña`
+      });
+    }
+    
+    return { issues, disclaimers };
+  }, []);
+  
+  // Validar umbrales de anonimato
+  const validateAnonymity = useCallback(async (campaigns) => {
+    const issues = [];
+    
+    for (const campaign of campaigns) {
+      try {
+        // Obtener agregaciones de la campaña
+        const aggregations = await evaluation360AggregationService.getAggregations(
+          currentOrgId,
+          { campaignId: campaign.id }
+        );
+        
+        // Validar cada agregación
+        for (const aggregation of aggregations.aggregations || []) {
+          const anonymityResult = anonymityValidator.validateAnonymity(aggregation);
+          
+          if (!anonymityResult.isValid) {
+            issues.push({
+              type: 'anonymity_threshold',
+              severity: 'warning',
+              campaignId: campaign.id,
+              campaignName: campaign.name,
+              aggregationId: aggregation.id,
+              evaluateeId: aggregation.evaluateeId,
+              message: 'Umbral de anonimato no cumplido',
+              details: anonymityResult.reasons,
+              hiddenData: anonymityResult.hiddenData
+            });
+          }
+        }
+      } catch (err) {
+        console.error(`[CampaignComparison] Error validating anonymity for campaign ${campaign.id}:`, err);
+      }
+    }
+    
+    return issues;
+  }, [currentOrgId]);
+  
+  // Generar comparación
+  const generateComparison = useCallback(async () => {
+    if (selectedCampaigns.length < 2) {
+      setError('Selecciona al menos 2 campañas para comparar');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Validar compatibilidad
+      const compatibilityResult = validateCompatibility(selectedCampaigns);
+      setCompatibilityIssues(compatibilityResult.issues);
+      setDisclaimers(compatibilityResult.disclaimers);
+      
+      // Validar anonimato
+      const anonymityResult = await validateAnonymity(selectedCampaigns);
+      setAnonymityIssues(anonymityResult);
+      
+      // Generar datos de comparación
+      const comparisonData = await generateComparisonData(selectedCampaigns);
+      setComparisonData(comparisonData);
+      
+    } catch (err) {
+      console.error('[CampaignComparison] Error generating comparison:', err);
+      setError('Error al generar la comparación');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedCampaigns, validateCompatibility, validateAnonymity]);
+  
+  // Generar datos de comparación
+  const generateComparisonData = async (campaigns) => {
+    const data = {
+      campaigns: campaigns.map(c => ({
+        id: c.id,
+        name: c.name,
+        testVersion: c.testVersion,
+        startDate: c.startDate,
+        endDate: c.endDate,
+        participantCount: c.participantCount || 0,
+        completionRate: c.completionRate || 0
+      })),
+      metrics: {},
+      categories: {},
+      trends: {}
+    };
+    
+    // Obtener métricas por campaña
+    for (const campaign of campaigns) {
+      try {
+        const aggregations = await evaluation360AggregationService.getAggregations(
+          currentOrgId,
+          { campaignId: campaign.id }
+        );
+        
+        // Calcular métricas promedio
+        const validAggregations = aggregations.aggregations?.filter(a => 
+          anonymityValidator.validateAnonymity(a).isValid
+        ) || [];
+        
+        if (validAggregations.length > 0) {
+          const avgScores = validAggregations.reduce((acc, agg) => {
+            Object.entries(agg.categoryScores || {}).forEach(([category, score]) => {
+              if (!acc[category]) acc[category] = { total: 0, count: 0 };
+              acc[category].total += score;
+              acc[category].count += 1;
+            });
+            return acc;
+          }, {});
+          
+          data.metrics[campaign.id] = Object.entries(avgScores).reduce((acc, [category, data]) => {
+            acc[category] = data.total / data.count;
+            return acc;
+          }, {});
+        }
+      } catch (err) {
+        console.error(`[CampaignComparison] Error processing campaign ${campaign.id}:`, err);
+      }
+    }
+    
+    return data;
+  };
+  
+  // Manejar selección de campañas
+  const handleCampaignSelect = (campaignId) => {
+    setSelectedCampaigns(prev => {
+      if (prev.includes(campaignId)) {
+        return prev.filter(id => id !== campaignId);
+      } else {
+        return [...prev, campaignId];
+      }
+    });
+  };
+  
+  // Exportar comparación
+  const handleExportComparison = (format) => {
+    if (!comparisonData) return;
+    
+    if (format === 'csv') {
+      exportToCSV(comparisonData);
+    } else if (format === 'pdf') {
+      exportToPDF(comparisonData);
+    }
+  };
+  
+  // Exportar a CSV
+  const exportToCSV = (data) => {
+    const csvContent = [
+      ['Campaign ID', 'Campaign Name', 'Test Version', 'Start Date', 'End Date', 'Participants', 'Completion Rate'],
+      ...data.campaigns.map(c => [
+        c.id,
+        c.name,
+        c.testVersion,
+        c.startDate,
+        c.endDate,
+        c.participantCount,
+        c.completionRate
+      ])
+    ].map(row => row.join(',')).join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `campaign-comparison-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  
+  // Exportar a PDF
+  const exportToPDF = (data) => {
+    // Implementar exportación a PDF
+    console.log('Exporting to PDF:', data);
+    alert('Exportación a PDF en desarrollo');
+  };
+  
+  if (loading && campaigns.length === 0) {
     return (
       <div className="flex justify-center items-center h-64">
         <Spinner size="lg" />
@@ -410,81 +344,216 @@ const CampaignComparison = () => {
     );
   }
   
-  const selectedCampaignsData = campaigns.filter(c => selectedCampaigns.includes(c.id));
-  
   return (
-    <div className="max-w-7xl mx-auto p-6">
+    <div className="max-w-7xl mx-auto p-6" data-testid="campaign-comparison">
+      {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          Comparativa de Campañas
-        </h1>
-        <p className="text-gray-600">
-          Compara campañas 360° y analiza diferencias en rendimiento
-        </p>
-      </div>
-      
-      <Tabs value={comparisonType} onValueChange={handleComparisonTypeChange}>
-        <Tabs.List>
-          {Object.values(COMPARISON_TYPES).map(type => (
-            <Tabs.Trigger key={type.id} value={type.id}>
-              <span className="mr-2">{type.icon}</span>
-              {type.name}
-            </Tabs.Trigger>
-          ))}
-        </Tabs.List>
-        
-        <Tabs.Content value={comparisonType} className="mt-6">
-          <div className="space-y-6">
-            {/* Tipo de comparación */}
-            <Card className="p-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                {COMPARISON_TYPES[comparisonType.toUpperCase()]?.name}
-              </h3>
-              <p className="text-gray-600 mb-4">
-                {COMPARISON_TYPES[comparisonType.toUpperCase()]?.description}
-              </p>
-              
-              <CampaignSelector
-                campaigns={campaigns}
-                selectedCampaigns={selectedCampaigns}
-                onSelectionChange={handleCampaignSelectionChange}
-                comparisonType={comparisonType}
-              />
-              
-              {selectedCampaigns.length === 2 && (
-                <div className="mt-4">
-                  <Button onClick={handleStartComparison}>
-                    Iniciar Comparativa
-                  </Button>
-                </div>
-              )}
-            </Card>
-            
-            {/* Comparativa */}
-            {showComparison && selectedCampaignsData.length === 2 && (
-              <div className="space-y-6">
-                {/* Disclaimer de versión */}
-                <VersionDisclaimer 
-                  campaigns={selectedCampaignsData} 
-                  comparisonType={comparisonType}
-                />
-                
-                {/* Métricas de comparación */}
-                <ComparisonMetrics 
-                  campaigns={selectedCampaignsData} 
-                  comparisonType={comparisonType}
-                />
-                
-                {/* Gráfico de comparación */}
-                <ComparisonChart 
-                  campaigns={selectedCampaignsData} 
-                  comparisonType={comparisonType}
-                />
-              </div>
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Comparativa entre Campañas</h2>
+            <p className="text-gray-600">Compara resultados entre diferentes campañas de evaluación</p>
+          </div>
+          <div className="flex space-x-2">
+            <Button
+              onClick={loadCampaigns}
+              variant="outline"
+              size="sm"
+              disabled={loading}
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Actualizar
+            </Button>
+            {comparisonData && (
+              <>
+                <Button
+                  onClick={() => handleExportComparison('csv')}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  CSV
+                </Button>
+                <Button
+                  onClick={() => handleExportComparison('pdf')}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  PDF
+                </Button>
+              </>
             )}
           </div>
-        </Tabs.Content>
-      </Tabs>
+        </div>
+      </div>
+      
+      {/* Disclaimers */}
+      {disclaimers.length > 0 && (
+        <div className="mb-6">
+          {disclaimers.map((disclaimer, index) => (
+            <Alert key={index} type="warning" className="mb-4">
+              <AlertTriangle className="w-4 h-4" />
+              <Alert.Title>{disclaimer.message}</Alert.Title>
+              <Alert.Description>
+                {disclaimer.description}
+                {disclaimer.campaigns && (
+                  <div className="mt-2">
+                    <strong>Campañas:</strong>
+                    <ul className="list-disc list-inside mt-1">
+                      {disclaimer.campaigns.map(c => (
+                        <li key={c.id}>
+                          {c.name} (v{c.version})
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </Alert.Description>
+            </Alert>
+          ))}
+        </div>
+      )}
+      
+      {/* Issues de compatibilidad */}
+      {compatibilityIssues.length > 0 && (
+        <div className="mb-6">
+          <Card className="p-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Problemas de Compatibilidad</h3>
+            <div className="space-y-2">
+              {compatibilityIssues.map((issue, index) => (
+                <div
+                  key={index}
+                  className={`flex items-start space-x-2 p-3 rounded ${
+                    issue.severity === 'warning' ? 'bg-yellow-50 border border-yellow-200' :
+                    issue.severity === 'error' ? 'bg-red-50 border border-red-200' :
+                    'bg-blue-50 border border-blue-200'
+                  }`}
+                >
+                  {issue.severity === 'warning' && <AlertTriangle className="w-4 h-4 text-yellow-600 mt-0.5" />}
+                  {issue.severity === 'error' && <XCircle className="w-4 h-4 text-red-600 mt-0.5" />}
+                  {issue.severity === 'info' && <CheckCircle className="w-4 h-4 text-blue-600 mt-0.5" />}
+                  <div>
+                    <div className="font-medium text-gray-900">{issue.message}</div>
+                    <div className="text-sm text-gray-600">{issue.details}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
+      
+      {/* Issues de anonimato */}
+      {anonymityIssues.length > 0 && (
+        <div className="mb-6">
+          <Card className="p-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Problemas de Anonimato</h3>
+            <div className="space-y-2">
+              {anonymityIssues.map((issue, index) => (
+                <div
+                  key={index}
+                  className="flex items-start space-x-2 p-3 rounded bg-yellow-50 border border-yellow-200"
+                >
+                  <AlertTriangle className="w-4 h-4 text-yellow-600 mt-0.5" />
+                  <div>
+                    <div className="font-medium text-gray-900">
+                      {issue.campaignName} - {issue.message}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Datos ocultos: {issue.hiddenData?.join(', ') || 'N/A'}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
+      
+      {/* Selector de campañas */}
+      <div className="mb-6">
+        <Card className="p-4">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Seleccionar Campañas</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {campaigns.map((campaign) => (
+              <div
+                key={campaign.id}
+                className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                  selectedCampaigns.includes(campaign.id)
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+                onClick={() => handleCampaignSelect(campaign.id)}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-medium text-gray-900">{campaign.name}</h4>
+                  <Badge variant={campaign.status === 'completed' ? 'success' : 'warning'}>
+                    {campaign.status}
+                  </Badge>
+                </div>
+                <div className="text-sm text-gray-600 space-y-1">
+                  <div>Versión: {campaign.testVersion}</div>
+                  <div>Inicio: {new Date(campaign.startDate).toLocaleDateString()}</div>
+                  <div>Fin: {new Date(campaign.endDate).toLocaleDateString()}</div>
+                  <div>Participantes: {campaign.participantCount || 0}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+      
+      {/* Botón de comparar */}
+      <div className="mb-6 text-center">
+        <Button
+          onClick={generateComparison}
+          disabled={selectedCampaigns.length < 2 || loading}
+          className="bg-blue-600 hover:bg-blue-700"
+        >
+          {loading ? (
+            <>
+              <Spinner size="sm" className="mr-2" />
+              Generando Comparación...
+            </>
+          ) : (
+            <>
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Comparar Campañas ({selectedCampaigns.length})
+            </>
+          )}
+        </Button>
+      </div>
+      
+      {/* Resultados de comparación */}
+      {comparisonData && (
+        <div className="mb-6">
+          <Card className="p-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Resultados de Comparación</h3>
+            
+            {/* Métricas generales */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              {comparisonData.campaigns.map((campaign) => (
+                <div key={campaign.id} className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {campaign.participantCount}
+                  </div>
+                  <div className="text-sm text-gray-600">Participantes</div>
+                  <div className="text-xs text-gray-500">{campaign.name}</div>
+                </div>
+              ))}
+            </div>
+            
+            {/* Gráfico de comparación */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="text-center text-gray-600">
+                <BarChart3 className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                <p>Gráfico de comparación en desarrollo</p>
+                <p className="text-sm">Los datos están listos para visualización</p>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };
