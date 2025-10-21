@@ -1,223 +1,270 @@
-# 🚀 **Plan de Acción UAT - Fase 2**
+# 🚀 UAT Action Plan - Fase 2 Implementation
 
-## 📋 **Resumen de Situación**
+**Fecha:** 21 de Octubre 2024  
+**Status:** ⚠️ UAT Failed (Expected)  
+**Próximo Paso:** Implementar funcionalidades de Fase 2  
 
-**Estado Actual:** ❌ **NO GO** - Funcionalidades Fase 2 no implementadas  
-**Próximo Paso:** Implementar todas las funcionalidades antes de UAT  
-**Timeline:** 2-3 semanas implementación + 1 semana validación  
+## 🎯 **Resumen del Estado Actual**
 
----
+### **✅ Completado**
+- [x] **UAT Tests creados** - 222 tests para 8 módulos
+- [x] **Fixtures preparados** - Datos de prueba para 2 orgs piloto
+- [x] **Infraestructura lista** - Playwright, cross-env, scripts
+- [x] **Staging estable** - Base funcionando, sin funcionalidades Fase 2
 
-## 🎯 **Objetivos**
+### **❌ Pendiente**
+- [ ] **Implementar funcionalidades** - Todas las páginas y componentes
+- [ ] **Desplegar en Staging** - Con feature flags OFF
+- [ ] **Configurar orgs piloto** - Habilitar flags para testing
+- [ ] **Poblar datos de prueba** - Ejecutar fixtures
+- [ ] **Re-ejecutar UAT** - Validar implementación
 
-1. **Implementar todas las funcionalidades de Fase 2**
-2. **Configurar sistema de feature flags**
-3. **Desplegar en Staging con datos de prueba**
-4. **Ejecutar UAT completo y exitoso**
-5. **Cumplir todos los criterios de aceptación**
+## 📋 **Plan de Implementación**
 
----
+### **Fase 1: Implementación Core (1-2 días)**
 
-## 📅 **Cronograma Detallado**
+#### **M8-PR1: Dashboards Operativos**
+- [ ] **Crear `OperationalDashboard.jsx`**
+  - [ ] Filtros combinados (fecha, área, job family)
+  - [ ] Paginación y "load more"
+  - [ ] Métricas de performance (p95 < 2s)
+  - [ ] Responsive design
 
-### **Semana 1: Implementación Core**
-**Días 1-2: Dashboards Operativos (M8-PR1)**
-- [ ] Implementar `OperationalDashboard` component
-- [ ] Crear `Pagination` component
-- [ ] Crear `DatePicker` component
-- [ ] Implementar `DashboardPage`
-- [ ] Configurar rutas en `router.jsx`
-- [ ] Implementar filtros y búsqueda
-- [ ] Optimizar performance (p95 < 2s)
+- [ ] **Crear `DashboardPage.jsx`**
+  - [ ] Integración con `OperationalDashboard`
+  - [ ] Manejo de estado y loading
+  - [ ] Error handling
 
-**Días 3-4: Acciones Masivas (M8-PR2)**
-- [ ] Implementar `BulkActionsManager` component
-- [ ] Crear `bulkActionService`
-- [ ] Implementar reenvío de invitaciones
-- [ ] Implementar extensión de deadlines
-- [ ] Configurar colas y DLQ
-- [ ] Implementar auditoría de acciones
+- [ ] **Actualizar routing**
+  - [ ] Agregar ruta `/dashboard-360`
+  - [ ] Proteger con autenticación
+  - [ ] Integrar con `AppShell`
 
-**Día 5: Comparativas (M8-PR3)**
-- [ ] Implementar `CampaignComparison` component
-- [ ] Crear `ComparisonPage`
-- [ ] Implementar disclaimers de versión
-- [ ] Validar umbrales de anonimato
-- [ ] Asegurar consistencia UI ↔ export
+#### **M8-PR2: Acciones Masivas**
+- [ ] **Crear `BulkActionsManager.jsx`**
+  - [ ] Reenvío de invitaciones idempotente
+  - [ ] Extensión de deadlines
+  - [ ] Progreso en tiempo real
+  - [ ] Auditoría completa
 
-### **Semana 2: Políticas y Alertas**
-**Días 1-2: Panel de Políticas (M9-PR1)**
-- [ ] Implementar `PolicyManager` component
-- [ ] Crear `Switch` component
-- [ ] Implementar `PolicyPage`
-- [ ] Implementar regla "solo endurecer"
-- [ ] Crear preview de impacto
-- [ ] Validar aplicación efectiva
+- [ ] **Crear `bulkActionService.js`**
+  - [ ] Lógica de colas y DLQ
+  - [ ] Backoff exponencial
+  - [ ] Manejo de errores
 
-**Días 3-4: Sistema de Alertas (M9-PR2)**
-- [ ] Implementar `AlertManager` component
-- [ ] Crear `AlertPage`
-- [ ] Configurar alertas DLQ
-- [ ] Implementar alertas de cuotas
-- [ ] Configurar alertas de bounces
-- [ ] Implementar enlaces a acciones
+- [ ] **Integrar con campañas**
+  - [ ] Agregar pestaña "Acciones Masivas"
+  - [ ] Filtros y selección múltiple
+  - [ ] Exportación de resultados
 
-**Día 5: Integración y Testing**
-- [ ] Integrar todos los componentes
-- [ ] Configurar feature flags
-- [ ] Testing manual básico
-- [ ] Preparar para despliegue
+#### **M8-PR3: Comparativas entre Campañas**
+- [ ] **Crear `CampaignComparison.jsx`**
+  - [ ] Selección múltiple de campañas
+  - [ ] Disclaimers por versión
+  - [ ] Respeto de umbrales de anonimato
+  - [ ] Consistencia UI ↔ export
 
-### **Semana 3: Despliegue y Validación**
-**Días 1-2: Despliegue en Staging**
-- [ ] Build de producción
-- [ ] Deploy a Firebase Hosting
-- [ ] Configurar feature flags OFF
-- [ ] Verificar funcionalidades básicas
+- [ ] **Crear `ComparisonPage.jsx`**
+  - [ ] Integración con `CampaignComparison`
+  - [ ] Manejo de estado
+  - [ ] Exportación CSV/PDF
 
-**Días 3-4: Datos de Prueba**
-- [ ] Ejecutar script de siembra
-- [ ] Configurar orgs piloto
-- [ ] Verificar datos en Firestore
-- [ ] Configurar email sandbox
+- [ ] **Actualizar routing**
+  - [ ] Agregar ruta `/comparison`
+  - [ ] Proteger con autenticación
 
-**Día 5: UAT Inicial**
-- [ ] Ejecutar tests UAT básicos
-- [ ] Identificar issues críticos
-- [ ] Documentar problemas
+#### **M9-PR1: Panel de Políticas**
+- [ ] **Crear `PolicyManager.jsx`**
+  - [ ] Regla "solo endurecer"
+  - [ ] Preview de impacto
+  - [ ] Configuración de retención
+  - [ ] Zona horaria y DST
 
-### **Semana 4: Corrección y Validación Final**
-**Días 1-3: Corrección de Issues**
-- [ ] Corregir issues P0 (bloqueantes)
-- [ ] Corregir issues P1 (altos)
-- [ ] Re-ejecutar tests UAT
-- [ ] Validar criterios de aceptación
+- [ ] **Crear `PolicyPage.jsx`**
+  - [ ] Integración con `PolicyManager`
+  - [ ] Validación de cambios
+  - [ ] Guardado de políticas
 
-**Días 4-5: Validación Final**
-- [ ] UAT completo exitoso
-- [ ] Documentar resultados
-- [ ] Preparar informe final
-- [ ] Aprobar para producción
+- [ ] **Actualizar routing**
+  - [ ] Agregar ruta `/policies`
+  - [ ] Proteger con autenticación
 
----
+#### **M9-PR2: Alertas**
+- [ ] **Crear `AlertManager.jsx`**
+  - [ ] Alertas operativas (DLQ, cuotas, bounces)
+  - [ ] Filtros y búsqueda
+  - [ ] Resolución y silenciado
+  - [ ] Enlaces a acciones
 
-## 🔧 **Tareas Técnicas Específicas**
+- [ ] **Crear `AlertPage.jsx`**
+  - [ ] Integración con `AlertManager`
+  - [ ] Métricas en tiempo real
+  - [ ] Responsive design
 
-### **1. Configuración de Rutas**
-```javascript
-// src/router.jsx - Agregar rutas Fase 2
-<Route path={ROUTES.DASHBOARD_360} element={<DashboardPage />} />
-<Route path={ROUTES.COMPARISON} element={<ComparisonPage />} />
-<Route path={ROUTES.POLICIES} element={<PolicyPage />} />
-<Route path={ROUTES.ALERTS} element={<AlertPage />} />
-```
+- [ ] **Actualizar routing**
+  - [ ] Agregar ruta `/alerts`
+  - [ ] Proteger con autenticación
 
-### **2. Feature Flags**
-```javascript
-// src/lib/featureFlags.ts - Configurar flags Fase 2
-export const FEATURE_DASHBOARD_360 = false; // OFF por defecto
-export const FEATURE_BULK_ACTIONS = false;
-export const FEATURE_CAMPAIGN_COMPARISON = false;
-export const FEATURE_ORG_POLICIES = false;
-export const FEATURE_OPERATIONAL_ALERTS = false;
-```
+### **Fase 2: Configuración y Despliegue (1 día)**
 
-### **3. Datos de Prueba**
-```bash
-# Ejecutar script de siembra
-node tests/fixtures/seed-data.js
-```
+#### **Feature Flags**
+- [ ] **Actualizar `featureFlags.ts`**
+  - [ ] Agregar flags de Fase 2
+  - [ ] Configurar orgs piloto
+  - [ ] Implementar lógica de habilitación
 
-### **4. Despliegue**
-```bash
-# Build y deploy
-npm run build:staging
-firebase use staging
-firebase deploy --only hosting
-```
+- [ ] **Actualizar `useFeatureFlags.js`**
+  - [ ] Integrar con nuevos flags
+  - [ ] Manejar orgs piloto
+  - [ ] Fallbacks seguros
 
----
+#### **Despliegue en Staging**
+- [ ] **Build y deploy**
+  - [ ] `npm run build:staging`
+  - [ ] `firebase deploy --only hosting`
+  - [ ] Verificar despliegue
 
-## 📊 **Criterios de Éxito**
+- [ ] **Configurar orgs piloto**
+  - [ ] Crear orgs de prueba
+  - [ ] Habilitar flags específicos
+  - [ ] Verificar configuración
 
-### **Técnicos:**
-- [ ] Todas las páginas cargan sin errores 404
-- [ ] Todos los componentes renderizan correctamente
-- [ ] Feature flags funcionan (OFF por defecto)
-- [ ] Datos de prueba están disponibles
-- [ ] Performance p95 < 2s en dashboard
+#### **Datos de Prueba**
+- [ ] **Ejecutar fixtures**
+  - [ ] Poblar orgs piloto
+  - [ ] Crear campañas de prueba
+  - [ ] Generar evaluaciones (≥200)
+  - [ ] Configurar casos borde
 
-### **Funcionales:**
-- [ ] Dashboards operativos funcionan
-- [ ] Acciones masivas ejecutan correctamente
-- [ ] Comparativas muestran disclaimers
-- [ ] Políticas respetan "solo endurecer"
-- [ ] Alertas se generan y resuelven
+- [ ] **Email sandbox**
+  - [ ] Configurar Resend/SendGrid
+  - [ ] Simular bounces/complaints
+  - [ ] Verificar webhooks
 
-### **UAT:**
-- [ ] 100% de tests UAT pasan
-- [ ] Criterios de aceptación cumplidos
-- [ ] No hay issues P0 o P1
-- [ ] Documentación completa
+### **Fase 3: Re-ejecución UAT (1 día)**
 
----
+#### **Preparación**
+- [ ] **Verificar despliegue**
+  - [ ] Páginas accesibles
+  - [ ] Feature flags funcionando
+  - [ ] Datos de prueba cargados
+
+- [ ] **Configurar entorno**
+  - [ ] Variables de entorno
+  - [ ] URLs de staging
+  - [ ] Credenciales de prueba
+
+#### **Ejecución UAT**
+- [ ] **Ejecutar batería completa**
+  - [ ] `npm run test:uat:staging`
+  - [ ] Monitorear resultados
+  - [ ] Capturar evidencias
+
+- [ ] **Validar criterios**
+  - [ ] Performance (p95 < 2s)
+  - [ ] Privacidad (umbrales respetados)
+  - [ ] Versionado (disclaimers)
+  - [ ] Emails (bounces registrados)
+  - [ ] Quotas (bloqueo correcto)
+  - [ ] Tokens (invalidación server-side)
+  - [ ] TZ/DST (hora local correcta)
+  - [ ] Observabilidad (eventos mínimos)
+
+#### **Análisis de Resultados**
+- [ ] **Clasificar fallos**
+  - [ ] P0 (bloqueante)
+  - [ ] P1 (importante)
+  - [ ] P2 (menor)
+
+- [ ] **Crear reporte final**
+  - [ ] Resultados por módulo
+  - [ ] Métricas de performance
+  - [ ] Evidencias (screenshots, logs)
+  - [ ] Recomendaciones
+
+## 🎯 **Criterios de Éxito**
+
+### **Funcionales**
+- [ ] **Todas las páginas** cargan correctamente
+- [ ] **Feature flags** funcionan por org
+- [ ] **Datos de prueba** están disponibles
+- [ ] **Funcionalidades core** operativas
+
+### **No Funcionales**
+- [ ] **Performance** p95 < 2s en dashboard
+- [ ] **Privacidad** umbrales respetados
+- [ ] **Seguridad** tokens invalidados
+- [ ] **Observabilidad** eventos registrados
+
+### **UAT**
+- [ ] **≥80% tests** pasan
+- [ ] **P0 issues** = 0
+- [ ] **P1 issues** ≤ 2
+- [ ] **Evidencias** completas
 
 ## 🚨 **Riesgos y Mitigaciones**
 
-### **Riesgo 1: Complejidad de Implementación**
-- **Probabilidad:** Media
-- **Impacto:** Alto
-- **Mitigación:** Implementar por módulos, testing continuo
+### **Riesgos Técnicos**
+- **Riesgo:** Feature flags no funcionan
+  - **Mitigación:** Testing exhaustivo en local primero
+- **Riesgo:** Performance degradada
+  - **Mitigación:** Optimización y caching
+- **Riesgo:** Datos de prueba insuficientes
+  - **Mitigación:** Fixtures robustos y validación
 
-### **Riesgo 2: Performance Issues**
-- **Probabilidad:** Media
-- **Impacto:** Alto
-- **Mitigación:** Optimización temprana, métricas continuas
+### **Riesgos de Proceso**
+- **Riesgo:** UAT falla por configuración
+  - **Mitigación:** Checklist de pre-UAT
+- **Riesgo:** Tiempo insuficiente
+  - **Mitigación:** Priorización por módulo
+- **Riesgo:** Dependencias externas
+  - **Mitigación:** Mocks y sandbox
 
-### **Riesgo 3: Integración con Sistema Existente**
-- **Probabilidad:** Baja
-- **Impacto:** Alto
-- **Mitigación:** Testing de integración, rollback plan
+## 📊 **Métricas de Seguimiento**
 
-### **Riesgo 4: Datos de Prueba Insuficientes**
-- **Probabilidad:** Baja
-- **Impacto:** Medio
-- **Mitigación:** Script de siembra robusto, datos realistas
+### **Implementación**
+- [ ] **Componentes creados:** 0/15
+- [ ] **Páginas implementadas:** 0/5
+- [ ] **Servicios creados:** 0/8
+- [ ] **Tests pasando:** 3/222
 
----
+### **Despliegue**
+- [ ] **Build exitoso:** ❌
+- [ ] **Deploy exitoso:** ❌
+- [ ] **Feature flags configurados:** ❌
+- [ ] **Datos de prueba cargados:** ❌
 
-## 📋 **Checklist de Seguimiento**
-
-### **Diario:**
-- [ ] Progress en tareas del día
-- [ ] Issues identificados
-- [ ] Bloqueadores resueltos
-- [ ] Testing manual básico
-
-### **Semanal:**
-- [ ] Review de progreso
-- [ ] Ajuste de timeline si necesario
-- [ ] Validación de calidad
-- [ ] Preparación para siguiente fase
-
-### **Final:**
-- [ ] UAT completo exitoso
-- [ ] Criterios de aceptación cumplidos
-- [ ] Documentación actualizada
-- [ ] Aprobación para producción
-
----
+### **UAT**
+- [ ] **Tests ejecutados:** 222/222
+- [ ] **Tests pasando:** 3/222 (1.4%)
+- [ ] **Criterios cumplidos:** 1/8 (12.5%)
+- [ ] **Evidencias capturadas:** ✅
 
 ## 🎯 **Próximos Pasos Inmediatos**
 
-1. **HOY:** Comenzar implementación de `OperationalDashboard`
-2. **MAÑANA:** Completar dashboards y comenzar acciones masivas
-3. **ESTA SEMANA:** Completar implementación core
-4. **PRÓXIMA SEMANA:** Políticas, alertas y despliegue
+### **Hoy (Día 1)**
+1. **Implementar M8-PR1** (Dashboards)
+2. **Implementar M8-PR2** (Acciones Masivas)
+3. **Implementar M8-PR3** (Comparativas)
+
+### **Mañana (Día 2)**
+1. **Implementar M9-PR1** (Políticas)
+2. **Implementar M9-PR2** (Alertas)
+3. **Configurar feature flags**
+
+### **Día 3**
+1. **Desplegar en Staging**
+2. **Poblar datos de prueba**
+3. **Re-ejecutar UAT**
+
+### **Día 4**
+1. **Analizar resultados**
+2. **Corregir issues P0/P1**
+3. **Aprobar para producción**
 
 ---
 
-**Plan creado:** 21 de Octubre, 2024  
+**Status:** 🚀 **READY TO IMPLEMENT**  
 **Responsable:** Equipo de Desarrollo  
-**Revisión:** Diaria  
-**Actualización:** Según progreso
+**Fecha Límite:** 4 días  
+**Próximo Hito:** Implementación completa de Fase 2

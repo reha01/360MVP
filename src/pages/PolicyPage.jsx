@@ -12,6 +12,7 @@ import React from 'react';
 import { useMultiTenant } from '../hooks/useMultiTenant';
 import { useAuth } from '../context/AuthContext';
 import { useFeatureFlags } from '../hooks/useFeatureFlags';
+import PolicyManager from '../components/policies/PolicyManager';
 import { Alert, Spinner } from '../components/ui';
 
 const PolicyPage = () => {
@@ -68,33 +69,9 @@ const PolicyPage = () => {
     );
   }
   
-  // Verificar feature flag
-  if (!policiesEnabled) {
-    return (
-      <div className="max-w-4xl mx-auto p-6">
-        <Alert type="info">
-          <Alert.Title>Función no disponible</Alert.Title>
-          <Alert.Description>
-            El panel de políticas está en desarrollo. Esta función estará disponible próximamente.
-          </Alert.Description>
-        </Alert>
-      </div>
-    );
-  }
-  
   return (
-    <div className="max-w-7xl mx-auto p-6" data-testid="policies-page">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Políticas Organizacionales</h1>
-        <p className="text-gray-600">Configura las políticas de privacidad y retención de datos</p>
-      </div>
-      
-      <Alert type="info">
-        <Alert.Title>En Desarrollo</Alert.Title>
-        <Alert.Description>
-          Esta funcionalidad está siendo implementada. Próximamente podrás configurar políticas con la regla "solo endurecer" y preview de impacto.
-        </Alert.Description>
-      </Alert>
+    <div data-testid="policies-page">
+      <PolicyManager />
     </div>
   );
 };

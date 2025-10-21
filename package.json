@@ -53,14 +53,14 @@
     "test:smoke:staging:auth": "cross-env STAGING_BASE_URL=https://mvp-staging-3e1cd.web.app STORAGE_STATE=tests/.auth/state.json playwright test tests/smoke --reporter=line",
     "test:rules": "firebase emulators:exec --only firestore \"vitest run tests/rules --reporter=dot\" --project demo-test",
     "test:uat": "playwright test tests/uat --reporter=line",
-    "test:uat:staging": "STAGING_BASE_URL=https://mvp-staging-3e1cd.web.app playwright test tests/uat --reporter=line",
+    "test:uat:staging": "cross-env STAGING_BASE_URL=https://mvp-staging-3e1cd.web.app playwright test tests/uat --reporter=line",
     "test:uat:ui": "playwright test tests/uat --ui"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.0",
     "@playwright/test": "^1.55.0",
     "@vitejs/plugin-react": "^5.0.3",
-    "cross-env": "^10.1.0",
+    "cross-env": "^10.0.0",
     "firebase-admin": "^13.5.0",
     "vite": "^7.1.6",
     "vite-plugin-pwa": "^1.0.3",
