@@ -27,10 +27,17 @@ export const FEATURE_CREDITS = import.meta.env.VITE_FEATURE_CREDITS === 'true';
 // NUEVO: Flag para catálogo de tests administrable
 export const TEST_CATALOG = import.meta.env.VITE_TEST_CATALOG === 'true';
 
+// FASE 2: Feature Flags para módulos 8 y 9
+export const FEATURE_DASHBOARD_360 = import.meta.env.VITE_FEATURE_DASHBOARD_360 === 'true';
+export const FEATURE_BULK_ACTIONS = import.meta.env.VITE_FEATURE_BULK_ACTIONS === 'true';
+export const FEATURE_CAMPAIGN_COMPARISON = import.meta.env.VITE_FEATURE_CAMPAIGN_COMPARISON === 'true';
+export const FEATURE_ORG_POLICIES = import.meta.env.VITE_FEATURE_ORG_POLICIES === 'true';
+export const FEATURE_OPERATIONAL_ALERTS = import.meta.env.VITE_FEATURE_OPERATIONAL_ALERTS === 'true';
+
 /**
  * Verificar si una feature está habilitada
  */
-export const isFeatureEnabled = (featureName: string): boolean => {
+export const isFeatureEnabled = (featureName: string, orgId?: string): boolean => {
   const features: Record<string, boolean> = {
     TENANCY_V1,
     FEATURE_ORG,
@@ -39,8 +46,24 @@ export const isFeatureEnabled = (featureName: string): boolean => {
     FEATURE_PDF,
     FEATURE_EMAIL,
     FEATURE_CREDITS,
-    TEST_CATALOG
+    TEST_CATALOG,
+    FEATURE_DASHBOARD_360,
+    FEATURE_BULK_ACTIONS,
+    FEATURE_CAMPAIGN_COMPARISON,
+    FEATURE_ORG_POLICIES,
+    FEATURE_OPERATIONAL_ALERTS
   };
+
+  // Verificar si es una org piloto para flags de Fase 2
+  const pilotOrgs = ['pilot-org-santiago', 'pilot-org-mexico'];
+  const isPilotOrg = orgId && pilotOrgs.includes(orgId);
+  
+  // Para flags de Fase 2, verificar si es org piloto
+  if (featureName.startsWith('FEATURE_') && (featureName.includes('DASHBOARD_360') || 
+      featureName.includes('BULK_ACTIONS') || featureName.includes('CAMPAIGN_COMPARISON') ||
+      featureName.includes('ORG_POLICIES') || featureName.includes('OPERATIONAL_ALERTS'))) {
+    return isPilotOrg || false;
+  }
 
   return features[featureName] === true;
 };
@@ -57,7 +80,12 @@ export const getEnabledFeatures = (): string[] => {
     FEATURE_PDF,
     FEATURE_EMAIL,
     FEATURE_CREDITS,
-    TEST_CATALOG
+    TEST_CATALOG,
+    FEATURE_DASHBOARD_360,
+    FEATURE_BULK_ACTIONS,
+    FEATURE_CAMPAIGN_COMPARISON,
+    FEATURE_ORG_POLICIES,
+    FEATURE_OPERATIONAL_ALERTS
   })
     .filter(([_, enabled]) => enabled)
     .map(([name]) => name);
