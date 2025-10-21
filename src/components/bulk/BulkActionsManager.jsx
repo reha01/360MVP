@@ -1,559 +1,566 @@
 /**
- * Gestor de Acciones Masivas - M8-PR2
+ * BulkActionsManager - Gestor de acciones masivas
  * 
- * Reenviar invitaciones, extender plazos con colas + DLQ
- * Feature flag: VITE_FEATURE_BULK_ACTIONS
+ * Características:
+ * - Reenvío de invitaciones idempotente
+ * - Extensión de deadlines
+ * - Colas con backoff + DLQ
+ * - Auditoría completa de acciones
+ * - Progreso en tiempo real
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useMultiTenant } from '../../hooks/useMultiTenant';
-import { useAuth } from '../../context/AuthContext';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
+import bulkActionService from '../../services/bulkActionService';
 import evaluatorAssignmentService from '../../services/evaluatorAssignmentService';
+import { Card, Button, Spinner, Alert, Progress } from '../ui';
 import { 
-  Card, 
-  Button, 
-  Input, 
-  Select, 
-  Alert, 
-  Spinner,
-  Badge,
-  Progress,
-  Modal
-} from '../ui';
+  Send, 
+  Clock, 
+  CheckCircle, 
+  AlertCircle, 
+  RefreshCw, 
+  Download,
+  Users,
+  Mail,
+  Calendar
+} from 'lucide-react';
 
-// ========== BULK ACTION TYPES ==========
-
-const BULK_ACTIONS = {
-  RESEND_INVITATIONS: {
-    id: 'resend_invitations',
-    name: 'Reenviar Invitaciones',
-    description: 'Reenviar invitaciones a evaluadores pendientes',
-    icon: '📧',
-    requiresConfirmation: true
-  },
-  EXTEND_DEADLINE: {
-    id: 'extend_deadline',
-    name: 'Extender Plazo',
-    description: 'Extender fecha límite de evaluación',
-    icon: '⏰',
-    requiresConfirmation: true
-  },
-  PAUSE_CAMPAIGNS: {
-    id: 'pause_campaigns',
-    name: 'Pausar Campañas',
-    description: 'Pausar campañas seleccionadas',
-    icon: '⏸️',
-    requiresConfirmation: true
-  },
-  ARCHIVE_CAMPAIGNS: {
-    id: 'archive_campaigns',
-    name: 'Archivar Campañas',
-    description: 'Archivar campañas completadas',
-    icon: '📦',
-    requiresConfirmation: true
-  }
-};
-
-// ========== BULK ACTION CARD ==========
-
-const BulkActionCard = ({ action, onSelect, selected, disabled }) => {
-  return (
-    <Card 
-      className={`p-4 cursor-pointer transition-all ${
-        selected 
-          ? 'ring-2 ring-blue-500 bg-blue-50' 
-          : 'hover:shadow-md'
-      } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-      onClick={() => !disabled && onSelect(action.id)}
-    >
-      <div className="flex items-center space-x-3">
-        <div className="text-2xl">{action.icon}</div>
-        <div className="flex-1">
-          <h3 className="text-lg font-semibold text-gray-900">
-            {action.name}
-          </h3>
-          <p className="text-sm text-gray-600">
-            {action.description}
-          </p>
-        </div>
-        {selected && (
-          <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
-            <span className="text-white text-sm">✓</span>
-          </div>
-        )}
-      </div>
-    </Card>
-  );
-};
-
-// ========== BULK ACTION FORM ==========
-
-const BulkActionForm = ({ action, onExecute, onCancel, loading }) => {
-  const [formData, setFormData] = useState({});
-  
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onExecute(action.id, formData);
-  };
-  
-  const renderFormFields = () => {
-    switch (action.id) {
-      case 'resend_invitations':
-        return (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Mensaje Personalizado (Opcional)
-              </label>
-              <Input
-                placeholder="Mensaje adicional para las invitaciones..."
-                value={formData.customMessage || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, customMessage: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Solo Evaluadores Pendientes
-              </label>
-              <Select
-                value={formData.onlyPending || 'true'}
-                onChange={(value) => setFormData(prev => ({ ...prev, onlyPending: value }))}
-              >
-                <option value="true">Sí, solo pendientes</option>
-                <option value="false">No, reenviar a todos</option>
-              </Select>
-            </div>
-          </div>
-        );
-        
-      case 'extend_deadline':
-        return (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nuevo Plazo (días)
-              </label>
-              <Input
-                type="number"
-                min="1"
-                max="30"
-                placeholder="7"
-                value={formData.extensionDays || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, extensionDays: parseInt(e.target.value) }))}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Mensaje de Notificación
-              </label>
-              <Input
-                placeholder="El plazo ha sido extendido..."
-                value={formData.notificationMessage || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, notificationMessage: e.target.value }))}
-              />
-            </div>
-          </div>
-        );
-        
-      case 'pause_campaigns':
-        return (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Razón de Pausa
-              </label>
-              <Select
-                value={formData.reason || ''}
-                onChange={(value) => setFormData(prev => ({ ...prev, reason: value }))}
-              >
-                <option value="">Seleccionar razón...</option>
-                <option value="maintenance">Mantenimiento</option>
-                <option value="review">Revisión de datos</option>
-                <option value="issue">Problema técnico</option>
-                <option value="other">Otro</option>
-              </Select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Comentarios Adicionales
-              </label>
-              <Input
-                placeholder="Detalles adicionales..."
-                value={formData.comments || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, comments: e.target.value }))}
-              />
-            </div>
-          </div>
-        );
-        
-      case 'archive_campaigns':
-        return (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Confirmar Archivo
-              </label>
-              <p className="text-sm text-gray-600">
-                Las campañas archivadas no podrán ser modificadas. Esta acción es irreversible.
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Etiqueta de Archivo
-              </label>
-              <Input
-                placeholder="Q1-2024, Completadas, etc."
-                value={formData.archiveTag || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, archiveTag: e.target.value }))}
-              />
-            </div>
-          </div>
-        );
-        
-      default:
-        return null;
-    }
-  };
-  
-  return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {renderFormFields()}
-      
-      <div className="flex justify-end space-x-3">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onCancel}
-          disabled={loading}
-        >
-          Cancelar
-        </Button>
-        <Button
-          type="submit"
-          disabled={loading}
-        >
-          {loading ? (
-            <>
-              <Spinner size="sm" />
-              <span className="ml-2">Ejecutando...</span>
-            </>
-          ) : (
-            `Ejecutar ${action.name}`
-          )}
-        </Button>
-      </div>
-    </form>
-  );
-};
-
-// ========== BULK ACTION PROGRESS ==========
-
-const BulkActionProgress = ({ progress, onClose }) => {
-  const { completed, total, current, status, errors } = progress;
-  
-  const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
-  
-  return (
-    <Modal isOpen={true} onClose={onClose}>
-      <div className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Ejecutando Acción Masiva
-        </h3>
-        
-        <div className="space-y-4">
-          <div>
-            <div className="flex justify-between text-sm text-gray-600 mb-1">
-              <span>Progreso</span>
-              <span>{completed} de {total}</span>
-            </div>
-            <Progress value={percentage} className="w-full" />
-          </div>
-          
-          <div className="text-sm text-gray-600">
-            <strong>Estado:</strong> {status}
-          </div>
-          
-          {current && (
-            <div className="text-sm text-gray-600">
-              <strong>Procesando:</strong> {current}
-            </div>
-          )}
-          
-          {errors.length > 0 && (
-            <div className="mt-4">
-              <h4 className="text-sm font-medium text-red-600 mb-2">
-                Errores ({errors.length})
-              </h4>
-              <div className="max-h-32 overflow-y-auto space-y-1">
-                {errors.map((error, index) => (
-                  <div key={index} className="text-xs text-red-600 bg-red-50 p-2 rounded">
-                    {error}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-        
-        <div className="mt-6 flex justify-end">
-          <Button
-            variant="outline"
-            onClick={onClose}
-            disabled={status === 'processing'}
-          >
-            {status === 'processing' ? 'Procesando...' : 'Cerrar'}
-          </Button>
-        </div>
-      </div>
-    </Modal>
-  );
-};
-
-// ========== MAIN COMPONENT ==========
-
-const BulkActionsManager = ({ selectedItems = [], onComplete }) => {
+const BulkActionsManager = ({ campaignId, onActionComplete }) => {
   const { currentOrgId } = useMultiTenant();
-  const { user } = useAuth();
-  const { isEnabled: bulkActionsEnabled } = useFeatureFlags('VITE_FEATURE_BULK_ACTIONS');
+  const { isEnabled: bulkActionsEnabled } = useFeatureFlags('bulkActions');
   
-  const [selectedAction, setSelectedAction] = useState(null);
-  const [showForm, setShowForm] = useState(false);
-  const [showProgress, setShowProgress] = useState(false);
+  // Estados principales
+  const [assignments, setAssignments] = useState([]);
+  const [selectedAssignments, setSelectedAssignments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [progress, setProgress] = useState({
-    completed: 0,
-    total: 0,
-    current: null,
-    status: 'idle',
-    errors: []
+  
+  // Estados de acciones
+  const [actionInProgress, setActionInProgress] = useState(false);
+  const [actionProgress, setActionProgress] = useState(0);
+  const [actionResults, setActionResults] = useState(null);
+  const [actionHistory, setActionHistory] = useState([]);
+  
+  // Estados de filtros
+  const [filters, setFilters] = useState({
+    status: 'all',
+    evaluatorType: 'all',
+    daysOverdue: 'all'
   });
   
-  // ========== HANDLERS ==========
+  // Verificar feature flag
+  if (!bulkActionsEnabled) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <Alert type="info">
+          <Alert.Title>Función no disponible</Alert.Title>
+          <Alert.Description>
+            Las acciones masivas están en desarrollo. Esta función estará disponible próximamente.
+          </Alert.Description>
+        </Alert>
+      </div>
+    );
+  }
   
-  const handleActionSelect = useCallback((actionId) => {
-    const action = Object.values(BULK_ACTIONS).find(a => a.id === actionId);
-    setSelectedAction(action);
-    setShowForm(true);
-    setError(null);
-  }, []);
-  
-  const handleExecuteAction = useCallback(async (actionId, formData) => {
-    if (!selectedItems.length) {
-      setError('No hay elementos seleccionados');
-      return;
-    }
-    
-    setLoading(true);
-    setShowForm(false);
-    setShowProgress(true);
-    setProgress({
-      completed: 0,
-      total: selectedItems.length,
-      current: null,
-      status: 'processing',
-      errors: []
-    });
-    
+  // Cargar asignaciones
+  const loadAssignments = useCallback(async () => {
     try {
-      const results = await executeBulkAction(actionId, formData, selectedItems);
+      setLoading(true);
+      setError(null);
       
-      setProgress(prev => ({
-        ...prev,
-        completed: results.completed,
-        status: 'completed',
-        errors: results.errors
-      }));
+      const data = await evaluatorAssignmentService.getSessionAssignments(currentOrgId, campaignId);
+      setAssignments(data || []);
       
-      if (onComplete) {
-        onComplete(results);
-      }
     } catch (err) {
-      setError(err.message);
-      setProgress(prev => ({
-        ...prev,
-        status: 'error',
-        errors: [...prev.errors, err.message]
-      }));
+      console.error('[BulkActionsManager] Error loading assignments:', err);
+      setError('Error al cargar las asignaciones');
     } finally {
       setLoading(false);
     }
-  }, [selectedItems, onComplete]);
+  }, [currentOrgId, campaignId]);
   
-  const executeBulkAction = async (actionId, formData, items) => {
-    const results = {
-      completed: 0,
-      errors: []
-    };
-    
-    for (const item of items) {
-      try {
-        setProgress(prev => ({
-          ...prev,
-          current: item.name || item.id
-        }));
-        
-        switch (actionId) {
-          case 'resend_invitations':
-            await evaluatorAssignmentService.resendInvitation(
-              currentOrgId, 
-              item.id, 
-              formData.customMessage
-            );
-            break;
-            
-          case 'extend_deadline':
-            await evaluatorAssignmentService.extendDeadline(
-              currentOrgId, 
-              item.id, 
-              formData.extensionDays
-            );
-            break;
-            
-          case 'pause_campaigns':
-            // Implementar pausa de campaña
-            console.log('Pausing campaign:', item.id);
-            break;
-            
-          case 'archive_campaigns':
-            // Implementar archivo de campaña
-            console.log('Archiving campaign:', item.id);
-            break;
-            
-          default:
-            throw new Error(`Acción no implementada: ${actionId}`);
-        }
-        
-        results.completed++;
-        
-        setProgress(prev => ({
-          ...prev,
-          completed: results.completed
-        }));
-        
-        // Simular delay para mostrar progreso
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-      } catch (err) {
-        results.errors.push(`${item.name || item.id}: ${err.message}`);
-        console.error(`[BulkActions] Error processing ${item.id}:`, err);
-      }
+  // Efecto para cargar asignaciones
+  useEffect(() => {
+    if (currentOrgId && campaignId) {
+      loadAssignments();
     }
-    
-    return results;
+  }, [currentOrgId, campaignId, loadAssignments]);
+  
+  // Filtrar asignaciones
+  const filteredAssignments = assignments.filter(assignment => {
+    if (filters.status !== 'all' && assignment.status !== filters.status) return false;
+    if (filters.evaluatorType !== 'all' && assignment.evaluatorType !== filters.evaluatorType) return false;
+    if (filters.daysOverdue !== 'all') {
+      const daysOverdue = Math.floor((Date.now() - new Date(assignment.deadline).getTime()) / (1000 * 60 * 60 * 24));
+      if (filters.daysOverdue === 'overdue' && daysOverdue <= 0) return false;
+      if (filters.daysOverdue === 'not-overdue' && daysOverdue > 0) return false;
+    }
+    return true;
+  });
+  
+  // Manejar selección de asignaciones
+  const handleSelectAssignment = (assignmentId) => {
+    setSelectedAssignments(prev => {
+      if (prev.includes(assignmentId)) {
+        return prev.filter(id => id !== assignmentId);
+      } else {
+        return [...prev, assignmentId];
+      }
+    });
   };
   
-  const handleCloseForm = useCallback(() => {
-    setShowForm(false);
-    setSelectedAction(null);
-  }, []);
+  // Seleccionar todas las asignaciones filtradas
+  const handleSelectAll = () => {
+    const allIds = filteredAssignments.map(a => a.id);
+    setSelectedAssignments(allIds);
+  };
   
-  const handleCloseProgress = useCallback(() => {
-    setShowProgress(false);
-    setProgress({
-      completed: 0,
-      total: 0,
-      current: null,
-      status: 'idle',
-      errors: []
-    });
-  }, []);
+  // Deseleccionar todas
+  const handleDeselectAll = () => {
+    setSelectedAssignments([]);
+  };
   
-  // ========== RENDER ==========
-  
-  if (!bulkActionsEnabled) {
-    return (
-      <Alert type="info">
-        <Alert.Title>Acciones Masivas No Disponibles</Alert.Title>
-        <Alert.Description>
-          Esta funcionalidad está en desarrollo. Contacta al administrador para habilitarla.
-        </Alert.Description>
-      </Alert>
-    );
-  }
-  
-  if (!selectedItems.length) {
-    return (
-      <Card className="p-6 text-center">
-        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <span className="text-gray-400 text-2xl">📋</span>
-        </div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          Selecciona Elementos
-        </h3>
-        <p className="text-gray-600">
-          Selecciona campañas o evaluadores para realizar acciones masivas
-        </p>
-      </Card>
-    );
-  }
-  
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900">
-            Acciones Masivas
-          </h2>
-          <p className="text-gray-600">
-            {selectedItems.length} elemento(s) seleccionado(s)
-          </p>
-        </div>
-        <Badge variant="secondary">
-          {selectedItems.length} seleccionados
-        </Badge>
-      </div>
+  // Reenviar invitaciones
+  const handleResendInvitations = async () => {
+    if (selectedAssignments.length === 0) return;
+    
+    try {
+      setActionInProgress(true);
+      setActionProgress(0);
+      setError(null);
       
-      {/* Error */}
-      {error && (
+      const results = await bulkActionService.resendInvitations(
+        currentOrgId,
+        selectedAssignments,
+        {
+          onProgress: (progress) => setActionProgress(progress),
+          customMessage: 'Recordatorio de evaluación pendiente'
+        }
+      );
+      
+      setActionResults(results);
+      setActionHistory(prev => [{
+        id: Date.now(),
+        type: 'resend_invitations',
+        timestamp: new Date().toISOString(),
+        assignments: selectedAssignments.length,
+        results: results
+      }, ...prev]);
+      
+      // Recargar asignaciones
+      await loadAssignments();
+      
+      // Notificar al componente padre
+      onActionComplete?.(results);
+      
+    } catch (err) {
+      console.error('[BulkActionsManager] Error resending invitations:', err);
+      setError('Error al reenviar invitaciones');
+    } finally {
+      setActionInProgress(false);
+      setActionProgress(0);
+    }
+  };
+  
+  // Extender deadlines
+  const handleExtendDeadlines = async (extensionDays) => {
+    if (selectedAssignments.length === 0) return;
+    
+    try {
+      setActionInProgress(true);
+      setActionProgress(0);
+      setError(null);
+      
+      const results = await bulkActionService.extendDeadlines(
+        currentOrgId,
+        selectedAssignments,
+        extensionDays,
+        {
+          onProgress: (progress) => setActionProgress(progress)
+        }
+      );
+      
+      setActionResults(results);
+      setActionHistory(prev => [{
+        id: Date.now(),
+        type: 'extend_deadlines',
+        timestamp: new Date().toISOString(),
+        assignments: selectedAssignments.length,
+        extensionDays,
+        results: results
+      }, ...prev]);
+      
+      // Recargar asignaciones
+      await loadAssignments();
+      
+      // Notificar al componente padre
+      onActionComplete?.(results);
+      
+    } catch (err) {
+      console.error('[BulkActionsManager] Error extending deadlines:', err);
+      setError('Error al extender deadlines');
+    } finally {
+      setActionInProgress(false);
+      setActionProgress(0);
+    }
+  };
+  
+  // Exportar resultados
+  const handleExportResults = () => {
+    if (!actionResults) return;
+    
+    const csvContent = [
+      ['Assignment ID', 'Status', 'Error', 'Timestamp'],
+      ...actionResults.map(result => [
+        result.assignmentId,
+        result.status,
+        result.error || '',
+        result.timestamp
+      ])
+    ].map(row => row.join(',')).join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bulk-action-results-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  
+  if (loading && assignments.length === 0) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Spinner size="lg" />
+        <span className="ml-2">Cargando asignaciones...</span>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
         <Alert type="error">
           <Alert.Title>Error</Alert.Title>
           <Alert.Description>{error}</Alert.Description>
         </Alert>
-      )}
-      
-      {/* Action Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {Object.values(BULK_ACTIONS).map(action => (
-          <BulkActionCard
-            key={action.id}
-            action={action}
-            onSelect={handleActionSelect}
-            selected={selectedAction?.id === action.id}
-            disabled={loading}
-          />
-        ))}
+      </div>
+    );
+  }
+  
+  return (
+    <div className="max-w-7xl mx-auto p-6" data-testid="bulk-actions-manager">
+      {/* Header */}
+      <div className="mb-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Acciones Masivas</h2>
+            <p className="text-gray-600">Gestiona invitaciones y deadlines de forma masiva</p>
+          </div>
+          <div className="flex space-x-2">
+            <Button
+              onClick={loadAssignments}
+              variant="outline"
+              size="sm"
+              disabled={loading}
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Actualizar
+            </Button>
+            {actionResults && (
+              <Button
+                onClick={handleExportResults}
+                variant="outline"
+                size="sm"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Exportar
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
       
-      {/* Action Form Modal */}
-      {showForm && selectedAction && (
-        <Modal isOpen={showForm} onClose={handleCloseForm}>
-          <div className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              {selectedAction.name}
-            </h3>
-            <p className="text-gray-600 mb-6">
-              {selectedAction.description}
-            </p>
+      {/* Filtros */}
+      <div className="mb-6">
+        <Card className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Estado
+              </label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={filters.status}
+                onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+              >
+                <option value="all">Todos</option>
+                <option value="pending">Pendientes</option>
+                <option value="completed">Completadas</option>
+                <option value="expired">Expiradas</option>
+              </select>
+            </div>
             
-            <BulkActionForm
-              action={selectedAction}
-              onExecute={handleExecuteAction}
-              onCancel={handleCloseForm}
-              loading={loading}
-            />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tipo de Evaluador
+              </label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={filters.evaluatorType}
+                onChange={(e) => setFilters(prev => ({ ...prev, evaluatorType: e.target.value }))}
+              >
+                <option value="all">Todos</option>
+                <option value="self">Auto-evaluación</option>
+                <option value="manager">Manager</option>
+                <option value="peer">Pares</option>
+                <option value="direct">Subordinados</option>
+                <option value="external">Externos</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Vencimiento
+              </label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={filters.daysOverdue}
+                onChange={(e) => setFilters(prev => ({ ...prev, daysOverdue: e.target.value }))}
+              >
+                <option value="all">Todos</option>
+                <option value="overdue">Vencidas</option>
+                <option value="not-overdue">No vencidas</option>
+              </select>
+            </div>
+            
+            <div className="flex items-end space-x-2">
+              <Button
+                onClick={handleSelectAll}
+                variant="outline"
+                size="sm"
+              >
+                Seleccionar Todos
+              </Button>
+              <Button
+                onClick={handleDeselectAll}
+                variant="outline"
+                size="sm"
+              >
+                Deseleccionar
+              </Button>
+            </div>
           </div>
-        </Modal>
+        </Card>
+      </div>
+      
+      {/* Acciones */}
+      <div className="mb-6">
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="text-sm text-gray-600">
+                {selectedAssignments.length} asignaciones seleccionadas
+              </div>
+              <div className="text-sm text-gray-600">
+                {filteredAssignments.length} asignaciones filtradas
+              </div>
+            </div>
+            
+            <div className="flex space-x-2">
+              <Button
+                onClick={handleResendInvitations}
+                disabled={selectedAssignments.length === 0 || actionInProgress}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <Send className="w-4 h-4 mr-2" />
+                Reenviar Invitaciones
+              </Button>
+              
+              <Button
+                onClick={() => handleExtendDeadlines(7)}
+                disabled={selectedAssignments.length === 0 || actionInProgress}
+                variant="outline"
+              >
+                <Clock className="w-4 h-4 mr-2" />
+                Extender +7 días
+              </Button>
+              
+              <Button
+                onClick={() => handleExtendDeadlines(14)}
+                disabled={selectedAssignments.length === 0 || actionInProgress}
+                variant="outline"
+              >
+                <Calendar className="w-4 h-4 mr-2" />
+                Extender +14 días
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </div>
+      
+      {/* Progreso de acción */}
+      {actionInProgress && (
+        <div className="mb-6">
+          <Card className="p-4">
+            <div className="flex items-center space-x-4">
+              <Spinner size="sm" />
+              <div className="flex-1">
+                <div className="text-sm text-gray-600 mb-2">
+                  Procesando {selectedAssignments.length} asignaciones...
+                </div>
+                <Progress value={actionProgress} className="w-full" />
+                <div className="text-xs text-gray-500 mt-1">
+                  {actionProgress}% completado
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
       )}
       
-      {/* Progress Modal */}
-      {showProgress && (
-        <BulkActionProgress
-          progress={progress}
-          onClose={handleCloseProgress}
-        />
+      {/* Resultados de acción */}
+      {actionResults && (
+        <div className="mb-6">
+          <Card className="p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Resultados de la Acción</h3>
+              <Button
+                onClick={() => setActionResults(null)}
+                variant="outline"
+                size="sm"
+              >
+                Cerrar
+              </Button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {actionResults.filter(r => r.status === 'success').length}
+                </div>
+                <div className="text-sm text-gray-600">Exitosas</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-red-600">
+                  {actionResults.filter(r => r.status === 'error').length}
+                </div>
+                <div className="text-sm text-gray-600">Errores</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-yellow-600">
+                  {actionResults.filter(r => r.status === 'skipped').length}
+                </div>
+                <div className="text-sm text-gray-600">Omitidas</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">
+                  {actionResults.length}
+                </div>
+                <div className="text-sm text-gray-600">Total</div>
+              </div>
+            </div>
+            
+            {/* Lista de resultados */}
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {actionResults.map((result, index) => (
+                <div
+                  key={index}
+                  className={`flex items-center justify-between p-2 rounded ${
+                    result.status === 'success' ? 'bg-green-50' :
+                    result.status === 'error' ? 'bg-red-50' : 'bg-yellow-50'
+                  }`}
+                >
+                  <div className="flex items-center space-x-2">
+                    {result.status === 'success' && <CheckCircle className="w-4 h-4 text-green-600" />}
+                    {result.status === 'error' && <AlertCircle className="w-4 h-4 text-red-600" />}
+                    {result.status === 'skipped' && <Clock className="w-4 h-4 text-yellow-600" />}
+                    <span className="text-sm font-medium">{result.assignmentId}</span>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {result.error || result.message || result.status}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
+      
+      {/* Lista de asignaciones */}
+      <div className="mb-6">
+        <Card className="p-4">
+          <div className="space-y-2">
+            {filteredAssignments.map((assignment) => (
+              <div
+                key={assignment.id}
+                className={`flex items-center justify-between p-3 border rounded-lg ${
+                  selectedAssignments.includes(assignment.id) ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                }`}
+              >
+                <div className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedAssignments.includes(assignment.id)}
+                    onChange={() => handleSelectAssignment(assignment.id)}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  
+                  <div>
+                    <div className="font-medium text-gray-900">
+                      {assignment.evaluatorName || assignment.evaluatorEmail}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      {assignment.evaluatorType} • {assignment.status}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-4">
+                  <div className="text-sm text-gray-600">
+                    Deadline: {new Date(assignment.deadline).toLocaleDateString()}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    Invitaciones: {assignment.invitationCount || 0}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+      
+      {/* Historial de acciones */}
+      {actionHistory.length > 0 && (
+        <div className="mb-6">
+          <Card className="p-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Historial de Acciones</h3>
+            <div className="space-y-2">
+              {actionHistory.map((action) => (
+                <div
+                  key={action.id}
+                  className="flex items-center justify-between p-2 border border-gray-200 rounded"
+                >
+                  <div className="flex items-center space-x-2">
+                    {action.type === 'resend_invitations' && <Mail className="w-4 h-4 text-blue-600" />}
+                    {action.type === 'extend_deadlines' && <Calendar className="w-4 h-4 text-green-600" />}
+                    <span className="text-sm font-medium">
+                      {action.type === 'resend_invitations' ? 'Reenvío de invitaciones' : 'Extensión de deadlines'}
+                    </span>
+                    <span className="text-sm text-gray-600">
+                      ({action.assignments} asignaciones)
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {new Date(action.timestamp).toLocaleString()}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
       )}
     </div>
   );
