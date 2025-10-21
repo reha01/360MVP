@@ -10,5 +10,9 @@ export const ROUTES = {
   CREDITS: '/credits',
   ORG_STRUCTURE: '/org-structure',
   JOB_FAMILIES: '/job-families',
-  CAMPAIGNS: '/campaigns'
+  CAMPAIGNS: '/campaigns',
+  DASHBOARD_360: '/dashboard-360',
+  COMPARISON: '/comparison',
+  POLICIES: '/policies',
+  ALERTS: '/alerts'
 };

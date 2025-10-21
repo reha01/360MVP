@@ -1,14 +1,27 @@
 // src/hooks/useFeatureFlags.js
 import { useMemo } from 'react';
+import { useMultiTenant } from './useMultiTenant';
 import * as featureFlags from '../lib/featureFlags';
 
 /**
  * useFeatureFlags - Hook para acceder fácilmente a feature flags
  * Wrapper del servicio FeatureFlags para uso en componentes
  */
-export const useFeatureFlags = () => {
+export const useFeatureFlags = (flagName) => {
+  const { currentOrgId } = useMultiTenant();
+  
   const flags = useMemo(() => {
     try {
+      // Si se especifica un flag específico, verificar solo ese
+      if (flagName) {
+        return {
+          isEnabled: featureFlags.isFeatureEnabled(flagName, currentOrgId),
+          loading: false,
+          error: null
+        };
+      }
+      
+      // Retornar todos los flags (comportamiento legacy)
       return {
         orgEnabled: featureFlags.FEATURE_ORG,
         pdfEnabled: featureFlags.FEATURE_PDF,
@@ -32,6 +45,14 @@ export const useFeatureFlags = () => {
     } catch (error) {
       console.error('[useFeatureFlags] Error loading flags, using defaults:', error);
       // Return safe defaults if anything fails
+      if (flagName) {
+        return {
+          isEnabled: false,
+          loading: false,
+          error: error.message
+        };
+      }
+      
       return {
         orgEnabled: false,
         pdfEnabled: false,
@@ -49,7 +70,7 @@ export const useFeatureFlags = () => {
         getFullConfig: () => []
       };
     }
-  }, []);
+  }, [flagName, currentOrgId]);
 
   return flags;
 };

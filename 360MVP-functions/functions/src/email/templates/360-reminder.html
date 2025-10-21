@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recordatorio: Evaluación 360°</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .content {
+            padding: 30px;
+        }
+        .greeting {
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+        .urgency-banner {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 6px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .urgency-banner h3 {
+            margin: 0 0 10px 0;
+            font-size: 18px;
+        }
+        .days-remaining {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .evaluation-info {
+            background-color: #f8f9fa;
+            border-left: 4px solid #ff6b6b;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 4px 4px 0;
+        }
+        .evaluation-info h3 {
+            margin: 0 0 10px 0;
+            color: #ff6b6b;
+            font-size: 16px;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            font-size: 14px;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #666;
+        }
+        .info-value {
+            color: #333;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+            text-decoration: none;
+            padding: 15px 30px;
+            border-radius: 6px;
+            font-weight: 600;
+            text-align: center;
+            margin: 20px 0;
+            transition: transform 0.2s;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .progress-info {
+            background-color: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .progress-info h4 {
+            margin: 0 0 10px 0;
+            color: #1976d2;
+            font-size: 16px;
+        }
+        .progress-bar {
+            background-color: #e0e0e0;
+            border-radius: 10px;
+            height: 20px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        .progress-fill {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+        .deadline-warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .deadline-warning .icon {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            border-top: 1px solid #e9ecef;
+        }
+        .footer a {
+            color: #ff6b6b;
+            text-decoration: none;
+        }
+        .evaluator-type {
+            display: inline-block;
+            background-color: #ff6b6b;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            .content {
+                padding: 20px;
+            }
+            .info-row {
+                flex-direction: column;
+            }
+            .info-label {
+                margin-bottom: 2px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⏰ Recordatorio</h1>
+            <p style="margin: 10px 0 0 0; opacity: 0.9;">Evaluación 360° Pendiente</p>
+        </div>
+        
+        <div class="content">
+            <div class="greeting">
+                Hola <strong>{{evaluatorName}}</strong>,
+            </div>
+            
+            <p>
+                Te recordamos que tienes una evaluación 360° pendiente para <strong>{{evaluateeName}}</strong>. 
+                Tu participación es importante para el éxito de este proceso.
+            </p>
+            
+            <div class="urgency-banner">
+                <h3>🚨 Tiempo Restante</h3>
+                <div class="days-remaining">
+                    {{daysRemaining}} {{daysRemaining === 1 ? 'día' : 'días'}}
+                </div>
+                <p style="margin: 0; opacity: 0.9;">
+                    Fecha límite: {{deadline}}
+                </p>
+            </div>
+            
+            <div class="evaluation-info">
+                <h3>📋 Detalles de la Evaluación</h3>
+                <div class="info-row">
+                    <span class="info-label">Evaluando a:</span>
+                    <span class="info-value">{{evaluateeName}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Tu rol:</span>
+                    <span class="info-value">
+                        <span class="evaluator-type">{{evaluatorTypeLabel}}</span>
+                    </span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Campaña:</span>
+                    <span class="info-value">{{campaignTitle}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Estado:</span>
+                    <span class="info-value" style="color: #ff6b6b; font-weight: 600;">Pendiente</span>
+                </div>
+            </div>
+            
+            <div class="progress-info">
+                <h4>📊 Progreso de la Campaña</h4>
+                <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">
+                    {{completionRate}}% de evaluaciones completadas
+                </p>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: {{completionRate}}%;"></div>
+                </div>
+                <p style="margin: 10px 0 0 0; font-size: 12px; color: #666;">
+                    {{completedCount}} de {{totalCount}} evaluaciones completadas
+                </p>
+            </div>
+            
+            <div style="text-align: center;">
+                <a href="{{evaluationUrl}}" class="cta-button">
+                    🚀 Completar Evaluación Ahora
+                </a>
+            </div>
+            
+            <div class="deadline-warning">
+                <div class="icon">⚠️</div>
+                <strong>Importante:</strong> 
+                {{#if isUrgent}}
+                    ¡Solo quedan {{daysRemaining}} {{daysRemaining === 1 ? 'día' : 'días'}}! 
+                    Completa tu evaluación lo antes posible.
+                {{else}}
+                    La evaluación debe completarse antes del {{deadline}}.
+                {{/if}}
+            </div>
+            
+            <p style="font-size: 14px; color: #666; margin-top: 30px;">
+                Si ya completaste la evaluación, puedes ignorar este recordatorio. 
+                Si tienes problemas técnicos, contacta a 
+                <a href="mailto:{{supportEmail}}">{{supportEmail}}</a>
+            </p>
+        </div>
+        
+        <div class="footer">
+            <p>
+                Este es un recordatorio automático del sistema de evaluaciones 360°. 
+                Por favor, no respondas a este mensaje.
+            </p>
+            <p>
+                <a href="{{unsubscribeUrl}}">Cancelar suscripción</a> | 
+                <a href="{{privacyUrl}}">Política de Privacidad</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>

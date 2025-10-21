@@ -602,6 +602,61 @@ const sendEmail = async (emailData) => {
 
 // ========== EXPORT ==========
 
+/**
+ * Reenviar invitación (para acciones masivas)
+ */
+export const resendInvitation = async (orgId, assignmentId, customMessage = '') => {
+  try {
+    const assignment = await getEvaluatorAssignment(orgId, assignmentId);
+    
+    if (!assignment) {
+      throw new Error('Assignment not found');
+    }
+    
+    // Actualizar timestamp de último envío
+    await updateEvaluatorAssignment(orgId, assignmentId, {
+      lastInvitationSent: new Date(),
+      invitationCount: (assignment.invitationCount || 0) + 1,
+      customMessage
+    });
+    
+    console.log(`[EvaluatorAssignment] Invitation resent: ${assignmentId}`);
+    return true;
+  } catch (error) {
+    console.error('[EvaluatorAssignment] Error resending invitation:', error);
+    throw error;
+  }
+};
+
+/**
+ * Extender plazo de evaluación
+ */
+export const extendDeadline = async (orgId, assignmentId, extensionDays) => {
+  try {
+    const assignment = await getEvaluatorAssignment(orgId, assignmentId);
+    
+    if (!assignment) {
+      throw new Error('Assignment not found');
+    }
+    
+    const currentDeadline = new Date(assignment.deadline);
+    const newDeadline = new Date(currentDeadline.getTime() + extensionDays * 24 * 60 * 60 * 1000);
+    
+    await updateEvaluatorAssignment(orgId, assignmentId, {
+      deadline: newDeadline,
+      originalDeadline: assignment.originalDeadline || assignment.deadline,
+      deadlineExtended: true,
+      extensionDays
+    });
+    
+    console.log(`[EvaluatorAssignment] Deadline extended: ${assignmentId} by ${extensionDays} days`);
+    return true;
+  } catch (error) {
+    console.error('[EvaluatorAssignment] Error extending deadline:', error);
+    throw error;
+  }
+};
+
 export default {
   // Assignment management
   getSessionAssignments,
@@ -618,6 +673,10 @@ export default {
   // Email management
   sendInvitationEmail,
   sendReminderEmail,
+  
+  // Bulk actions
+  resendInvitation,
+  extendDeadline,
   
   // Utilities
   generateEvaluationUrl,
