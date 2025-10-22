@@ -12,6 +12,7 @@ export const ROUTES = {
   JOB_FAMILIES: '/job-families',
   CAMPAIGNS: '/campaigns',
   DASHBOARD_360: '/dashboard-360',
+  BULK_ACTIONS: '/bulk-actions',
   COMPARISON: '/comparison',
   POLICIES: '/policies',
   ALERTS: '/alerts'

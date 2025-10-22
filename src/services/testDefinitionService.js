@@ -41,7 +41,7 @@ export const listTests = async (orgId, filters = {}) => {
 
     // Construir query usando la estructura correcta de Firestore rules
     let q = query(
-      collection(db, `orgs/${orgId}/testDefinitions`),
+      collection(db, `organizations/${orgId}/testDefinitions`),
       orderBy('createdAt', 'desc')
     );
 
@@ -84,7 +84,7 @@ export const getTest = async (orgId, testId, version = 'v1') => {
     console.log('[TestDefinitionService] Getting test:', { orgId, testId, version });
 
     const docId = `${testId}:${version}`;
-    const docRef = doc(db, `orgs/${orgId}/testDefinitions`, docId);
+    const docRef = doc(db, `organizations/${orgId}/testDefinitions`, docId);
     const docSnap = await getDoc(docRef);
 
     if (docSnap.exists()) {
@@ -127,7 +127,7 @@ export const createTest = async (orgId, testDefinition) => {
 
     // Generar ID del documento
     const docId = `${testDefinition.testId}:${testDefinition.version}`;
-    const docRef = doc(db, `orgs/${orgId}/testDefinitions`, docId);
+    const docRef = doc(db, `organizations/${orgId}/testDefinitions`, docId);
 
     // Verificar que no existe
     const existingDoc = await getDoc(docRef);
@@ -172,7 +172,7 @@ export const updateTest = async (orgId, testId, version, updates) => {
     console.log('[TestDefinitionService] Updating test:', { orgId, testId, version, updates });
 
     const docId = `${testId}:${version}`;
-    const docRef = doc(db, `orgs/${orgId}/testDefinitions`, docId);
+    const docRef = doc(db, `organizations/${orgId}/testDefinitions`, docId);
 
     // Verificar que existe
     const existingDoc = await getDoc(docRef);
@@ -219,7 +219,7 @@ export const activateTest = async (orgId, testId, version) => {
     console.log('[TestDefinitionService] Activating test:', { orgId, testId, version });
 
     const docId = `${testId}:${version}`;
-    const docRef = doc(db, `orgs/${orgId}/testDefinitions`, docId);
+    const docRef = doc(db, `organizations/${orgId}/testDefinitions`, docId);
 
     // Verificar que existe
     const existingDoc = await getDoc(docRef);
@@ -229,7 +229,7 @@ export const activateTest = async (orgId, testId, version) => {
 
     // Desactivar otras versiones del mismo test
     const otherVersionsQuery = query(
-      collection(db, `orgs/${orgId}/testDefinitions`),
+      collection(db, `organizations/${orgId}/testDefinitions`),
       where('testId', '==', testId),
       where('status', '==', TEST_STATUS.ACTIVE)
     );
@@ -281,7 +281,7 @@ export const archiveTest = async (orgId, testId, version) => {
     console.log('[TestDefinitionService] Archiving test:', { orgId, testId, version });
 
     const docId = `${testId}:${version}`;
-    const docRef = doc(db, `orgs/${orgId}/testDefinitions`, docId);
+    const docRef = doc(db, `organizations/${orgId}/testDefinitions`, docId);
 
     await updateDoc(docRef, {
       status: TEST_STATUS.ARCHIVED,
@@ -369,7 +369,7 @@ export const deleteTest = async (orgId, testId, version) => {
     console.log('[TestDefinitionService] Deleting test:', { orgId, testId, version });
 
     const docId = `${testId}:${version}`;
-    const docRef = doc(db, `orgs/${orgId}/testDefinitions`, docId);
+    const docRef = doc(db, `organizations/${orgId}/testDefinitions`, docId);
 
     // Verificar que existe y es draft
     const existingDoc = await getDoc(docRef);

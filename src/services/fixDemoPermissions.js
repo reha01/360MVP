@@ -48,7 +48,7 @@ export const fixDemoPermissions = async (user) => {
 
     // 2. Crear membresía personal
     const personalMemberId = `${personalOrgId}:${user.uid}`;
-    const personalMemberRef = doc(db, `orgs/${personalOrgId}/members`, personalMemberId);
+    const personalMemberRef = doc(db, `organizations/${personalOrgId}/members`, personalMemberId);
     
     let personalMemberExists = false;
     try {
@@ -95,7 +95,7 @@ export const fixDemoPermissions = async (user) => {
 
       // Crear membresía en la organización demo
       const demoMemberId = `${demoOrgId}:${user.uid}`;
-      const demoMemberRef = doc(db, `orgs/${demoOrgId}/members`, demoMemberId);
+      const demoMemberRef = doc(db, `organizations/${demoOrgId}/members`, demoMemberId);
       await setDoc(demoMemberRef, {
         userId: user.uid,
         email: user.email,

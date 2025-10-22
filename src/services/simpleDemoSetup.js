@@ -38,7 +38,7 @@ export const simpleDemoSetup = async (user) => {
 
     // Crear la membresía
     const memberId = `${orgId}:${user.uid}`;
-    const memberRef = doc(db, `orgs/${orgId}/members`, memberId);
+    const memberRef = doc(db, `organizations/${orgId}/members`, memberId);
     
     await setDoc(memberRef, {
       userId: user.uid,

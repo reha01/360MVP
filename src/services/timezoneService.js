@@ -45,7 +45,7 @@ export const SUPPORTED_TIMEZONES = {
 export const getOrgTimezone = async (orgId) => {
   try {
     // En implementación real, consultar Firestore
-    // const orgDoc = await db.collection('orgs').doc(orgId).get();
+    // const orgDoc = await db.collection('organizations').doc(orgId).get();
     // return orgDoc.data()?.timezone || 'UTC';
     
     // Simular zona horaria

@@ -19,12 +19,12 @@ service cloud.firestore {
     // Verificar si el usuario es miembro de una organización
     function isMemberOf(orgId) {
       return isSignedIn() && 
-             exists(/databases/$(database)/documents/orgs/$(orgId)/members/$(orgId + ':' + currentUserId()));
+             exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(orgId + ':' + currentUserId()));
     }
     
     // Obtener rol del usuario en una organización
     function getMemberRole(orgId) {
-      return get(/databases/$(database)/documents/orgs/$(orgId)/members/$(orgId + ':' + currentUserId())).data.role;
+      return get(/databases/$(database)/documents/organizations/$(orgId)/members/$(orgId + ':' + currentUserId())).data.role;
     }
     
     // Verificar si el usuario tiene un rol específico o superior
@@ -53,7 +53,7 @@ service cloud.firestore {
     // Organizations Collection
     // ============================================
     
-    match /orgs/{orgId} {
+    match /organizations/{orgId} {
       // Leer: solo miembros
       allow read: if isMemberOf(orgId);
       
@@ -265,7 +265,7 @@ service cloud.firestore {
         allow read: if resource.data.userId == currentUserId() ||
                        isAdminOrOwner(orgId) ||
                        (hasRole(orgId, 'manager') && 
-                        resource.data.teamId == get(/databases/$(database)/documents/orgs/$(orgId)/members/$(orgId + ':' + currentUserId())).data.teamId);
+                        resource.data.teamId == get(/databases/$(database)/documents/organizations/$(orgId)/members/$(orgId + ':' + currentUserId())).data.teamId);
         
         // Crear: cualquier miembro puede crear su sesión
         allow create: if isMemberOf(orgId) &&
@@ -280,7 +280,7 @@ service cloud.firestore {
         allow delete: if resource.data.userId == currentUserId() ||
                          isAdminOrOwner(orgId) ||
                          (hasRole(orgId, 'manager') && 
-                          resource.data.teamId == get(/databases/$(database)/documents/orgs/$(orgId)/members/$(orgId + ':' + currentUserId())).data.teamId);
+                          resource.data.teamId == get(/databases/$(database)/documents/organizations/$(orgId)/members/$(orgId + ':' + currentUserId())).data.teamId);
       }
     }
     

@@ -70,7 +70,7 @@ export const getReport360 = async (orgId, reportId) => {
  */
 export const getReportByAggregation = async (orgId, aggregationId) => {
   try {
-    const reportsRef = collection(db, 'orgs', orgId, 'reports360');
+    const reportsRef = collection(db, 'organizations', orgId, 'reports360');
     const q = query(
       reportsRef,
       where('aggregationId', '==', aggregationId),
@@ -494,7 +494,7 @@ export const generateNarrative = (aggregation, executiveSummary, categoryAnalysi
  */
 export const getCampaignReports = async (orgId, campaignId) => {
   try {
-    const reportsRef = collection(db, 'orgs', orgId, 'reports360');
+    const reportsRef = collection(db, 'organizations', orgId, 'reports360');
     const q = query(
       reportsRef,
       where('campaignId', '==', campaignId),

@@ -43,7 +43,7 @@ import orgStructureService from './orgStructureService';
  */
 export const getSessionAssignments = async (orgId, session360Id) => {
   try {
-    const assignmentsRef = collection(db, 'orgs', orgId, 'evaluatorAssignments');
+    const assignmentsRef = collection(db, 'organizations', orgId, 'evaluatorAssignments');
     const q = query(
       assignmentsRef,
       where('session360Id', '==', session360Id),
@@ -99,11 +99,11 @@ export const getAssignmentByToken = async (token) => {
     const tokenHash = hashToken(token);
     
     // Buscar en todas las organizaciones (en implementación real, optimizar)
-    const orgsSnapshot = await getDocs(collection(db, 'orgs'));
+    const orgsSnapshot = await getDocs(collection(db, 'organizations'));
     
     for (const orgDoc of orgsSnapshot.docs) {
       const orgId = orgDoc.id;
-      const assignmentsRef = collection(db, 'orgs', orgId, 'evaluatorAssignments');
+      const assignmentsRef = collection(db, 'organizations', orgId, 'evaluatorAssignments');
       const q = query(assignmentsRef, where('tokenHash', '==', tokenHash));
       
       const assignmentsSnapshot = await getDocs(q);
@@ -552,7 +552,7 @@ export const generateEvaluationUrl = (token, baseUrl = '') => {
  */
 export const getAssignmentStats = async (orgId, campaignId) => {
   try {
-    const assignmentsRef = collection(db, 'orgs', orgId, 'evaluatorAssignments');
+    const assignmentsRef = collection(db, 'organizations', orgId, 'evaluatorAssignments');
     const q = query(
       assignmentsRef,
       where('campaignId', '==', campaignId)
@@ -657,6 +657,189 @@ export const extendDeadline = async (orgId, assignmentId, extensionDays) => {
   }
 };
 
+/**
+ * Obtener todas las asignaciones con filtros y paginación (para acciones masivas)
+ */
+export const getAllAssignments = async (orgId, options = {}) => {
+  try {
+    // Mock data para desarrollo
+    const mockAssignments = [
+      {
+        id: 'assignment-1',
+        session360Id: 'session-1',
+        campaignId: 'campaign-1',
+        campaignName: 'Evaluación Q1 2024',
+        evaluateeId: 'user-1',
+        evaluateeName: 'Juan Pérez',
+        evaluatorId: 'user-2',
+        evaluatorEmail: 'maria@example.com',
+        evaluatorName: 'María García',
+        evaluatorType: 'peer',
+        status: 'pending',
+        token: 'xxx-token-1',
+        tokenHash: 'hash-1',
+        tokenUsed: false,
+        tokenExpiry: new Date('2024-12-31'),
+        createdAt: new Date('2024-01-15'),
+        lastInvitationSent: new Date('2024-01-15'),
+        invitationCount: 1,
+        deadline: new Date('2024-02-15')
+      },
+      {
+        id: 'assignment-2',
+        session360Id: 'session-1',
+        campaignId: 'campaign-1',
+        campaignName: 'Evaluación Q1 2024',
+        evaluateeId: 'user-1',
+        evaluateeName: 'Juan Pérez',
+        evaluatorId: 'user-3',
+        evaluatorEmail: 'carlos@example.com',
+        evaluatorName: 'Carlos López',
+        evaluatorType: 'manager',
+        status: 'completed',
+        token: 'xxx-token-2',
+        tokenHash: 'hash-2',
+        tokenUsed: true,
+        tokenExpiry: new Date('2024-12-31'),
+        createdAt: new Date('2024-01-15'),
+        lastInvitationSent: new Date('2024-01-15'),
+        invitationCount: 1,
+        deadline: new Date('2024-02-15'),
+        completedAt: new Date('2024-01-20')
+      },
+      {
+        id: 'assignment-3',
+        session360Id: 'session-2',
+        campaignId: 'campaign-1',
+        campaignName: 'Evaluación Q1 2024',
+        evaluateeId: 'user-2',
+        evaluateeName: 'María García',
+        evaluatorId: 'user-1',
+        evaluatorEmail: 'juan@example.com',
+        evaluatorName: 'Juan Pérez',
+        evaluatorType: 'peer',
+        status: 'pending',
+        token: 'xxx-token-3',
+        tokenHash: 'hash-3',
+        tokenUsed: false,
+        tokenExpiry: new Date('2024-12-31'),
+        createdAt: new Date('2024-01-15'),
+        lastInvitationSent: new Date('2024-01-15'),
+        invitationCount: 1,
+        deadline: new Date('2024-02-15')
+      },
+      {
+        id: 'assignment-4',
+        session360Id: 'session-3',
+        campaignId: 'campaign-2',
+        campaignName: 'Evaluación Q2 2024',
+        evaluateeId: 'user-3',
+        evaluateeName: 'Carlos López',
+        evaluatorId: 'user-4',
+        evaluatorEmail: 'ana@example.com',
+        evaluatorName: 'Ana Martínez',
+        evaluatorType: 'direct',
+        status: 'expired',
+        token: 'xxx-token-4',
+        tokenHash: 'hash-4',
+        tokenUsed: false,
+        tokenExpiry: new Date('2024-05-31'),
+        createdAt: new Date('2024-04-01'),
+        lastInvitationSent: new Date('2024-04-15'),
+        invitationCount: 2,
+        deadline: new Date('2024-05-01')
+      },
+      {
+        id: 'assignment-5',
+        session360Id: 'session-4',
+        campaignId: 'campaign-3',
+        campaignName: 'Evaluación Anual 2024',
+        evaluateeId: 'user-4',
+        evaluateeName: 'Ana Martínez',
+        evaluatorId: 'user-5',
+        evaluatorEmail: 'pedro@example.com',
+        evaluatorName: 'Pedro Rodríguez',
+        evaluatorType: 'self',
+        status: 'in_progress',
+        token: 'xxx-token-5',
+        tokenHash: 'hash-5',
+        tokenUsed: true,
+        tokenExpiry: new Date('2024-12-31'),
+        createdAt: new Date('2024-10-01'),
+        lastInvitationSent: new Date('2024-10-01'),
+        invitationCount: 1,
+        deadline: new Date('2024-11-30')
+      },
+      {
+        id: 'assignment-6',
+        session360Id: 'session-5',
+        campaignId: 'campaign-5',
+        campaignName: 'DST Test Campaign',
+        evaluateeId: 'user-5',
+        evaluateeName: 'Pedro Rodríguez',
+        evaluatorId: 'user-1',
+        evaluatorEmail: 'juan@example.com',
+        evaluatorName: 'Juan Pérez',
+        evaluatorType: 'manager',
+        status: 'pending',
+        token: 'xxx-token-6',
+        tokenHash: 'hash-6',
+        tokenUsed: false,
+        tokenExpiry: new Date('2024-12-31'),
+        createdAt: new Date('2024-08-15'),
+        lastInvitationSent: new Date('2024-08-15'),
+        invitationCount: 1,
+        deadline: new Date('2024-10-15')
+      }
+    ];
+    
+    // Aplicar filtros
+    let filteredAssignments = [...mockAssignments];
+    
+    if (options.search) {
+      filteredAssignments = filteredAssignments.filter(a => 
+        a.evaluatorEmail.toLowerCase().includes(options.search.toLowerCase()) ||
+        (a.evaluatorName && a.evaluatorName.toLowerCase().includes(options.search.toLowerCase())) ||
+        (a.evaluateeName && a.evaluateeName.toLowerCase().includes(options.search.toLowerCase()))
+      );
+    }
+    
+    if (options.status && options.status !== 'all') {
+      filteredAssignments = filteredAssignments.filter(a => a.status === options.status);
+    }
+    
+    if (options.campaignId && options.campaignId !== 'all') {
+      filteredAssignments = filteredAssignments.filter(a => a.campaignId === options.campaignId);
+    }
+    
+    if (options.evaluatorType && options.evaluatorType !== 'all') {
+      filteredAssignments = filteredAssignments.filter(a => a.evaluatorType === options.evaluatorType);
+    }
+    
+    // Paginación
+    const page = options.page || 1;
+    const pageSize = options.pageSize || 20;
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    
+    const paginatedAssignments = filteredAssignments.slice(startIndex, endIndex);
+    const hasMore = endIndex < filteredAssignments.length;
+    
+    console.log(`[EvaluatorAssignment] Returning ${paginatedAssignments.length} assignments (page ${page})`);
+    
+    return {
+      assignments: paginatedAssignments,
+      total: filteredAssignments.length,
+      page,
+      pageSize,
+      hasMore
+    };
+  } catch (error) {
+    console.error('[EvaluatorAssignment] Error getting all assignments:', error);
+    throw error;
+  }
+};
+
 export default {
   // Assignment management
   getSessionAssignments,
@@ -665,6 +848,7 @@ export default {
   createEvaluatorAssignment,
   updateEvaluatorAssignment,
   generateSessionAssignments,
+  getAllAssignments,
   
   // Token management
   validateToken,

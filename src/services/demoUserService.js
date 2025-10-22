@@ -44,7 +44,7 @@ export const ensureDemoUserPermissions = async (user) => {
 
     // 2. Crear membresía personal si no existe
     const personalMemberId = `${personalOrgId}:${user.uid}`;
-    const personalMemberRef = doc(db, `orgs/${personalOrgId}/members`, personalMemberId);
+    const personalMemberRef = doc(db, `organizations/${personalOrgId}/members`, personalMemberId);
     
     const personalMemberExists = await getDoc(personalMemberRef);
     if (!personalMemberExists.exists()) {
@@ -77,7 +77,7 @@ export const ensureDemoUserPermissions = async (user) => {
 
       // Crear membresía en la organización demo
       const demoMemberId = `${testOrgId}:${user.uid}`;
-      const demoMemberRef = doc(db, `orgs/${testOrgId}/members`, demoMemberId);
+      const demoMemberRef = doc(db, `organizations/${testOrgId}/members`, demoMemberId);
       await setDoc(demoMemberRef, {
         userId: user.uid,
         email: user.email,
@@ -127,7 +127,7 @@ export const createPersonalWorkspace = async (user) => {
 
     // Crear membresía
     const memberId = `${orgId}:${user.uid}`;
-    const memberRef = doc(db, `orgs/${orgId}/members`, memberId);
+    const memberRef = doc(db, `organizations/${orgId}/members`, memberId);
     await setDoc(memberRef, {
       userId: user.uid,
       email: user.email,

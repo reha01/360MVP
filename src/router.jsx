@@ -21,6 +21,7 @@ import CampaignPage from './pages/CampaignPage.jsx';
 import EvaluationLandingPage from './pages/EvaluationLandingPage.jsx';
 import Evaluation360Page from './pages/Evaluation360Page.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
+import BulkActionsPage from './pages/BulkActionsPage.jsx';
 import ComparisonPage from './pages/ComparisonPage.jsx';
 import PolicyPage from './pages/PolicyPage.jsx';
 import AlertPage from './pages/AlertPage.jsx';
@@ -189,20 +190,32 @@ function AppRouter() {
        <Route index element={<CampaignPage />} />
      </Route>
      
-     {/* Dashboard 360° */}
-     <Route 
-       path={ROUTES.DASHBOARD_360}
-       element={
-         <ProtectedRoute>
-           <AppShell />
-         </ProtectedRoute>
-       }
-     >
-       <Route index element={<DashboardPage />} />
-     </Route>
-     
-     {/* Comparativas */}
-     <Route 
+{/* Dashboard 360° */}
+<Route
+  path={ROUTES.DASHBOARD_360}
+  element={
+    <ProtectedRoute>
+      <AppShell />
+    </ProtectedRoute>
+  }
+>
+  <Route index element={<DashboardPage />} />
+</Route>
+
+{/* Acciones Masivas */}
+<Route
+  path={ROUTES.BULK_ACTIONS}
+  element={
+    <ProtectedRoute>
+      <AppShell />
+    </ProtectedRoute>
+  }
+>
+  <Route index element={<BulkActionsPage />} />
+</Route>
+
+{/* Comparativas */}
+<Route
        path={ROUTES.COMPARISON}
        element={
          <ProtectedRoute>

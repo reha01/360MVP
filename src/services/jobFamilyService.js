@@ -39,7 +39,7 @@ import {
  */
 export const getOrgJobFamilies = async (orgId) => {
   try {
-    const jobFamiliesRef = collection(db, 'orgs', orgId, 'jobFamilies');
+    const jobFamiliesRef = collection(db, 'organizations', orgId, 'jobFamilies');
     const q = query(
       jobFamiliesRef,
       where('isActive', '==', true),
@@ -388,7 +388,7 @@ export const addExcludedTest = async (orgId, familyId, testId, userId) => {
  */
 export const getUsersByJobFamily = async (orgId, familyId) => {
   try {
-    const membersRef = collection(db, 'orgs', orgId, 'members');
+    const membersRef = collection(db, 'organizations', orgId, 'members');
     const q = query(
       membersRef,
       where('jobFamilyIds', 'array-contains', familyId),
@@ -504,7 +504,7 @@ export const removeJobFamilyFromUser = async (orgId, userId, familyId, updatedBy
  */
 export const getJobFamiliesByLevel = async (orgId, level) => {
   try {
-    const jobFamiliesRef = collection(db, 'orgs', orgId, 'jobFamilies');
+    const jobFamiliesRef = collection(db, 'organizations', orgId, 'jobFamilies');
     const q = query(
       jobFamiliesRef,
       where('level', '==', level),

@@ -42,7 +42,7 @@ import evaluatorAssignmentService from './evaluatorAssignmentService';
  */
 export const getOrgCampaigns = async (orgId) => {
   try {
-    const campaignsRef = collection(db, 'orgs', orgId, 'campaigns');
+    const campaignsRef = collection(db, 'organizations', orgId, 'campaigns');
     const q = query(
       campaignsRef,
       orderBy('createdAt', 'desc')
@@ -59,6 +59,141 @@ export const getOrgCampaigns = async (orgId) => {
   } catch (error) {
     console.error('[Campaign] Error loading campaigns:', error);
     throw new Error(`Error loading campaigns: ${error.message}`);
+  }
+};
+
+/**
+ * Obtener campañas con filtros y paginación (para dashboard)
+ */
+export const getCampaigns = async (orgId, options = {}) => {
+  try {
+    if (!orgId) {
+      throw new Error('Organization ID is required');
+    }
+
+    // Mock data para desarrollo
+    const mockCampaigns = [
+      {
+        id: 'campaign-1',
+        name: 'Evaluación Q1 2024',
+        description: 'Evaluación trimestral de liderazgo',
+        status: 'active',
+        startDate: '2024-01-15',
+        endDate: '2024-02-15',
+        evaluationCount: 45,
+        testId: 'leadership-v1',
+        testVersion: '1.0.0',
+        createdAt: new Date('2024-01-01')
+      },
+      {
+        id: 'campaign-2',
+        name: 'Evaluación Q2 2024',
+        description: 'Evaluación de competencias técnicas',
+        status: 'completed',
+        startDate: '2024-04-01',
+        endDate: '2024-05-01',
+        evaluationCount: 67,
+        testId: 'technical-v2',
+        testVersion: '2.0.0',
+        createdAt: new Date('2024-03-15')
+      },
+      {
+        id: 'campaign-3',
+        name: 'Evaluación Anual 2024',
+        description: 'Evaluación integral anual',
+        status: 'active',
+        startDate: '2024-10-01',
+        endDate: '2024-11-30',
+        evaluationCount: 120,
+        testId: 'leadership-v1',
+        testVersion: '1.0.0',
+        createdAt: new Date('2024-09-20')
+      },
+      {
+        id: 'campaign-4',
+        name: 'Evaluación Ventas Q3',
+        description: 'Evaluación del equipo de ventas',
+        status: 'draft',
+        startDate: '2024-07-01',
+        endDate: '2024-07-31',
+        evaluationCount: 0,
+        testId: 'sales-v1',
+        testVersion: '1.0.0',
+        createdAt: new Date('2024-06-15')
+      },
+      {
+        id: 'campaign-5',
+        name: 'DST Test Campaign',
+        description: 'Campaña que cruza cambio de hora',
+        status: 'active',
+        startDate: '2024-08-15',
+        endDate: '2024-10-15',
+        evaluationCount: 89,
+        testId: 'leadership-v1',
+        testVersion: '1.0.0',
+        crossesDST: true,
+        createdAt: new Date('2024-08-01')
+      }
+    ];
+
+    // Aplicar filtros
+    let filteredCampaigns = [...mockCampaigns];
+    
+    if (options.search) {
+      filteredCampaigns = filteredCampaigns.filter(c => 
+        c.name.toLowerCase().includes(options.search.toLowerCase()) ||
+        c.description.toLowerCase().includes(options.search.toLowerCase())
+      );
+    }
+    
+    if (options.status && options.status !== 'all') {
+      filteredCampaigns = filteredCampaigns.filter(c => c.status === options.status);
+    }
+    
+    if (options.jobFamily && options.jobFamily !== 'all') {
+      // Mapear job family basado en testId
+      const jobFamilyMap = {
+        'leadership': ['leadership-v1', 'leadership-v2'],
+        'technical': ['technical-v1', 'technical-v2'],
+        'sales': ['sales-v1', 'sales-v2']
+      };
+      const testIds = jobFamilyMap[options.jobFamily] || [];
+      filteredCampaigns = filteredCampaigns.filter(c => testIds.includes(c.testId));
+    }
+    
+    if (options.dateFrom) {
+      filteredCampaigns = filteredCampaigns.filter(c => 
+        new Date(c.startDate) >= new Date(options.dateFrom)
+      );
+    }
+    
+    if (options.dateTo) {
+      filteredCampaigns = filteredCampaigns.filter(c => 
+        new Date(c.endDate) <= new Date(options.dateTo)
+      );
+    }
+    
+    // Paginación
+    const page = options.page || 1;
+    const pageSize = options.pageSize || 20;
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    
+    const paginatedCampaigns = filteredCampaigns.slice(startIndex, endIndex);
+    const hasMore = endIndex < filteredCampaigns.length;
+    
+    console.log(`[Campaign] Returning ${paginatedCampaigns.length} campaigns for org ${orgId} (page ${page})`);
+    
+    return {
+      campaigns: paginatedCampaigns,
+      total: filteredCampaigns.length,
+      page,
+      pageSize,
+      hasMore
+    };
+  } catch (error) {
+    console.error('[Campaign] Error getting campaigns:', error);
+    throw error;
   }
 };
 
@@ -235,7 +370,7 @@ export const closeCampaign = async (orgId, campaignId, userId) => {
  */
 export const getCampaignSessions = async (orgId, campaignId) => {
   try {
-    const sessionsRef = collection(db, 'orgs', orgId, 'evaluation360Sessions');
+    const sessionsRef = collection(db, 'organizations', orgId, 'evaluation360Sessions');
     const q = query(
       sessionsRef,
       where('campaignId', '==', campaignId),
@@ -469,7 +604,7 @@ export const getCampaignsOverview = async (orgId) => {
  */
 export const getCampaignsByStatus = async (orgId, status) => {
   try {
-    const campaignsRef = collection(db, 'orgs', orgId, 'campaigns');
+    const campaignsRef = collection(db, 'organizations', orgId, 'campaigns');
     const q = query(
       campaignsRef,
       where('status', '==', status),

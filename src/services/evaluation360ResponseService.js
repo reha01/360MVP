@@ -62,7 +62,7 @@ export const getEvaluation360Response = async (orgId, responseId) => {
  */
 export const getResponseByAssignment = async (orgId, assignmentId) => {
   try {
-    const responsesRef = collection(db, 'orgs', orgId, 'evaluation360Responses');
+    const responsesRef = collection(db, 'organizations', orgId, 'evaluation360Responses');
     const q = query(
       responsesRef,
       where('assignmentId', '==', assignmentId),
@@ -336,7 +336,7 @@ export const submitEvaluation360Response = async (orgId, responseId, userId) => 
  */
 export const getSessionResponses = async (orgId, session360Id) => {
   try {
-    const responsesRef = collection(db, 'orgs', orgId, 'evaluation360Responses');
+    const responsesRef = collection(db, 'organizations', orgId, 'evaluation360Responses');
     const q = query(
       responsesRef,
       where('session360Id', '==', session360Id),
@@ -362,7 +362,7 @@ export const getSessionResponses = async (orgId, session360Id) => {
  */
 export const getCampaignResponses = async (orgId, campaignId) => {
   try {
-    const responsesRef = collection(db, 'orgs', orgId, 'evaluation360Responses');
+    const responsesRef = collection(db, 'organizations', orgId, 'evaluation360Responses');
     const q = query(
       responsesRef,
       where('campaignId', '==', campaignId),

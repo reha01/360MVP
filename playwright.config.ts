@@ -35,9 +35,16 @@ export default defineConfig({
 
   /* Configure projects for major browsers */
   projects: [
+    // Setup project para capturar auth state
+    {
+      name: 'setup',
+      testMatch: /.*\.setup\.ts/,
+    },
+    
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
     },
 
     {

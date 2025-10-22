@@ -49,7 +49,7 @@ const Home = () => {
       
       // Crear membresía en la estructura correcta para Firestore rules
       const memberId = `${orgId}:${user.uid}`;
-      const memberRef = doc(db, `orgs/${orgId}/members`, memberId);
+      const memberRef = doc(db, `organizations/${orgId}/members`, memberId);
       await setDoc(memberRef, {
         userId: user.uid,
         email: user.email,

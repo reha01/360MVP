@@ -65,6 +65,55 @@ const SideNav = ({ collapsed, mobileOpen, onToggle, onMobileToggle }) => {
       icon: '📈',
       path: '/analytics',
       badge: 'Equipos'
+    },
+    {
+      id: 'org-structure',
+      label: 'Estructura',
+      icon: '🏢',
+      path: '/org-structure'
+    },
+    {
+      id: 'job-families',
+      label: 'Familias',
+      icon: '👔',
+      path: '/job-families'
+    },
+    {
+      id: 'campaigns',
+      label: 'Campañas',
+      icon: '📋',
+      path: '/campaigns'
+    },
+    {
+      id: 'dashboard-360',
+      label: 'Dashboard 360',
+      icon: '📊',
+      path: '/dashboard-360'
+    },
+    {
+      id: 'bulk-actions',
+      label: 'Acciones Masivas',
+      icon: '🔄',
+      path: '/bulk-actions',
+      badge: 'Nuevo'
+    },
+    {
+      id: 'comparison',
+      label: 'Comparativas',
+      icon: '📊',
+      path: '/comparison'
+    },
+    {
+      id: 'policies',
+      label: 'Políticas',
+      icon: '🔒',
+      path: '/policies'
+    },
+    {
+      id: 'alerts',
+      label: 'Alertas',
+      icon: '🔔',
+      path: '/alerts'
     }
   ] : [];
 

@@ -48,6 +48,7 @@
     "test:smoke": "playwright test tests/smoke --reporter=line",
     "test:smoke:staging": "STAGING_BASE_URL=https://mvp-staging-3e1cd.web.app playwright test tests/smoke --reporter=line",
     "test:smoke:headed": "playwright test tests/smoke --headed",
+    "smoke:staging": "cross-env STAGING_BASE_URL=https://mvp-staging-3e1cd.web.app playwright test tests/smoke --project=chromium --grep @smoke",
     "test:smoke:debug": "playwright test tests/smoke --debug",
     "test:auth:capture": "cross-env STAGING_BASE_URL=https://mvp-staging-3e1cd.web.app playwright test tests/auth/capture-state.spec.ts --project=chromium --headed --debug",
     "test:smoke:staging:auth": "cross-env STAGING_BASE_URL=https://mvp-staging-3e1cd.web.app STORAGE_STATE=tests/.auth/state.json playwright test tests/smoke --reporter=line",
@@ -62,6 +63,7 @@
     "@vitejs/plugin-react": "^5.0.3",
     "cross-env": "^10.0.0",
     "firebase-admin": "^13.5.0",
+    "glob": "^11.0.3",
     "vite": "^7.1.6",
     "vite-plugin-pwa": "^1.0.3",
     "vitest": "^2.1.8"

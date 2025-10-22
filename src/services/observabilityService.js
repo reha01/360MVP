@@ -1,356 +1,350 @@
 /**
- * Servicio de Observabilidad
+ * Servicio de observabilidad para monitoreo y logging
  * 
- * Verifica que todos los eventos mínimos están llegando
+ * Características:
+ * - Registro centralizado de eventos
+ * - Monitoreo de performance
+ * - Alertas operativas
+ * - Auditoría de acciones sensibles
  */
 
-// ========== EVENT TYPES ==========
+import { 
+  collection, 
+  addDoc, 
+  serverTimestamp 
+} from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
-export const EVENT_TYPES = {
-  // Invitaciones
-  INVITATION_SENT: 'invitation.sent',
-  INVITATION_OPENED: 'invitation.opened',
-  INVITATION_CLICKED: 'invitation.clicked',
-  
-  // Evaluaciones
-  EVALUATION_STARTED: 'evaluation.started',
-  EVALUATION_PROGRESS: 'evaluation.progress',
-  EVALUATION_COMPLETED: 'evaluation.completed',
-  EVALUATION_ABANDONED: 'evaluation.abandoned',
-  
-  // Umbrales
-  THRESHOLDS_MET: 'thresholds.met',
-  THRESHOLDS_FAILED: 'thresholds.failed',
-  ANONYMITY_VIOLATION: 'anonymity.violation',
-  
-  // Resultados
-  RESULTS_GENERATED: 'results.generated',
-  RESULTS_RELEASED: 'results.released',
-  RESULTS_VIEWED: 'results.viewed',
-  
-  // Reportes
-  REPORT_GENERATED: 'report.generated',
-  REPORT_VIEWED: 'report.viewed',
-  REPORT_EXPORTED: 'report.exported',
-  
-  // Sistema
-  CAMPAIGN_CREATED: 'campaign.created',
-  CAMPAIGN_ACTIVATED: 'campaign.activated',
-  CAMPAIGN_COMPLETED: 'campaign.completed',
-  TOKEN_VALIDATED: 'token.validated',
-  TOKEN_INVALIDATED: 'token.invalidated'
+// ========== CONSTANTES ==========
+
+// Niveles de severidad para eventos
+export const SEVERITY = {
+  INFO: 'info',
+  WARNING: 'warning',
+  ERROR: 'error',
+  CRITICAL: 'critical'
 };
 
-// ========== EVENT SCHEMA ==========
+// Tipos de eventos críticos que generan alertas
+const ALERT_EVENT_TYPES = [
+  'bulk.dlq.max_retries',
+  'rate_limit.exceeded',
+  'email.bounce',
+  'email.complaint',
+  'security.anomaly',
+  'data.anonymity_risk'
+];
 
-export const createEvent = (type, data, metadata = {}) => {
-  return {
-    id: `evt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    type,
-    timestamp: new Date().toISOString(),
-    data,
-    metadata: {
-      ...metadata,
-      source: '360mvp',
-      version: '1.0'
-    }
-  };
-};
-
-// ========== EVENT TRACKING ==========
+// ========== LOGGING ==========
 
 /**
- * Trackear evento de invitación enviada
+ * Registrar evento en el sistema de observabilidad
  */
-export const trackInvitationSent = async (orgId, campaignId, assignmentId, evaluatorEmail) => {
-  const event = createEvent(EVENT_TYPES.INVITATION_SENT, {
-    orgId,
-    campaignId,
-    assignmentId,
-    evaluatorEmail,
-    timestamp: new Date().toISOString()
-  });
-  
-  await logEvent(event);
-  console.log('[Observability] Invitation sent tracked:', event.id);
-  return event;
-};
-
-/**
- * Trackear evento de evaluación completada
- */
-export const trackEvaluationCompleted = async (orgId, session360Id, evaluatorType, completionTime) => {
-  const event = createEvent(EVENT_TYPES.EVALUATION_COMPLETED, {
-    orgId,
-    session360Id,
-    evaluatorType,
-    completionTime,
-    timestamp: new Date().toISOString()
-  });
-  
-  await logEvent(event);
-  console.log('[Observability] Evaluation completed tracked:', event.id);
-  return event;
-};
-
-/**
- * Trackear evento de umbrales cumplidos
- */
-export const trackThresholdsMet = async (orgId, session360Id, thresholds) => {
-  const event = createEvent(EVENT_TYPES.THRESHOLDS_MET, {
-    orgId,
-    session360Id,
-    thresholds,
-    timestamp: new Date().toISOString()
-  });
-  
-  await logEvent(event);
-  console.log('[Observability] Thresholds met tracked:', event.id);
-  return event;
-};
-
-/**
- * Trackear evento de resultados liberados
- */
-export const trackResultsReleased = async (orgId, session360Id, reportId) => {
-  const event = createEvent(EVENT_TYPES.RESULTS_RELEASED, {
-    orgId,
-    session360Id,
-    reportId,
-    timestamp: new Date().toISOString()
-  });
-  
-  await logEvent(event);
-  console.log('[Observability] Results released tracked:', event.id);
-  return event;
-};
-
-/**
- * Trackear evento de reporte visualizado
- */
-export const trackReportViewed = async (orgId, reportId, userId, viewDuration) => {
-  const event = createEvent(EVENT_TYPES.REPORT_VIEWED, {
-    orgId,
-    reportId,
-    userId,
-    viewDuration,
-    timestamp: new Date().toISOString()
-  });
-  
-  await logEvent(event);
-  console.log('[Observability] Report viewed tracked:', event.id);
-  return event;
-};
-
-/**
- * Trackear evento de exportación
- */
-export const trackReportExported = async (orgId, reportId, exportType, userId) => {
-  const event = createEvent(EVENT_TYPES.REPORT_EXPORTED, {
-    orgId,
-    reportId,
-    exportType,
-    userId,
-    timestamp: new Date().toISOString()
-  });
-  
-  await logEvent(event);
-  console.log('[Observability] Report exported tracked:', event.id);
-  return event;
-};
-
-// ========== EVENT LOGGING ==========
-
-/**
- * Registrar evento en sistema de logging
- */
-const logEvent = async (event) => {
+export const logEvent = async (eventType, data = {}, severity = SEVERITY.INFO) => {
   try {
-    // En implementación real, enviar a sistema de logging
-    // await sendToLoggingSystem(event);
+    const timestamp = new Date();
+    const userId = 'current-user'; // En producción, obtener del contexto de auth
+    const orgId = data.orgId || 'unknown';
     
-    // Simular logging
-    console.log(`[EVENT] ${event.type}:`, {
-      id: event.id,
-      timestamp: event.timestamp,
-      data: event.data
-    });
+    // Construir evento
+    const event = {
+      eventType,
+      severity,
+      timestamp,
+      userId,
+      orgId,
+      data,
+      clientInfo: {
+        userAgent: navigator.userAgent,
+        platform: navigator.platform,
+        language: navigator.language
+      }
+    };
     
-    // También guardar en Firestore para auditoría
-    await saveEventToFirestore(event);
+    // Registrar en consola para desarrollo
+    console.log(`[Observability] ${severity.toUpperCase()} - ${eventType}:`, data);
+    
+    // En producción, guardar en Firestore
+    // await addDoc(collection(db, 'events'), event);
+    
+    // Verificar si el evento debe generar una alerta
+    if (ALERT_EVENT_TYPES.includes(eventType) || severity === SEVERITY.ERROR || severity === SEVERITY.CRITICAL) {
+      await createAlert(eventType, data, severity);
+    }
+    
+    return { success: true, eventId: `mock-event-${Date.now()}` };
   } catch (error) {
     console.error('[Observability] Error logging event:', error);
+    return { success: false, error: error.message };
   }
 };
 
 /**
- * Guardar evento en Firestore para auditoría
+ * Registrar evento de auditoría (acciones sensibles)
  */
-const saveEventToFirestore = async (event) => {
+export const logAuditEvent = async (action, resourceType, resourceId, details = {}) => {
   try {
-    // En implementación real, guardar en Firestore
-    // const db = getFirestore();
-    // await db.collection('audit_events').add(event);
+    const timestamp = new Date();
+    const userId = 'current-user'; // En producción, obtener del contexto de auth
+    const orgId = details.orgId || 'unknown';
     
-    console.log('[Observability] Event saved to Firestore:', event.id);
-  } catch (error) {
-    console.error('[Observability] Error saving event to Firestore:', error);
-  }
-};
-
-// ========== EVENT VERIFICATION ==========
-
-/**
- * Verificar eventos mínimos para una campaña
- */
-export const verifyMinimumEvents = async (orgId, campaignId) => {
-  try {
-    const requiredEvents = [
-      EVENT_TYPES.INVITATION_SENT,
-      EVENT_TYPES.EVALUATION_COMPLETED,
-      EVENT_TYPES.THRESHOLDS_MET,
-      EVENT_TYPES.RESULTS_RELEASED,
-      EVENT_TYPES.REPORT_VIEWED
-    ];
-    
-    const campaignEvents = await getCampaignEvents(orgId, campaignId);
-    const eventTypes = campaignEvents.map(event => event.type);
-    
-    const missingEvents = requiredEvents.filter(eventType => 
-      !eventTypes.includes(eventType)
-    );
-    
-    const verification = {
-      campaignId,
-      totalEvents: campaignEvents.length,
-      requiredEvents: requiredEvents.length,
-      missingEvents,
-      isComplete: missingEvents.length === 0,
-      events: campaignEvents
+    // Construir evento de auditoría
+    const auditEvent = {
+      action,
+      resourceType,
+      resourceId,
+      timestamp,
+      userId,
+      orgId,
+      details,
+      clientInfo: {
+        ip: '127.0.0.1', // En producción, obtener del request
+        userAgent: navigator.userAgent
+      }
     };
     
-    console.log('[Observability] Event verification completed:', verification);
-    return verification;
+    // Registrar en consola para desarrollo
+    console.log(`[Audit] ${action} - ${resourceType}/${resourceId}:`, details);
+    
+    // En producción, guardar en Firestore
+    // await addDoc(collection(db, 'auditLog'), auditEvent);
+    
+    return { success: true, auditId: `mock-audit-${Date.now()}` };
   } catch (error) {
-    console.error('[Observability] Error verifying events:', error);
-    throw error;
+    console.error('[Observability] Error logging audit event:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// ========== MÉTRICAS ==========
+
+/**
+ * Registrar métrica de performance
+ */
+export const recordPerformanceMetric = async (metricName, value, tags = {}) => {
+  try {
+    const timestamp = new Date();
+    const orgId = tags.orgId || 'unknown';
+    
+    // Construir métrica
+    const metric = {
+      name: metricName,
+      value,
+      timestamp,
+      orgId,
+      tags
+    };
+    
+    // Registrar en consola para desarrollo
+    console.log(`[Metrics] ${metricName}: ${value}`, tags);
+    
+    // En producción, guardar en Firestore o enviar a servicio de métricas
+    // await addDoc(collection(db, 'metrics'), metric);
+    
+    return { success: true };
+  } catch (error) {
+    console.error('[Observability] Error recording metric:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// ========== ALERTAS ==========
+
+/**
+ * Crear alerta operativa
+ */
+export const createAlert = async (eventType, data = {}, severity = SEVERITY.WARNING) => {
+  try {
+    const timestamp = new Date();
+    const orgId = data.orgId || 'unknown';
+    
+    // Generar título y descripción basados en el tipo de evento
+    let title, description, actionLink;
+    
+    switch (eventType) {
+      case 'bulk.dlq.max_retries':
+        title = 'Máximo de reintentos alcanzado en DLQ';
+        description = `Una acción masiva ha alcanzado el máximo de reintentos en la DLQ: ${data.itemId}`;
+        actionLink = '/alerts?filter=dlq';
+        break;
+      case 'rate_limit.exceeded':
+        title = 'Límite de tasa excedido';
+        description = `Se ha excedido el límite de tasa para: ${data.limitType}`;
+        actionLink = '/policies';
+        break;
+      case 'email.bounce':
+        title = 'Email rebotado';
+        description = `Un email ha rebotado: ${data.email}`;
+        actionLink = '/alerts?filter=email';
+        break;
+      case 'email.complaint':
+        title = 'Queja de email recibida';
+        description = `Se ha recibido una queja para el email: ${data.email}`;
+        actionLink = '/alerts?filter=email';
+        break;
+      default:
+        title = `Alerta: ${eventType}`;
+        description = `Se ha generado una alerta para el evento: ${eventType}`;
+        actionLink = '/alerts';
+    }
+    
+    // Construir alerta
+    const alert = {
+      eventType,
+      title,
+      description,
+      severity,
+      timestamp,
+      orgId,
+      data,
+      actionLink,
+      status: 'active',
+      acknowledged: false,
+      resolved: false
+    };
+    
+    // Registrar en consola para desarrollo
+    console.log(`[Alert] ${severity.toUpperCase()} - ${title}:`, description);
+    
+    // En producción, guardar en Firestore
+    // await addDoc(collection(db, 'alerts'), alert);
+    
+    return { success: true, alertId: `mock-alert-${Date.now()}` };
+  } catch (error) {
+    console.error('[Observability] Error creating alert:', error);
+    return { success: false, error: error.message };
   }
 };
 
 /**
- * Obtener eventos de una campaña
+ * Obtener alertas activas
  */
-const getCampaignEvents = async (orgId, campaignId) => {
+export const getActiveAlerts = async (orgId, options = {}) => {
   try {
-    // En implementación real, consultar Firestore
-    // const db = getFirestore();
-    // const snapshot = await db.collection('audit_events')
-    //   .where('data.orgId', '==', orgId)
-    //   .where('data.campaignId', '==', campaignId)
-    //   .orderBy('timestamp', 'desc')
-    //   .get();
-    
-    // Simular eventos
-    return [
+    // Simular alertas para desarrollo
+    const mockAlerts = [
       {
-        id: 'evt_1',
-        type: EVENT_TYPES.INVITATION_SENT,
-        timestamp: new Date().toISOString(),
-        data: { orgId, campaignId }
+        id: 'alert-1',
+        eventType: 'bulk.dlq.max_retries',
+        title: 'Máximo de reintentos alcanzado en DLQ',
+        description: 'Una acción masiva ha alcanzado el máximo de reintentos en la DLQ: dlq-1',
+        severity: SEVERITY.ERROR,
+        timestamp: new Date('2024-10-20T15:30:00'),
+        orgId,
+        data: {
+          itemId: 'dlq-1',
+          assignmentId: 'assignment-123',
+          actionType: 'resend'
+        },
+        actionLink: '/alerts?filter=dlq',
+        status: 'active',
+        acknowledged: true,
+        resolved: false
       },
       {
-        id: 'evt_2',
-        type: EVENT_TYPES.EVALUATION_COMPLETED,
-        timestamp: new Date().toISOString(),
-        data: { orgId, campaignId }
+        id: 'alert-2',
+        eventType: 'email.bounce',
+        title: 'Email rebotado',
+        description: 'Un email ha rebotado: user@example.com',
+        severity: SEVERITY.WARNING,
+        timestamp: new Date('2024-10-21T10:15:00'),
+        orgId,
+        data: {
+          email: 'user@example.com',
+          reason: 'mailbox-full',
+          campaignId: 'campaign-1'
+        },
+        actionLink: '/alerts?filter=email',
+        status: 'active',
+        acknowledged: false,
+        resolved: false
       },
       {
-        id: 'evt_3',
-        type: EVENT_TYPES.THRESHOLDS_MET,
-        timestamp: new Date().toISOString(),
-        data: { orgId, campaignId }
-      },
-      {
-        id: 'evt_4',
-        type: EVENT_TYPES.RESULTS_RELEASED,
-        timestamp: new Date().toISOString(),
-        data: { orgId, campaignId }
-      },
-      {
-        id: 'evt_5',
-        type: EVENT_TYPES.REPORT_VIEWED,
-        timestamp: new Date().toISOString(),
-        data: { orgId, campaignId }
+        id: 'alert-3',
+        eventType: 'rate_limit.exceeded',
+        title: 'Límite de tasa excedido',
+        description: 'Se ha excedido el límite de tasa para: email-sending',
+        severity: SEVERITY.WARNING,
+        timestamp: new Date('2024-10-21T09:45:00'),
+        orgId,
+        data: {
+          limitType: 'email-sending',
+          limit: 100,
+          current: 105
+        },
+        actionLink: '/policies',
+        status: 'active',
+        acknowledged: true,
+        resolved: false
       }
     ];
+    
+    // Aplicar filtros si existen
+    let filteredAlerts = [...mockAlerts];
+    
+    if (options.severity) {
+      filteredAlerts = filteredAlerts.filter(a => a.severity === options.severity);
+    }
+    
+    if (options.eventType) {
+      filteredAlerts = filteredAlerts.filter(a => a.eventType === options.eventType);
+    }
+    
+    if (options.acknowledged !== undefined) {
+      filteredAlerts = filteredAlerts.filter(a => a.acknowledged === options.acknowledged);
+    }
+    
+    // Ordenar por timestamp (más recientes primero)
+    filteredAlerts.sort((a, b) => b.timestamp - a.timestamp);
+    
+    return filteredAlerts;
   } catch (error) {
-    console.error('[Observability] Error getting campaign events:', error);
-    return [];
-  }
-};
-
-// ========== METRICS ==========
-
-/**
- * Obtener métricas de eventos
- */
-export const getEventMetrics = async (orgId, timeRange = '7d') => {
-  try {
-    const events = await getOrgEvents(orgId, timeRange);
-    
-    const metrics = {
-      totalEvents: events.length,
-      eventsByType: {},
-      eventsByDay: {},
-      topEvents: [],
-      errorRate: 0
-    };
-    
-    // Contar eventos por tipo
-    events.forEach(event => {
-      metrics.eventsByType[event.type] = (metrics.eventsByType[event.type] || 0) + 1;
-    });
-    
-    // Obtener top 5 eventos
-    metrics.topEvents = Object.entries(metrics.eventsByType)
-      .sort(([,a], [,b]) => b - a)
-      .slice(0, 5)
-      .map(([type, count]) => ({ type, count }));
-    
-    return metrics;
-  } catch (error) {
-    console.error('[Observability] Error getting event metrics:', error);
+    console.error('[Observability] Error getting active alerts:', error);
     throw error;
   }
 };
 
 /**
- * Obtener eventos de una organización
+ * Actualizar estado de alerta
  */
-const getOrgEvents = async (orgId, timeRange) => {
+export const updateAlertStatus = async (orgId, alertId, updates) => {
   try {
-    // En implementación real, consultar Firestore con filtros de tiempo
-    // Simular eventos
-    return [
-      { type: EVENT_TYPES.INVITATION_SENT, timestamp: new Date().toISOString() },
-      { type: EVENT_TYPES.EVALUATION_COMPLETED, timestamp: new Date().toISOString() },
-      { type: EVENT_TYPES.REPORT_VIEWED, timestamp: new Date().toISOString() }
-    ];
+    if (!orgId) {
+      throw new Error('Organization ID is required');
+    }
+    
+    if (!alertId) {
+      throw new Error('Alert ID is required');
+    }
+    
+    // En producción, actualizar en Firestore
+    // const alertRef = doc(db, 'orgs', orgId, 'alerts', alertId);
+    // await updateDoc(alertRef, updates);
+    
+    console.log(`[Alert] Updated alert ${alertId}:`, updates);
+    
+    return { success: true };
   } catch (error) {
-    console.error('[Observability] Error getting org events:', error);
-    return [];
+    console.error('[Observability] Error updating alert:', error);
+    throw error;
   }
 };
 
+// ========== EXPORTS ==========
+
 export default {
-  EVENT_TYPES,
-  createEvent,
-  trackInvitationSent,
-  trackEvaluationCompleted,
-  trackThresholdsMet,
-  trackResultsReleased,
-  trackReportViewed,
-  trackReportExported,
-  verifyMinimumEvents,
-  getEventMetrics
+  // Logging
+  logEvent,
+  logAuditEvent,
+  
+  // Métricas
+  recordPerformanceMetric,
+  
+  // Alertas
+  createAlert,
+  getActiveAlerts,
+  updateAlertStatus,
+  
+  // Constantes
+  SEVERITY
 };

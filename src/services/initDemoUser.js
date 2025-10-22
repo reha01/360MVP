@@ -29,7 +29,7 @@ export const initDemoUser = async (user) => {
     console.log('[InitDemoUser] Creating personal org:', personalOrgId);
     
     // Usar addDoc en lugar de setDoc para evitar problemas de permisos
-    const personalOrgRef = await addDoc(collection(db, 'orgs'), {
+    const personalOrgRef = await addDoc(collection(db, 'organizations'), {
       id: personalOrgId,
       name: 'Personal Workspace',
       type: 'personal',
@@ -40,7 +40,7 @@ export const initDemoUser = async (user) => {
 
     // 2. Crear membresía personal
     console.log('[InitDemoUser] Creating personal membership...');
-    await addDoc(collection(db, `orgs/${personalOrgRef.id}/members`), {
+    await addDoc(collection(db, `organizations/${personalOrgRef.id}/members`), {
       userId: user.uid,
       email: user.email,
       role: 'owner',
@@ -53,7 +53,7 @@ export const initDemoUser = async (user) => {
     const demoOrgId = `org_demo_${user.uid}`;
     console.log('[InitDemoUser] Creating demo org:', demoOrgId);
     
-    const demoOrgRef = await addDoc(collection(db, 'orgs'), {
+    const demoOrgRef = await addDoc(collection(db, 'organizations'), {
       id: demoOrgId,
       name: 'Organización Demo',
       type: 'business',
@@ -64,7 +64,7 @@ export const initDemoUser = async (user) => {
 
     // 4. Crear membresía en la organización demo
     console.log('[InitDemoUser] Creating demo membership...');
-    await addDoc(collection(db, `orgs/${demoOrgRef.id}/members`), {
+    await addDoc(collection(db, `organizations/${demoOrgRef.id}/members`), {
       userId: user.uid,
       email: user.email,
       role: 'owner',

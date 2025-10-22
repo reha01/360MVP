@@ -19,7 +19,7 @@ import { Search, Filter, Download, RefreshCw, TrendingUp, Users, Clock, CheckCir
 
 const OperationalDashboard = () => {
   const { currentOrgId } = useMultiTenant();
-  const { isEnabled: dashboardEnabled } = useFeatureFlags('dashboard360');
+  const { isEnabled: dashboardEnabled } = useFeatureFlags('FEATURE_DASHBOARD_360');
   
   // Estados principales
   const [campaigns, setCampaigns] = useState([]);

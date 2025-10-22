@@ -66,7 +66,7 @@ export const getEvaluation360Aggregation = async (orgId, aggregationId) => {
  */
 export const getAggregationBySession = async (orgId, session360Id) => {
   try {
-    const aggregationsRef = collection(db, 'orgs', orgId, 'evaluation360Aggregations');
+    const aggregationsRef = collection(db, 'organizations', orgId, 'evaluation360Aggregations');
     const q = query(
       aggregationsRef,
       where('session360Id', '==', session360Id),
@@ -354,7 +354,7 @@ export const calculateGapAnalysis = (responses, aggregatedResponses) => {
  */
 export const getCampaignAggregations = async (orgId, campaignId) => {
   try {
-    const aggregationsRef = collection(db, 'orgs', orgId, 'evaluation360Aggregations');
+    const aggregationsRef = collection(db, 'organizations', orgId, 'evaluation360Aggregations');
     const q = query(
       aggregationsRef,
       where('campaignId', '==', campaignId),
@@ -447,6 +447,127 @@ export const reprocessAggregation = async (orgId, aggregationId, userId) => {
 
 // ========== EXPORT ==========
 
+/**
+ * Obtener agregaciones con filtros y paginación (para dashboard)
+ */
+export const getAggregations = async (orgId, options = {}) => {
+  try {
+    // Mock data para desarrollo
+    const mockAggregations = [
+      {
+        id: 'agg-1',
+        campaignId: 'campaign-1',
+        evaluateeId: 'user-1',
+        evaluateeName: 'Juan Pérez',
+        status: 'completed',
+        completedResponses: 8,
+        totalResponses: 10,
+        scores: {
+          leadership: 4.2,
+          communication: 4.5,
+          teamwork: 4.0
+        },
+        createdAt: new Date('2024-01-20')
+      },
+      {
+        id: 'agg-2',
+        campaignId: 'campaign-1',
+        evaluateeId: 'user-2',
+        evaluateeName: 'María García',
+        status: 'in_progress',
+        completedResponses: 5,
+        totalResponses: 10,
+        scores: {
+          leadership: 4.7,
+          communication: 4.8,
+          teamwork: 4.6
+        },
+        createdAt: new Date('2024-01-21')
+      },
+      {
+        id: 'agg-3',
+        campaignId: 'campaign-2',
+        evaluateeId: 'user-3',
+        evaluateeName: 'Carlos López',
+        status: 'completed',
+        completedResponses: 12,
+        totalResponses: 12,
+        scores: {
+          technical: 4.3,
+          problemSolving: 4.1,
+          innovation: 4.4
+        },
+        createdAt: new Date('2024-04-10')
+      },
+      {
+        id: 'agg-4',
+        campaignId: 'campaign-3',
+        evaluateeId: 'user-4',
+        evaluateeName: 'Ana Martínez',
+        status: 'completed',
+        completedResponses: 15,
+        totalResponses: 15,
+        scores: {
+          leadership: 4.9,
+          communication: 4.7,
+          teamwork: 4.8
+        },
+        createdAt: new Date('2024-10-05')
+      },
+      {
+        id: 'agg-5',
+        campaignId: 'campaign-5',
+        evaluateeId: 'user-5',
+        evaluateeName: 'Pedro Rodríguez',
+        status: 'in_progress',
+        completedResponses: 7,
+        totalResponses: 10,
+        scores: {
+          leadership: 3.9,
+          communication: 4.0,
+          teamwork: 3.8
+        },
+        createdAt: new Date('2024-08-20')
+      }
+    ];
+    
+    // Aplicar filtros
+    let filteredAggregations = [...mockAggregations];
+    
+    if (options.search) {
+      filteredAggregations = filteredAggregations.filter(a => 
+        a.evaluateeName.toLowerCase().includes(options.search.toLowerCase())
+      );
+    }
+    
+    if (options.status && options.status !== 'all') {
+      filteredAggregations = filteredAggregations.filter(a => a.status === options.status);
+    }
+    
+    // Paginación
+    const page = options.page || 1;
+    const pageSize = options.pageSize || 20;
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    
+    const paginatedAggregations = filteredAggregations.slice(startIndex, endIndex);
+    const hasMore = endIndex < filteredAggregations.length;
+    
+    console.log(`[Evaluation360Aggregation] Returning ${paginatedAggregations.length} aggregations (page ${page})`);
+    
+    return {
+      aggregations: paginatedAggregations,
+      total: filteredAggregations.length,
+      page,
+      pageSize,
+      hasMore
+    };
+  } catch (error) {
+    console.error('[Evaluation360Aggregation] Error getting aggregations:', error);
+    throw error;
+  }
+};
+
 export default {
   // Aggregation management
   getEvaluation360Aggregation,
@@ -459,5 +580,6 @@ export default {
   // Utilities
   getCampaignAggregations,
   getAggregationStats,
-  reprocessAggregation
+  reprocessAggregation,
+  getAggregations // Nuevo método para dashboard
 };

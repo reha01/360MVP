@@ -41,7 +41,7 @@ import {
  */
 export const getOrgAreas = async (orgId) => {
   try {
-    const areasRef = collection(db, 'orgs', orgId, 'orgStructure');
+    const areasRef = collection(db, 'organizations', orgId, 'orgStructure');
     const q = query(
       areasRef,
       where('isActive', '==', true),
@@ -221,7 +221,7 @@ export const deleteArea = async (orgId, areaId, userId) => {
  */
 export const getChildAreas = async (orgId, parentId) => {
   try {
-    const areasRef = collection(db, 'orgs', orgId, 'orgStructure');
+    const areasRef = collection(db, 'organizations', orgId, 'orgStructure');
     const q = query(
       areasRef,
       where('parentId', '==', parentId),
@@ -247,7 +247,7 @@ export const getChildAreas = async (orgId, parentId) => {
  */
 export const getOrgUsers = async (orgId) => {
   try {
-    const membersRef = collection(db, 'orgs', orgId, 'members');
+    const membersRef = collection(db, 'organizations', orgId, 'members');
     const q = query(
       membersRef,
       where('isActive', '==', true),
@@ -273,7 +273,7 @@ export const getOrgUsers = async (orgId) => {
  */
 export const getUsersByArea = async (orgId, areaId) => {
   try {
-    const membersRef = collection(db, 'orgs', orgId, 'members');
+    const membersRef = collection(db, 'organizations', orgId, 'members');
     const q = query(
       membersRef,
       where('areaId', '==', areaId),

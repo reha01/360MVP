@@ -8,6 +8,7 @@
 import { db } from '../lib/firebase';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { dlog, derror } from '../utils/debug';
+import { ORG_COLLECTION } from '../lib/paths';
 
 /**
  * Listar todas las organizaciones
@@ -17,7 +18,7 @@ export const listAllOrganizations = async () => {
   try {
     dlog('[OrganizationService] Listing all organizations');
     
-    const orgsRef = collection(db, 'orgs');
+    const orgsRef = collection(db, ORG_COLLECTION);
     const q = query(orgsRef, orderBy('name', 'asc'));
     const snapshot = await getDocs(q);
     
