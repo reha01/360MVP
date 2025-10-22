@@ -27,11 +27,11 @@ setup('authenticate', async ({ page }) => {
   // Submit
   await page.click('button[type="submit"]');
   
-  // Esperar a que se complete el login
-  await page.waitForURL(`${STAGING_URL}/dashboard`, { timeout: 10000 });
+  // Esperar a que se complete el login - puede redirigir a diferentes páginas
+  await page.waitForURL(/\/(dashboard|home|evaluations)/, { timeout: 10000 });
   
-  // Verificar que estamos autenticados
-  await expect(page.locator('text=Dashboard, text=Inicio')).toBeVisible({ timeout: 5000 });
+  // Verificar que estamos autenticados - buscar el email del usuario
+  await expect(page.locator('text=admin@pilot-santiago.com')).toBeVisible({ timeout: 5000 });
   
   console.log('✅ Autenticación exitosa');
   
