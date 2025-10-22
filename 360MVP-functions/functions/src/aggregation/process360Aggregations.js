@@ -9,7 +9,7 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 
 exports.process360Aggregations = functions.firestore
-  .document('orgs/{orgId}/evaluation360Responses/{responseId}')
+  .document('organizations/{orgId}/evaluation360Responses/{responseId}')
   .onUpdate(async (change, context) => {
     const { orgId, responseId } = context.params;
     const before = change.before.data();
