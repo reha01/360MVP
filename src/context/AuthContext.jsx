@@ -8,6 +8,11 @@ import {
 } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { ensureDemoUserPermissions } from '../services/demoUserService';
+import { 
+  checkAndRestoreSession, 
+  saveAuthToken, 
+  clearAuthTokens 
+} from '../services/authPersistence';
 
 const AuthContext = createContext();
 
@@ -17,6 +22,15 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     console.log('[360MVP] AuthContext: Setting up authentication state listener...');
+    
+    // Primero intentar restaurar sesión existente
+    checkAndRestoreSession().then(restoredUser => {
+      if (restoredUser) {
+        console.log('[AuthContext] Sesión restaurada para:', restoredUser.email);
+        setUser(restoredUser);
+        setLoading(false);
+      }
+    });
     
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       console.info('[AuthContext] user', !!firebaseUser, firebaseUser ? `(${firebaseUser.email})` : '(none)');
@@ -30,6 +44,13 @@ export const AuthProvider = ({ children }) => {
         } catch (error) {
           console.error('[AuthContext] Error ensuring demo user permissions:', error);
         }
+      }
+      
+      // Guardar token para persistencia mejorada
+      if (firebaseUser) {
+        await saveAuthToken(firebaseUser);
+      } else {
+        clearAuthTokens();
       }
       
       setUser(firebaseUser);
