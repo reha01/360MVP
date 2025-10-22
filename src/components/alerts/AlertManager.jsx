@@ -1,610 +1,446 @@
 /**
- * AlertManager - Gestor de alertas operativas
+ * AlertManager - Centro de gestión de alertas y errores
  * 
  * Características:
- * - Alertas operativas (DLQ, cuotas, bounces)
- * - Enlaces a acciones relacionadas
- * - Resolución de alertas
- * - Monitoreo en tiempo real
- * - Filtros y búsqueda
+ * - Visualización de errores DLQ (Dead Letter Queue)
+ * - Alertas de rate limits
+ * - Notificaciones de bounces de email
+ * - Acciones de retry y resolución
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMultiTenant } from '../../hooks/useMultiTenant';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
-import { Card, Button, Spinner, Alert, Badge } from '../ui';
 import { 
+  collection, 
+  query, 
+  where, 
+  orderBy, 
+  limit, 
+  getDocs,
+  updateDoc,
+  doc,
+  serverTimestamp
+} from 'firebase/firestore';
+import { db } from '../../lib/firebase';
+import { 
+  AlertCircle, 
   AlertTriangle, 
-  CheckCircle, 
-  Clock, 
-  Mail, 
-  Database,
-  Users,
-  RefreshCw,
+  XCircle, 
+  RefreshCw, 
+  Clock,
+  Mail,
+  Zap,
+  CheckCircle,
+  ChevronRight,
   Filter,
-  Search,
-  ExternalLink,
-  Bell,
-  BellOff
+  Download
 } from 'lucide-react';
 
 const AlertManager = () => {
   const { currentOrgId } = useMultiTenant();
-  const { isEnabled: alertsEnabled } = useFeatureFlags('operationalAlerts');
+  const { isEnabled: alertsEnabled } = useFeatureFlags('FEATURE_OPERATIONAL_ALERTS');
   
-  // Estados principales
   const [alerts, setAlerts] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  
-  // Estados de filtros
-  const [filters, setFilters] = useState({
-    status: 'all',
-    type: 'all',
-    severity: 'all',
-    search: ''
-  });
-  
-  // Estados de acciones
-  const [resolvingAlerts, setResolvingAlerts] = useState(new Set());
-  const [silencedAlerts, setSilencedAlerts] = useState(new Set());
-  
-  // Verificar feature flag
-  if (!alertsEnabled) {
-    return (
-      <div className="max-w-4xl mx-auto p-6">
-        <Alert type="info">
-          <Alert.Title>Función no disponible</Alert.Title>
-          <Alert.Description>
-            El sistema de alertas está en desarrollo. Esta función estará disponible próximamente.
-          </Alert.Description>
-        </Alert>
-      </div>
-    );
-  }
-  
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('all'); // all, dlq, rate_limit, email_bounce
+  const [selectedAlert, setSelectedAlert] = useState(null);
+  const [retrying, setRetrying] = useState(false);
+
   // Cargar alertas
-  const loadAlerts = useCallback(async () => {
+  useEffect(() => {
+    if (!currentOrgId) return;
+    
+    loadAlerts();
+  }, [currentOrgId, filter]);
+
+  const loadAlerts = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      setError(null);
-      
-      // Simular carga de alertas
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Datos de ejemplo
-      const mockAlerts = [
+      // Cargar desde DLQ
+      const dlqRef = collection(db, `organizations/${currentOrgId}/bulkActionDLQ`);
+      let q = query(
+        dlqRef,
+        orderBy('createdAt', 'desc'),
+        limit(50)
+      );
+
+      if (filter !== 'all') {
+        q = query(
+          dlqRef,
+          where('type', '==', filter),
+          orderBy('createdAt', 'desc'),
+          limit(50)
+        );
+      }
+
+      const snapshot = await getDocs(q);
+      const alertsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        source: 'dlq'
+      }));
+
+      // Simular algunas alertas adicionales para demo
+      const demoAlerts = [
         {
-          id: 'alert-1',
-          type: 'dlq',
-          severity: 'high',
+          id: 'demo-1',
+          type: 'rate_limit',
+          title: 'Límite de emails excedido',
+          message: 'Se alcanzó el límite diario de 100 emails para el plan Starter',
+          severity: 'warning',
+          createdAt: new Date(),
           status: 'active',
-          title: 'Jobs en Dead Letter Queue',
-          description: '5 trabajos fallidos en DLQ por más de 24 horas',
-          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-          count: 5,
-          relatedAction: 'clear-dlq',
-          metadata: {
-            jobIds: ['job-1', 'job-2', 'job-3', 'job-4', 'job-5'],
-            oldestJob: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString()
-          }
+          source: 'system'
         },
         {
-          id: 'alert-2',
-          type: 'quota',
-          severity: 'medium',
-          status: 'active',
-          title: 'Cuota de emails excedida',
-          description: 'Límite diario de emails alcanzado para la organización',
-          timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-          count: 1,
-          relatedAction: 'view-quotas',
-          metadata: {
-            quotaType: 'emailsPerDay',
-            current: 10000,
-            limit: 10000,
-            resetAt: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString()
-          }
-        },
-        {
-          id: 'alert-3',
-          type: 'bounce',
-          severity: 'low',
-          status: 'active',
-          title: 'Emails rebotados',
-          description: '3 emails rebotados en las últimas 2 horas',
-          timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-          count: 3,
-          relatedAction: 'view-bounces',
-          metadata: {
-            bounceEmails: ['test1@example.com', 'test2@example.com', 'test3@example.com'],
-            bounceReasons: ['Invalid email', 'Mailbox full', 'Domain not found']
-          }
-        },
-        {
-          id: 'alert-4',
-          type: 'performance',
-          severity: 'medium',
-          status: 'resolved',
-          title: 'Performance degradada',
-          description: 'Tiempo de respuesta p95 > 3s en dashboard',
-          timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-          resolvedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-          count: 1,
-          relatedAction: 'view-metrics',
-          metadata: {
-            p95Time: 3500,
-            threshold: 2000
-          }
+          id: 'demo-2',
+          type: 'email_bounce',
+          title: 'Email rechazado',
+          message: 'El email bounce@simulator.com fue rechazado por el servidor',
+          severity: 'error',
+          assignmentId: 'assignment-123',
+          createdAt: new Date(Date.now() - 3600000),
+          status: 'pending_retry',
+          retryCount: 1,
+          source: 'email'
         }
       ];
-      
-      setAlerts(mockAlerts);
-      
-    } catch (err) {
-      console.error('[AlertManager] Error loading alerts:', err);
-      setError('Error al cargar las alertas');
+
+      setAlerts([...alertsData, ...demoAlerts]);
+    } catch (error) {
+      console.error('Error loading alerts:', error);
     } finally {
       setLoading(false);
     }
-  }, []);
-  
-  // Efecto para cargar alertas
-  useEffect(() => {
-    if (currentOrgId) {
-      loadAlerts();
-      
-      // Simular actualizaciones en tiempo real
-      const interval = setInterval(() => {
-        loadAlerts();
-      }, 30000); // 30 segundos
-      
-      return () => clearInterval(interval);
-    }
-  }, [currentOrgId, loadAlerts]);
-  
-  // Filtrar alertas
-  const filteredAlerts = alerts.filter(alert => {
-    if (filters.status !== 'all' && alert.status !== filters.status) return false;
-    if (filters.type !== 'all' && alert.type !== filters.type) return false;
-    if (filters.severity !== 'all' && alert.severity !== filters.severity) return false;
-    if (filters.search && !alert.title.toLowerCase().includes(filters.search.toLowerCase()) &&
-        !alert.description.toLowerCase().includes(filters.search.toLowerCase())) return false;
-    return true;
-  });
-  
-  // Resolver alerta
-  const resolveAlert = async (alertId) => {
+  };
+
+  const handleRetry = async (alert) => {
+    setRetrying(true);
     try {
-      setResolvingAlerts(prev => new Set([...prev, alertId]));
+      // Simular retry
+      console.log('Retrying alert:', alert);
       
-      // Simular resolución
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // En producción, aquí se llamaría al servicio correspondiente
+      // await retryBulkAction(alert.originalActionId);
       
-      setAlerts(prev => prev.map(alert => 
-        alert.id === alertId 
-          ? { ...alert, status: 'resolved', resolvedAt: new Date().toISOString() }
-          : alert
-      ));
+      // Actualizar estado en DLQ
+      if (alert.source === 'dlq') {
+        const alertRef = doc(db, `organizations/${currentOrgId}/bulkActionDLQ`, alert.id);
+        await updateDoc(alertRef, {
+          status: 'retrying',
+          lastRetry: serverTimestamp(),
+          retryCount: (alert.retryCount || 0) + 1
+        });
+      }
+
+      // Recargar alertas
+      await loadAlerts();
       
-    } catch (err) {
-      console.error('[AlertManager] Error resolving alert:', err);
+      // Mostrar éxito
+      alert('✅ Reintento iniciado correctamente');
+    } catch (error) {
+      console.error('Error retrying:', error);
+      alert('❌ Error al reintentar: ' + error.message);
     } finally {
-      setResolvingAlerts(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(alertId);
-        return newSet;
-      });
+      setRetrying(false);
     }
   };
-  
-  // Silenciar alerta
-  const silenceAlert = (alertId) => {
-    setSilencedAlerts(prev => new Set([...prev, alertId]));
+
+  const handleResolve = async (alert) => {
+    try {
+      // Marcar como resuelto
+      if (alert.source === 'dlq') {
+        const alertRef = doc(db, `organizations/${currentOrgId}/bulkActionDLQ`, alert.id);
+        await updateDoc(alertRef, {
+          status: 'resolved',
+          resolvedAt: serverTimestamp(),
+          resolvedBy: 'current-user' // En producción, usar el usuario actual
+        });
+      }
+
+      // Recargar alertas
+      await loadAlerts();
+      
+      alert('✅ Alerta marcada como resuelta');
+    } catch (error) {
+      console.error('Error resolving:', error);
+      alert('❌ Error al resolver: ' + error.message);
+    }
   };
-  
-  // Activar alerta silenciada
-  const unsilenceAlert = (alertId) => {
-    setSilencedAlerts(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(alertId);
-      return newSet;
-    });
-  };
-  
-  // Obtener icono por tipo de alerta
+
   const getAlertIcon = (type) => {
     switch (type) {
-      case 'dlq': return <Database className="w-5 h-5" />;
-      case 'quota': return <Users className="w-5 h-5" />;
-      case 'bounce': return <Mail className="w-5 h-5" />;
-      case 'performance': return <Clock className="w-5 h-5" />;
-      default: return <AlertTriangle className="w-5 h-5" />;
-    }
-  };
-  
-  // Obtener color por severidad
-  const getSeverityColor = (severity) => {
-    switch (severity) {
-      case 'high': return 'text-red-600 bg-red-100';
-      case 'medium': return 'text-yellow-600 bg-yellow-100';
-      case 'low': return 'text-blue-600 bg-blue-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
-  
-  // Obtener color por estado
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'active': return 'text-red-600 bg-red-100';
-      case 'resolved': return 'text-green-600 bg-green-100';
-      case 'silenced': return 'text-gray-600 bg-gray-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
-  
-  // Manejar acción relacionada
-  const handleRelatedAction = (alert) => {
-    switch (alert.relatedAction) {
-      case 'clear-dlq':
-        alert('Función: Limpiar DLQ - En desarrollo');
-        break;
-      case 'view-quotas':
-        alert('Función: Ver cuotas - En desarrollo');
-        break;
-      case 'view-bounces':
-        alert('Función: Ver bounces - En desarrollo');
-        break;
-      case 'view-metrics':
-        alert('Función: Ver métricas - En desarrollo');
-        break;
+      case 'email_bounce':
+        return <Mail className="w-5 h-5" />;
+      case 'rate_limit':
+        return <Zap className="w-5 h-5" />;
+      case 'processing_error':
+        return <XCircle className="w-5 h-5" />;
       default:
-        console.log('Acción relacionada:', alert.relatedAction);
+        return <AlertCircle className="w-5 h-5" />;
     }
   };
-  
-  if (loading && alerts.length === 0) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <Spinner size="lg" />
-        <span className="ml-2">Cargando alertas...</span>
-      </div>
-    );
-  }
-  
-  if (error) {
+
+  const getAlertColor = (severity) => {
+    switch (severity) {
+      case 'error':
+        return 'text-red-600 bg-red-50 border-red-200';
+      case 'warning':
+        return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+      case 'info':
+        return 'text-blue-600 bg-blue-50 border-blue-200';
+      default:
+        return 'text-gray-600 bg-gray-50 border-gray-200';
+    }
+  };
+
+  const formatDate = (date) => {
+    if (!date) return 'N/A';
+    const d = date.toDate ? date.toDate() : new Date(date);
+    return d.toLocaleString('es-CL');
+  };
+
+  if (!alertsEnabled) {
     return (
       <div className="max-w-4xl mx-auto p-6">
-        <Alert type="error">
-          <Alert.Title>Error</Alert.Title>
-          <Alert.Description>{error}</Alert.Description>
-        </Alert>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-blue-800">
+            El centro de alertas no está habilitado para tu organización.
+          </p>
+        </div>
       </div>
     );
   }
-  
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <RefreshCw className="w-8 h-8 animate-spin text-gray-400" />
+        <span className="ml-2 text-gray-600">Cargando alertas...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto p-6" data-testid="alert-manager">
       {/* Header */}
       <div className="mb-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900">Alertas Operativas</h2>
-            <p className="text-gray-600">Monitorea y gestiona alertas del sistema</p>
-          </div>
-          <div className="flex space-x-2">
-            <Button
-              onClick={loadAlerts}
-              variant="outline"
-              size="sm"
-              disabled={loading}
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Actualizar
-            </Button>
-          </div>
-        </div>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          Centro de Alertas
+        </h1>
+        <p className="text-gray-600">
+          Gestiona errores, límites y notificaciones del sistema
+        </p>
       </div>
-      
-      {/* Resumen de alertas */}
-      <div className="mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="p-4">
-            <div className="flex items-center">
-              <AlertTriangle className="w-8 h-8 text-red-600 mr-3" />
-              <div>
-                <div className="text-2xl font-bold text-gray-900">
-                  {alerts.filter(a => a.status === 'active').length}
-                </div>
-                <div className="text-sm text-gray-600">Activas</div>
-              </div>
-            </div>
-          </Card>
-          
-          <Card className="p-4">
-            <div className="flex items-center">
-              <CheckCircle className="w-8 h-8 text-green-600 mr-3" />
-              <div>
-                <div className="text-2xl font-bold text-gray-900">
-                  {alerts.filter(a => a.status === 'resolved').length}
-                </div>
-                <div className="text-sm text-gray-600">Resueltas</div>
-              </div>
-            </div>
-          </Card>
-          
-          <Card className="p-4">
-            <div className="flex items-center">
-              <Bell className="w-8 h-8 text-yellow-600 mr-3" />
-              <div>
-                <div className="text-2xl font-bold text-gray-900">
-                  {silencedAlerts.size}
-                </div>
-                <div className="text-sm text-gray-600">Silenciadas</div>
-              </div>
-            </div>
-          </Card>
-          
-          <Card className="p-4">
-            <div className="flex items-center">
-              <Clock className="w-8 h-8 text-blue-600 mr-3" />
-              <div>
-                <div className="text-2xl font-bold text-gray-900">
-                  {alerts.length}
-                </div>
-                <div className="text-sm text-gray-600">Total</div>
-              </div>
-            </div>
-          </Card>
-        </div>
-      </div>
-      
+
       {/* Filtros */}
-      <div className="mb-6">
-        <Card className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Estado
-              </label>
-              <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={filters.status}
-                onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-              >
-                <option value="all">Todos</option>
-                <option value="active">Activas</option>
-                <option value="resolved">Resueltas</option>
-                <option value="silenced">Silenciadas</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tipo
-              </label>
-              <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={filters.type}
-                onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value }))}
-              >
-                <option value="all">Todos</option>
-                <option value="dlq">DLQ</option>
-                <option value="quota">Cuotas</option>
-                <option value="bounce">Bounces</option>
-                <option value="performance">Performance</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Severidad
-              </label>
-              <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={filters.severity}
-                onChange={(e) => setFilters(prev => ({ ...prev, severity: e.target.value }))}
-              >
-                <option value="all">Todas</option>
-                <option value="high">Alta</option>
-                <option value="medium">Media</option>
-                <option value="low">Baja</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Búsqueda
-              </label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar alertas..."
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={filters.search}
-                  onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                />
-              </div>
-            </div>
-            
-            <div className="flex items-end">
-              <Button
-                onClick={() => setFilters({ status: 'all', type: 'all', severity: 'all', search: '' })}
-                variant="outline"
-                size="sm"
-                className="w-full"
-              >
-                <Filter className="w-4 h-4 mr-2" />
-                Limpiar
-              </Button>
-            </div>
-          </div>
-        </Card>
-      </div>
-      
-      {/* Lista de alertas */}
-      <div className="space-y-4">
-        {filteredAlerts.map((alert) => (
-          <Card
-            key={alert.id}
-            className={`p-4 ${
-              silencedAlerts.has(alert.id) ? 'opacity-50' : ''
-            }`}
+      <div className="mb-6 flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <Filter className="w-5 h-5 text-gray-400" />
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <div className="flex items-start justify-between">
-              <div className="flex items-start space-x-3 flex-1">
-                <div className={`p-2 rounded-full ${getSeverityColor(alert.severity)}`}>
-                  {getAlertIcon(alert.type)}
-                </div>
-                
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {alert.title}
-                    </h3>
-                    <Badge className={getSeverityColor(alert.severity)}>
-                      {alert.severity}
-                    </Badge>
-                    <Badge className={getStatusColor(alert.status)}>
-                      {alert.status}
-                    </Badge>
-                    {alert.count > 1 && (
-                      <Badge variant="outline">
-                        {alert.count} items
-                      </Badge>
-                    )}
+            <option value="all">Todas las alertas</option>
+            <option value="dlq">Errores DLQ</option>
+            <option value="rate_limit">Límites de cuota</option>
+            <option value="email_bounce">Emails rechazados</option>
+            <option value="processing_error">Errores de procesamiento</option>
+          </select>
+        </div>
+
+        <button
+          onClick={loadAlerts}
+          className="ml-auto flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Actualizar
+        </button>
+
+        <button className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+          <Download className="w-4 h-4" />
+          Exportar
+        </button>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white p-4 rounded-lg border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Total Alertas</p>
+              <p className="text-2xl font-semibold">{alerts.length}</p>
+            </div>
+            <AlertCircle className="w-8 h-8 text-gray-400" />
+          </div>
+        </div>
+
+        <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-red-600">Críticas</p>
+              <p className="text-2xl font-semibold text-red-700">
+                {alerts.filter(a => a.severity === 'error').length}
+              </p>
+            </div>
+            <XCircle className="w-8 h-8 text-red-400" />
+          </div>
+        </div>
+
+        <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-yellow-600">Advertencias</p>
+              <p className="text-2xl font-semibold text-yellow-700">
+                {alerts.filter(a => a.severity === 'warning').length}
+              </p>
+            </div>
+            <AlertTriangle className="w-8 h-8 text-yellow-400" />
+          </div>
+        </div>
+
+        <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-green-600">Resueltas</p>
+              <p className="text-2xl font-semibold text-green-700">
+                {alerts.filter(a => a.status === 'resolved').length}
+              </p>
+            </div>
+            <CheckCircle className="w-8 h-8 text-green-400" />
+          </div>
+        </div>
+      </div>
+
+      {/* Lista de Alertas */}
+      <div className="bg-white rounded-lg border border-gray-200">
+        {alerts.length === 0 ? (
+          <div className="p-8 text-center">
+            <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
+            <p className="text-gray-600">No hay alertas activas</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-200">
+            {alerts.map((alert) => (
+              <div
+                key={alert.id}
+                className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
+                  selectedAlert?.id === alert.id ? 'bg-blue-50' : ''
+                }`}
+                onClick={() => setSelectedAlert(alert)}
+              >
+                <div className="flex items-start gap-4">
+                  <div className={`p-2 rounded-lg ${getAlertColor(alert.severity || 'info')}`}>
+                    {getAlertIcon(alert.type)}
                   </div>
-                  
-                  <p className="text-gray-600 mb-2">
-                    {alert.description}
-                  </p>
-                  
-                  <div className="flex items-center space-x-4 text-sm text-gray-500">
-                    <span>
-                      {alert.status === 'resolved' ? 'Resuelta' : 'Creada'}: {' '}
-                      {new Date(alert.resolvedAt || alert.timestamp).toLocaleString()}
-                    </span>
-                    {alert.metadata && (
-                      <span>
-                        Tipo: {alert.type.toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-                  
-                  {/* Metadata específica */}
-                  {alert.metadata && (
-                    <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                      <div className="text-sm text-gray-600">
-                        {alert.type === 'dlq' && (
-                          <div>
-                            <strong>Jobs en DLQ:</strong> {alert.metadata.jobIds?.join(', ')}
-                            <br />
-                            <strong>Job más antiguo:</strong> {new Date(alert.metadata.oldestJob).toLocaleString()}
-                          </div>
+
+                  <div className="flex-1">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="font-semibold text-gray-900">
+                          {alert.title || alert.type || 'Alerta'}
+                        </h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {alert.message || alert.error || 'Sin descripción'}
+                        </p>
+                        
+                        <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {formatDate(alert.createdAt)}
+                          </span>
+                          {alert.retryCount > 0 && (
+                            <span>
+                              Reintentos: {alert.retryCount}/{alert.maxRetries || 3}
+                            </span>
+                          )}
+                          {alert.status && (
+                            <span className="px-2 py-1 bg-gray-100 rounded-full">
+                              {alert.status}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {alert.status !== 'resolved' && (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRetry(alert);
+                              }}
+                              disabled={retrying}
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+                              title="Reintentar"
+                            >
+                              <RefreshCw className={`w-4 h-4 ${retrying ? 'animate-spin' : ''}`} />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleResolve(alert);
+                              }}
+                              className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                              title="Marcar como resuelto"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                            </button>
+                          </>
                         )}
-                        {alert.type === 'quota' && (
-                          <div>
-                            <strong>Cuota:</strong> {alert.metadata.quotaType}
-                            <br />
-                            <strong>Uso:</strong> {alert.metadata.current}/{alert.metadata.limit}
-                            <br />
-                            <strong>Reset:</strong> {new Date(alert.metadata.resetAt).toLocaleString()}
-                          </div>
-                        )}
-                        {alert.type === 'bounce' && (
-                          <div>
-                            <strong>Emails:</strong> {alert.metadata.bounceEmails?.join(', ')}
-                            <br />
-                            <strong>Razones:</strong> {alert.metadata.bounceReasons?.join(', ')}
-                          </div>
-                        )}
-                        {alert.type === 'performance' && (
-                          <div>
-                            <strong>P95 Time:</strong> {alert.metadata.p95Time}ms
-                            <br />
-                            <strong>Umbral:</strong> {alert.metadata.threshold}ms
-                          </div>
-                        )}
+                        <ChevronRight className="w-4 h-4 text-gray-400" />
                       </div>
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
-              
-              <div className="flex flex-col space-y-2">
-                {alert.relatedAction && (
-                  <Button
-                    onClick={() => handleRelatedAction(alert)}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    Ver Detalle
-                  </Button>
-                )}
-                
-                {alert.status === 'active' && (
-                  <>
-                    <Button
-                      onClick={() => resolveAlert(alert.id)}
-                      disabled={resolvingAlerts.has(alert.id)}
-                      size="sm"
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      {resolvingAlerts.has(alert.id) ? (
-                        <>
-                          <Spinner size="sm" className="mr-2" />
-                          Resolviendo...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          Resolver
-                        </>
-                      )}
-                    </Button>
-                    
-                    <Button
-                      onClick={() => silenceAlert(alert.id)}
-                      variant="outline"
-                      size="sm"
-                    >
-                      <BellOff className="w-4 h-4 mr-2" />
-                      Silenciar
-                    </Button>
-                  </>
-                )}
-                
-                {silencedAlerts.has(alert.id) && (
-                  <Button
-                    onClick={() => unsilenceAlert(alert.id)}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <Bell className="w-4 h-4 mr-2" />
-                    Activar
-                  </Button>
-                )}
-              </div>
-            </div>
-          </Card>
-        ))}
+            ))}
+          </div>
+        )}
       </div>
-      
-      {/* Sin alertas */}
-      {filteredAlerts.length === 0 && (
-        <div className="text-center py-8">
-          <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            No hay alertas
-          </h3>
-          <p className="text-gray-600">
-            {filters.status === 'all' && filters.type === 'all' && filters.severity === 'all' && !filters.search
-              ? 'El sistema está funcionando correctamente'
-              : 'No se encontraron alertas con los filtros aplicados'
-            }
-          </p>
+
+      {/* Detalle de Alerta Seleccionada */}
+      {selectedAlert && (
+        <div className="mt-6 bg-white rounded-lg border border-gray-200 p-6">
+          <h3 className="font-semibold text-lg mb-4">Detalles de la Alerta</h3>
+          <div className="space-y-2 text-sm">
+            <div className="flex">
+              <span className="font-medium w-32">ID:</span>
+              <span className="text-gray-600">{selectedAlert.id}</span>
+            </div>
+            <div className="flex">
+              <span className="font-medium w-32">Tipo:</span>
+              <span className="text-gray-600">{selectedAlert.type}</span>
+            </div>
+            <div className="flex">
+              <span className="font-medium w-32">Estado:</span>
+              <span className="text-gray-600">{selectedAlert.status || 'active'}</span>
+            </div>
+            {selectedAlert.assignmentId && (
+              <div className="flex">
+                <span className="font-medium w-32">Asignación:</span>
+                <span className="text-gray-600">{selectedAlert.assignmentId}</span>
+              </div>
+            )}
+            {selectedAlert.campaignId && (
+              <div className="flex">
+                <span className="font-medium w-32">Campaña:</span>
+                <span className="text-gray-600">{selectedAlert.campaignId}</span>
+              </div>
+            )}
+            <div className="flex">
+              <span className="font-medium w-32">Creado:</span>
+              <span className="text-gray-600">{formatDate(selectedAlert.createdAt)}</span>
+            </div>
+            {selectedAlert.lastRetry && (
+              <div className="flex">
+                <span className="font-medium w-32">Último reintento:</span>
+                <span className="text-gray-600">{formatDate(selectedAlert.lastRetry)}</span>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -23,6 +23,7 @@ import Evaluation360Page from './pages/Evaluation360Page.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
 import BulkActionsPage from './pages/BulkActionsPage.jsx';
 import ComparisonPage from './pages/ComparisonPage.jsx';
+import AlertsPage from './pages/AlertsPage';
 import PolicyPage from './pages/PolicyPage.jsx';
 import AlertPage from './pages/AlertPage.jsx';
 
