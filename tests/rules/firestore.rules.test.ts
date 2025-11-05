@@ -88,10 +88,12 @@ describe('Firestore Security Rules v1 - Multi-organization', () => {
         createdAt: new Date(),
       });
       
-      // Create memberships
+      // Create memberships (using both field variations for compatibility)
       await setDoc(doc(db, 'organization_members', `${orgId}:${ownerUid}`), {
         orgId: orgId,
-        user_id: ownerUid,
+        org_id: orgId, // Both fields for compatibility
+        userId: ownerUid,
+        user_id: ownerUid, // Both fields for compatibility
         role: 'owner',
         status: 'active',
         createdAt: new Date(),
@@ -99,7 +101,9 @@ describe('Firestore Security Rules v1 - Multi-organization', () => {
       
       await setDoc(doc(db, 'organization_members', `${orgId}:${memberUid}`), {
         orgId: orgId,
-        user_id: memberUid,
+        org_id: orgId, // Both fields for compatibility
+        userId: memberUid,
+        user_id: memberUid, // Both fields for compatibility
         role: 'member',
         status: 'active',
         createdAt: new Date(),
@@ -107,7 +111,9 @@ describe('Firestore Security Rules v1 - Multi-organization', () => {
       
       await setDoc(doc(db, 'organization_members', `${orgId}:${viewerUid}`), {
         orgId: orgId,
-        user_id: viewerUid,
+        org_id: orgId, // Both fields for compatibility
+        userId: viewerUid,
+        user_id: viewerUid, // Both fields for compatibility
         role: 'viewer',
         status: 'active',
         createdAt: new Date(),
@@ -362,7 +368,9 @@ describe('Firestore Security Rules v1 - Multi-organization', () => {
       
       await assertSucceeds(setDoc(doc(db, 'organization_members', `${orgId}:new_user_123`), {
         orgId: orgId,
-        user_id: 'new_user_123',
+        org_id: orgId, // Both fields for compatibility
+        userId: 'new_user_123',
+        user_id: 'new_user_123', // Both fields for compatibility
         role: 'admin',
         status: 'active',
         createdAt: new Date(),
@@ -375,7 +383,9 @@ describe('Firestore Security Rules v1 - Multi-organization', () => {
       
       await assertFails(setDoc(doc(db, 'organization_members', `${orgId}:new_user_456`), {
         orgId: orgId,
-        user_id: 'new_user_456',
+        org_id: orgId, // Both fields for compatibility
+        userId: 'new_user_456',
+        user_id: 'new_user_456', // Both fields for compatibility
         role: 'member',
         status: 'active',
         createdAt: new Date(),
@@ -388,7 +398,9 @@ describe('Firestore Security Rules v1 - Multi-organization', () => {
       
       await assertFails(setDoc(doc(db, 'organization_members', `${orgId}:new_user_789`), {
         orgId: orgId,
-        user_id: 'new_user_789',
+        org_id: orgId, // Both fields for compatibility
+        userId: 'new_user_789',
+        user_id: 'new_user_789', // Both fields for compatibility
         role: 'member',
         status: 'active',
         createdAt: new Date(),
@@ -403,6 +415,30 @@ describe('Firestore Security Rules v1 - Multi-organization', () => {
       
       // Try to access a different organization
       await assertFails(getDoc(doc(db, 'organizations', 'other_org')));
+    });
+
+    test('User cannot access other organization subcollections', async () => {
+      const ownerContext = testEnv.authenticatedContext(ownerUid);
+      const db = ownerContext.firestore();
+      
+      // Try to access a different organization's evaluations
+      await assertFails(getDoc(doc(db, 'organizations', 'other_org', 'evaluations', 'e1')));
+    });
+  });
+});
+
+    });
+
+    test('User cannot access other organization subcollections', async () => {
+      const ownerContext = testEnv.authenticatedContext(ownerUid);
+      const db = ownerContext.firestore();
+      
+      // Try to access a different organization's evaluations
+      await assertFails(getDoc(doc(db, 'organizations', 'other_org', 'evaluations', 'e1')));
+    });
+  });
+});
+
     });
 
     test('User cannot access other organization subcollections', async () => {

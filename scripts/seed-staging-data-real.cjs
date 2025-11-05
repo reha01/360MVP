@@ -13,10 +13,17 @@ const crypto = require('crypto');
 
 // Inicializar Firebase Admin
 if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.applicationDefault(),
-    projectId: 'mvp-staging-3e1cd'
-  });
+  try {
+    admin.initializeApp({
+      credential: admin.credential.applicationDefault(),
+      projectId: 'mvp-staging-3e1cd'
+    });
+  } catch (error) {
+    console.error('⚠️  Error de credenciales. Intentando sin credenciales explícitas...');
+    admin.initializeApp({
+      projectId: 'mvp-staging-3e1cd'
+    });
+  }
 }
 
 const db = admin.firestore();
@@ -234,6 +241,20 @@ async function main() {
     process.exit(1);
   }
 }
+
+main();
+
+
+
+
+
+
+main();
+
+
+
+
+
 
 main();
 

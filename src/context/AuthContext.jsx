@@ -22,18 +22,51 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     console.log('[360MVP] AuthContext: Setting up authentication state listener...');
+    console.log('[AuthContext] 🕐 Current time:', new Date().toISOString());
+    
+    // ✅ DEBUG: Timeout de seguridad para evitar loading infinito
+    // REDUCIDO A 3 SEGUNDOS para que Playwright no se atore
+    const safetyTimeout = setTimeout(() => {
+      console.warn('[AuthContext] ⚠️ SAFETY TIMEOUT: Auth listener no se disparó en 3s, forzando fin de loading');
+      console.warn('[AuthContext] 🕐 Timeout triggered at:', new Date().toISOString());
+      console.warn('[AuthContext] 📊 Current user at timeout:', auth.currentUser?.email || 'none');
+      
+      // Si hay usuario actual, usarlo
+      if (auth.currentUser) {
+        console.log('[AuthContext] ✅ Usuario encontrado en auth.currentUser, usándolo');
+        setUser(auth.currentUser);
+      }
+      
+      setLoading(false);
+    }, 3000); // 3 segundos (reducido de 10)
     
     // Primero intentar restaurar sesión existente
-    checkAndRestoreSession().then(restoredUser => {
-      if (restoredUser) {
-        console.log('[AuthContext] Sesión restaurada para:', restoredUser.email);
-        setUser(restoredUser);
+    console.log('[AuthContext] 🔍 Intentando restaurar sesión...');
+    checkAndRestoreSession()
+      .then(restoredUser => {
+        console.log('[AuthContext] ✅ checkAndRestoreSession resolved:', !!restoredUser);
+        if (restoredUser) {
+          console.log('[AuthContext] Sesión restaurada para:', restoredUser.email);
+          setUser(restoredUser);
+          setLoading(false);
+          clearTimeout(safetyTimeout); // ✅ Limpiar timeout si se resolvió
+        }
+      })
+      .catch(err => {
+        console.error('[AuthContext] ❌ checkAndRestoreSession error:', err);
+        // ✅ CRÍTICO: Setear loading a false incluso con error
         setLoading(false);
-      }
-    });
+        clearTimeout(safetyTimeout);
+      });
     
+    console.log('[AuthContext] 📡 Configurando onAuthStateChanged listener...');
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      console.info('[AuthContext] user', !!firebaseUser, firebaseUser ? `(${firebaseUser.email})` : '(none)');
+      console.info('[AuthContext] 🔔 onAuthStateChanged fired:', !!firebaseUser, firebaseUser ? `(${firebaseUser.email})` : '(none)');
+      console.log('[AuthContext] 🕐 onAuthStateChanged time:', new Date().toISOString());
+      
+      // Limpiar timeout de seguridad
+      console.log('[AuthContext] ⏱️ Clearing safety timeout');
+      clearTimeout(safetyTimeout);
       
       // Si es usuario demo, asegurar permisos
       if (firebaseUser && firebaseUser.email === 'demo@360mvp.com') {
@@ -53,6 +86,7 @@ export const AuthProvider = ({ children }) => {
         clearAuthTokens();
       }
       
+      console.log('[AuthContext] ✅ Setting user and loading=false');
       setUser(firebaseUser);
       setLoading(false);
     });
@@ -60,6 +94,7 @@ export const AuthProvider = ({ children }) => {
     // Cleanup subscription on unmount
     return () => {
       console.log('[360MVP] AuthContext: Cleaning up auth listener');
+      clearTimeout(safetyTimeout);
       unsubscribe();
     };
   }, []);
@@ -124,6 +159,76 @@ export const AuthProvider = ({ children }) => {
         <div style={{
           display: 'flex',
           justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+          flexDirection: 'column',
+          fontFamily: 'Arial, sans-serif'
+        }}>
+          <div style={{
+            width: '50px',
+            height: '50px',
+            border: '5px solid #f3f3f3',
+            borderTop: '5px solid #3498db',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite'
+          }}></div>
+          <p style={{marginTop: '20px', color: '#666'}}>🔐 Verificando autenticación...</p>
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
+      ) : (
+        children
+      )}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+          alignItems: 'center',
+          height: '100vh',
+          flexDirection: 'column',
+          fontFamily: 'Arial, sans-serif'
+        }}>
+          <div style={{
+            width: '50px',
+            height: '50px',
+            border: '5px solid #f3f3f3',
+            borderTop: '5px solid #3498db',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite'
+          }}></div>
+          <p style={{marginTop: '20px', color: '#666'}}>🔐 Verificando autenticación...</p>
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
+      ) : (
+        children
+      )}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
           alignItems: 'center',
           height: '100vh',
           flexDirection: 'column',

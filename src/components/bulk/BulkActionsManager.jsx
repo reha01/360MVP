@@ -11,7 +11,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useMultiTenant } from '../../hooks/useMultiTenant';
-import { useFeatureFlags } from '../../hooks/useFeatureFlags';
+import { useRuntimeFeatureFlags } from '../../hooks/useRuntimeFeatureFlags';
 import bulkActionService from '../../services/bulkActionService';
 import evaluatorAssignmentService from '../../services/evaluatorAssignmentService';
 import { Card, Button, Spinner, Alert, Badge } from '../ui';
@@ -23,7 +23,7 @@ import {
 
 const BulkActionsManager = () => {
   const { currentOrgId } = useMultiTenant();
-  const { isEnabled: bulkActionsEnabled } = useFeatureFlags('FEATURE_BULK_ACTIONS');
+  const { isEnabled: bulkActionsEnabled, loading: flagsLoading } = useRuntimeFeatureFlags('FEATURE_BULK_ACTIONS');
   
   // Estados principales
   const [assignments, setAssignments] = useState([]);

@@ -10,7 +10,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useMultiTenant } from '../../hooks/useMultiTenant';
-import { useFeatureFlags } from '../../hooks/useFeatureFlags';
+import { useRuntimeFeatureFlags } from '../../hooks/useRuntimeFeatureFlags';
 import { 
   collection, 
   query, 
@@ -39,7 +39,7 @@ import {
 
 const AlertManager = () => {
   const { currentOrgId } = useMultiTenant();
-  const { isEnabled: alertsEnabled } = useFeatureFlags('FEATURE_OPERATIONAL_ALERTS');
+  const { isEnabled: alertsEnabled, loading: flagsLoading } = useRuntimeFeatureFlags('FEATURE_OPERATIONAL_ALERTS');
   
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);

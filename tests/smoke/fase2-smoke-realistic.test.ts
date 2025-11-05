@@ -12,19 +12,47 @@ const STAGING_URL = process.env.STAGING_BASE_URL || 'https://mvp-staging-3e1cd.w
 
 test.describe('Smoke Tests Realistas @smoke-realistic', () => {
   
-  test('1. Autenticación funciona', async ({ page }) => {
+  test('1. Autenticación funciona', async ({ page, context }) => {
     console.log('🧪 TEST 1: Verificando autenticación');
     
+    // ✅ SOLUCIÓN: Limpiar storage state antes de hacer login para evitar auto-redirect
+    await context.clearCookies();
+    
     // Login
-    await page.goto(`${STAGING_URL}/login`);
-    await page.fill('input[type="email"]', 'admin@pilot-santiago.com');
-    await page.fill('input[type="password"]', 'TestPilot2024!');
-    await page.click('button[type="submit"]');
+    await page.goto(`${STAGING_URL}/login`, { waitUntil: 'domcontentloaded' });
+    
+    // ✅ SOLUCIÓN: Esperar a que la página esté completamente estable antes de interactuar
+    // Esperar a que el botón de submit esté visible y habilitado (indica que la página terminó de cargar)
+    await page.waitForSelector('button[type="submit"]:not([disabled])', { 
+      state: 'visible', 
+      timeout: 10000 
+    });
+    
+    // ✅ SOLUCIÓN: Esperar un momento adicional para asegurar que no hay redirects pendientes
+    await page.waitForTimeout(500);
+    
+    // ✅ SOLUCIÓN: Usar locator.fill() en lugar de page.fill() para mejor manejo de elementos desconectados
+    console.log('   → Escribiendo credenciales...');
+    const emailInput = page.locator('input[type="email"]');
+    const passwordInput = page.locator('input[type="password"]');
+    const submitButton = page.locator('button[type="submit"]');
+    
+    // Verificar que los elementos están presentes antes de interactuar
+    await expect(emailInput).toBeVisible({ timeout: 5000 });
+    await expect(passwordInput).toBeVisible({ timeout: 5000 });
+    
+    await emailInput.fill('admin@pilot-santiago.com');
+    await passwordInput.fill('TestPilot2024!');
+    
+    console.log('   → Enviando formulario...');
+    await submitButton.click();
     
     // Verificar que llegamos a alguna página autenticada
+    console.log('   → Esperando redirección...');
     await page.waitForURL(/\/(dashboard|home|evaluations)/, { timeout: 10000 });
     
     // Verificar que el usuario está logueado
+    console.log('   → Verificando usuario autenticado...');
     await expect(page.locator('text=admin@pilot-santiago.com')).toBeVisible({ timeout: 5000 });
     
     console.log('✅ TEST 1: PASS - Autenticación exitosa');
@@ -158,6 +186,62 @@ test.describe('Smoke Tests Realistas @smoke-realistic', () => {
     
     // Primera visita
     await page.goto(`${STAGING_URL}/dashboard`);
+    const firstVisitAuth = await page.locator('text=admin@pilot-santiago.com').count();
+    
+    // Guardar storage state
+    if (firstVisitAuth > 0) {
+      await context.storageState({ path: 'tests/.auth/state-test.json' });
+      console.log('   → Storage state guardado');
+    }
+    
+    // Nueva página con el mismo contexto
+    const newPage = await context.newPage();
+    await newPage.goto(`${STAGING_URL}/dashboard`);
+    
+    // Verificar que sigue autenticado
+    await expect(newPage.locator('text=admin@pilot-santiago.com')).toBeVisible({ timeout: 5000 });
+    
+    await newPage.close();
+    
+    console.log('✅ TEST 8: PASS - Storage state persiste correctamente');
+  });
+});
+
+console.log(`
+📊 RESUMEN DE SMOKE TESTS REALISTAS
+===================================
+Estos tests verifican lo que REALMENTE existe en Staging.
+Las features de Fase 2 NO están implementadas aún, lo cual es CORRECTO.
+`);
+
+    const firstVisitAuth = await page.locator('text=admin@pilot-santiago.com').count();
+    
+    // Guardar storage state
+    if (firstVisitAuth > 0) {
+      await context.storageState({ path: 'tests/.auth/state-test.json' });
+      console.log('   → Storage state guardado');
+    }
+    
+    // Nueva página con el mismo contexto
+    const newPage = await context.newPage();
+    await newPage.goto(`${STAGING_URL}/dashboard`);
+    
+    // Verificar que sigue autenticado
+    await expect(newPage.locator('text=admin@pilot-santiago.com')).toBeVisible({ timeout: 5000 });
+    
+    await newPage.close();
+    
+    console.log('✅ TEST 8: PASS - Storage state persiste correctamente');
+  });
+});
+
+console.log(`
+📊 RESUMEN DE SMOKE TESTS REALISTAS
+===================================
+Estos tests verifican lo que REALMENTE existe en Staging.
+Las features de Fase 2 NO están implementadas aún, lo cual es CORRECTO.
+`);
+
     const firstVisitAuth = await page.locator('text=admin@pilot-santiago.com').count();
     
     // Guardar storage state

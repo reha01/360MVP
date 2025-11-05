@@ -11,17 +11,17 @@
 import React from 'react';
 import { useMultiTenant } from '../hooks/useMultiTenant';
 import { useAuth } from '../context/AuthContext';
-import { useFeatureFlags } from '../hooks/useFeatureFlags';
+import { useRuntimeFeatureFlags } from '../hooks/useRuntimeFeatureFlags'; // ✅ CORREGIDO
 import OperationalDashboard from '../components/dashboard/OperationalDashboard';
 import { Alert, Spinner } from '../components/ui';
 
 const DashboardPage = () => {
-  const { currentOrgId, loading: orgLoading, error: orgError } = useMultiTenant();
+  const { currentOrgId, loading: orgLoading, error: orgError, isReady } = useMultiTenant(); // ✅ AGREGAR isReady
   const { user, loading: authLoading } = useAuth();
-  const { isEnabled: dashboardEnabled } = useFeatureFlags('dashboard360');
+  const { isEnabled: dashboardEnabled, loading: flagsLoading } = useRuntimeFeatureFlags('FEATURE_DASHBOARD_360'); // ✅ CORREGIDO
   
-  // Estados de carga
-  if (authLoading || orgLoading) {
+  // Estados de carga (incluir flags loading)
+  if (authLoading || orgLoading || flagsLoading || !isReady) {
     return (
       <div className="flex justify-center items-center h-64">
         <Spinner size="lg" />

@@ -11,14 +11,14 @@
 import React from 'react';
 import { useMultiTenant } from '../hooks/useMultiTenant';
 import { useAuth } from '../context/AuthContext';
-import { useFeatureFlags } from '../hooks/useFeatureFlags';
+import { useRuntimeFeatureFlags } from '../hooks/useRuntimeFeatureFlags';
 import CampaignComparison from '../components/comparison/CampaignComparison';
 import { Alert, Spinner } from '../components/ui';
 
 const ComparisonPage = () => {
   const { currentOrgId, loading: orgLoading, error: orgError } = useMultiTenant();
   const { user, loading: authLoading } = useAuth();
-  const { isEnabled: comparisonEnabled } = useFeatureFlags('campaignComparison');
+  const { isEnabled: comparisonEnabled, loading: flagsLoading } = useRuntimeFeatureFlags('FEATURE_CAMPAIGN_COMPARISON');
   
   // Estados de carga
   if (authLoading || orgLoading) {

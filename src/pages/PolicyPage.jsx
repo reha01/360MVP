@@ -11,14 +11,14 @@
 import React from 'react';
 import { useMultiTenant } from '../hooks/useMultiTenant';
 import { useAuth } from '../context/AuthContext';
-import { useFeatureFlags } from '../hooks/useFeatureFlags';
+import { useRuntimeFeatureFlags } from '../hooks/useRuntimeFeatureFlags';
 import PolicyManager from '../components/policies/PolicyManager';
 import { Alert, Spinner } from '../components/ui';
 
 const PolicyPage = () => {
   const { currentOrgId, loading: orgLoading, error: orgError } = useMultiTenant();
   const { user, loading: authLoading } = useAuth();
-  const { isEnabled: policiesEnabled } = useFeatureFlags('orgPolicies');
+  const { isEnabled: policiesEnabled, loading: flagsLoading } = useRuntimeFeatureFlags('FEATURE_ORG_POLICIES');
   
   // Estados de carga
   if (authLoading || orgLoading) {

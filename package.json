@@ -16,7 +16,7 @@
     "workbox-strategies": "^7.3.0"
   },
   "scripts": {
-    "dev": "vite --port 5178 --strictPort --host localhost",
+    "dev": "vite --port 5173 --strictPort --host localhost",
     "build": "vite build",
     "build:staging": "vite build --mode staging",
     "build:production": "vite build --mode production",
@@ -27,7 +27,7 @@
     "test:watch": "vitest --watch",
     "lint": "echo 'Linting with built-in checks'",
     "typecheck": "echo 'TypeScript check - no tsconfig found'",
-    "deploy:staging": "npm run build:staging && firebase use staging && firebase deploy --only hosting",
+    "deploy:staging": "npm run build:staging && firebase use staging && firebase deploy --only hosting:staging",
     "deploy:production": "npm run build:production && firebase use production && firebase deploy --only hosting:production",
     "deploy:preview": "npm run build:staging && firebase hosting:channel:deploy preview-$(git rev-parse --short HEAD)",
     "emulators": "firebase emulators:start --only auth,firestore,ui",
@@ -48,9 +48,10 @@
     "test:smoke": "playwright test tests/smoke --reporter=line",
     "test:smoke:staging": "STAGING_BASE_URL=https://mvp-staging-3e1cd.web.app playwright test tests/smoke --reporter=line",
     "test:smoke:headed": "playwright test tests/smoke --headed",
-    "smoke:staging": "cross-env STAGING_BASE_URL=https://mvp-staging-3e1cd.web.app playwright test tests/smoke --project=chromium --grep @smoke",
+    "smoke:ci": "playwright test tests/smoke --project=smoke-authenticated --workers=1 --reporter=list",
+    "smoke:staging": "cross-env STAGING_BASE_URL=https://mvp-staging-3e1cd.web.app playwright test tests/smoke --project=smoke-authenticated --grep @smoke",
     "test:smoke:debug": "playwright test tests/smoke --debug",
-    "test:auth:capture": "cross-env STAGING_BASE_URL=https://mvp-staging-3e1cd.web.app playwright test tests/auth/capture-state.spec.ts --project=chromium --headed --debug",
+    "test:auth:capture": "cross-env STAGING_BASE_URL=https://mvp-staging-3e1cd.web.app playwright test tests/auth/capture-state.spec.ts --project=auth-capture --headed",
     "test:smoke:staging:auth": "cross-env STAGING_BASE_URL=https://mvp-staging-3e1cd.web.app STORAGE_STATE=tests/.auth/state.json playwright test tests/smoke --reporter=line",
     "test:rules": "firebase emulators:exec --only firestore \"vitest run tests/rules --reporter=dot\" --project demo-test",
     "test:uat": "playwright test tests/uat --reporter=line",
@@ -69,3 +70,5 @@
     "vitest": "^2.1.8"
   }
 }
+
+

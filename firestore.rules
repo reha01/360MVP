@@ -22,6 +22,12 @@ service cloud.firestore {
              exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(orgId + ':' + currentUserId()));
     }
     
+    // ✅ NUEVO: Verificar si el usuario es miembro usando la colección raíz organization_members
+    function isMemberOfViaRootCollection(orgId) {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/organization_members/$(orgId + ':' + currentUserId()));
+    }
+    
     // Obtener rol del usuario en una organización
     function getMemberRole(orgId) {
       return get(/databases/$(database)/documents/organizations/$(orgId)/members/$(orgId + ':' + currentUserId())).data.role;
@@ -54,8 +60,16 @@ service cloud.firestore {
     // ============================================
     
     match /organizations/{orgId} {
-      // Leer: solo miembros
-      allow read: if isMemberOf(orgId);
+      // ✅ CORREGIDO: Separar get y list para permitir descubrimiento de organizaciones
+      
+      // Get específico: solo miembros (usando subcolección legacy o colección raíz)
+      allow get: if isMemberOf(orgId) || isMemberOfViaRootCollection(orgId);
+      
+      // ✅ NUEVO: List permite al usuario "descubrir" organizaciones
+      // Esta regla se evalúa DESPUÉS del filtro de Firestore, no antes
+      // El cliente puede hacer: db.collection('organizations').where(...).get()
+      // y Firestore solo devolverá docs donde esta regla sea true
+      allow list: if isSignedIn() && isMemberOfViaRootCollection(resource.id);
       
       // Crear: cualquier usuario autenticado (para workspace personal)
       allow create: if isSignedIn() && 
@@ -285,6 +299,23 @@ service cloud.firestore {
     }
     
     // ============================================
+    // Organization Members (Root Collection) - NUEVO
+    // ============================================
+    
+    match /organization_members/{membershipId} {
+      // ✅ NUEVO: Permitir a los usuarios leer sus propias memberships
+      // El membershipId tiene formato "orgId:userId"
+      // El usuario puede leer si su userId está en el documento
+      allow read: if isSignedIn() && 
+                     (resource.data.userId == currentUserId() || 
+                      resource.data.user_id == currentUserId());
+      
+      // Crear/Actualizar/Eliminar: solo admins/owners de la org
+      // (Por ahora, solo permitimos lectura desde el cliente)
+      allow write: if false; // Solo via backend/admin
+    }
+    
+    // ============================================
     // Global Platform Collections (Super Admin)
     // ============================================
     
@@ -358,6 +389,68 @@ service cloud.firestore {
                         (resource.data.userId == currentUserId() ||
                          isAdminOrOwner(resource.data.orgId)))
                      : (isSignedIn() && resource.data.userId == currentUserId());
+      
+      allow create: if tenancyV1Enabled()
+                       ? (isSignedIn() &&
+                          isMemberOf(request.resource.data.orgId) &&
+                          request.resource.data.userId == currentUserId())
+                       : (isSignedIn() &&
+                          request.resource.data.userId == currentUserId());
+      
+      allow update, delete: if tenancyV1Enabled()
+                               ? (isMemberOf(resource.data.orgId) &&
+                                  resource.data.userId == currentUserId())
+                               : (isSignedIn() &&
+                                  resource.data.userId == currentUserId());
+    }
+    
+    // Questions (Legacy - read-only para todos)
+    match /questions/{questionId} {
+      allow read: if isSignedIn();
+      allow write: if false; // Solo via backend
+    }
+    
+    // ============================================
+    // Deny all other access
+    // ============================================
+    
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+      
+      allow create: if tenancyV1Enabled()
+                       ? (isSignedIn() &&
+                          isMemberOf(request.resource.data.orgId) &&
+                          request.resource.data.userId == currentUserId())
+                       : (isSignedIn() &&
+                          request.resource.data.userId == currentUserId());
+      
+      allow update, delete: if tenancyV1Enabled()
+                               ? (isMemberOf(resource.data.orgId) &&
+                                  resource.data.userId == currentUserId())
+                               : (isSignedIn() &&
+                                  resource.data.userId == currentUserId());
+    }
+    
+    // Questions (Legacy - read-only para todos)
+    match /questions/{questionId} {
+      allow read: if isSignedIn();
+      allow write: if false; // Solo via backend
+    }
+    
+    // ============================================
+    // Deny all other access
+    // ============================================
+    
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
       
       allow create: if tenancyV1Enabled()
                        ? (isSignedIn() &&

@@ -343,9 +343,16 @@ export const OrgProvider = ({ children }) => {
       setOrganizations(cached.organizations);
       setStatus('success');
       
-      // Restore active org
+      // Restore active org - prioritize pilot-org-santiago
       const storedOrgId = getStoredOrgId();
-      if (storedOrgId && cached.memberships.some(m => m.orgId === storedOrgId)) {
+      const pilotOrg = cached.memberships.find(m => m.orgId === 'pilot-org-santiago');
+      
+      if (pilotOrg) {
+        // If user is in pilot org, always set it as active
+        setActiveOrgIdState(pilotOrg.orgId);
+        setActiveOrg(pilotOrg.organization);
+        storeOrgId(pilotOrg.orgId);
+      } else if (storedOrgId && cached.memberships.some(m => m.orgId === storedOrgId)) {
         setActiveOrgIdState(storedOrgId);
         const org = cached.memberships.find(m => m.orgId === storedOrgId)?.organization;
         setActiveOrg(org);
@@ -402,9 +409,16 @@ export const OrgProvider = ({ children }) => {
           setStatus('success');
           setError(null);
           
-          // Set active org
+          // Set active org - prioritize pilot-org-santiago
           const storedOrgId = getStoredOrgId();
-          if (storedOrgId && memberships.some(m => m.orgId === storedOrgId)) {
+          const pilotOrg = memberships.find(m => m.orgId === 'pilot-org-santiago');
+          
+          if (pilotOrg) {
+            // If user is in pilot org, always set it as active
+            setActiveOrgIdState(pilotOrg.orgId);
+            setActiveOrg(pilotOrg.organization);
+            storeOrgId(pilotOrg.orgId);
+          } else if (storedOrgId && memberships.some(m => m.orgId === storedOrgId)) {
             setActiveOrgIdState(storedOrgId);
             const org = memberships.find(m => m.orgId === storedOrgId)?.organization;
             setActiveOrg(org);
@@ -463,7 +477,7 @@ export const OrgProvider = ({ children }) => {
     
     loadingStates.set(uid, loadPromise);
     
-  }, [user?.uid, user?.email, authLoading, getStoredOrgId, storeOrgId]);
+  }, [user?.uid, user?.email, authLoading]); // ✅ CORREGIDO: Remover funciones de dependencias
   
   // Navigation effect - only navigate when truly needed AND user is authenticated
   useEffect(() => {
@@ -479,7 +493,7 @@ export const OrgProvider = ({ children }) => {
         navigate('/select-workspace', { replace: true });
       }
     }
-  }, [status, memberships, navigate, location.pathname, user]);
+  }, [status, memberships.length, user?.uid]); // ✅ CORREGIDO: Remover navigate y location.pathname
   
   // Actions
   const setActiveOrgId = useCallback((orgId) => {
@@ -506,7 +520,7 @@ export const OrgProvider = ({ children }) => {
     
     debugLog('Active org changed', { orgId });
     return true;
-  }, [memberships, storeOrgId]);
+  }, [memberships]); // ✅ CORREGIDO: Remover storeOrgId de dependencias
   
   const refreshMemberships = useCallback(() => {
     if (!user?.uid) return;
@@ -524,7 +538,7 @@ export const OrgProvider = ({ children }) => {
     storeOrgId(null);
     navigationRef.current = false;
     debugLog('Workspace cleared');
-  }, [storeOrgId]);
+  }, []); // ✅ CORREGIDO: Sin dependencias innecesarias
   
   // Computed values
   const isPersonalWorkspace = activeOrg?.type === 'personal';
@@ -557,6 +571,7 @@ export const OrgProvider = ({ children }) => {
     canSwitchWorkspace,
     activeMembership,
     loading: status === 'loading',
+    isReady: status === 'success' && activeOrgId !== null, // ✅ NUEVO: indica si está listo para feature flags
     
     // Actions
     setActiveOrg: setActiveOrgId,
@@ -584,11 +599,83 @@ export const useOrg = () => {
   return context;
 };
 
-// Legacy compatibility - removed to fix build issues
+// Legacy compatibility
+export const getActiveOrgIdFromContext = () => {
+  // Esta función debe ser llamada desde fuera del contexto de React
+  // Retorna el orgId activo desde localStorage como fallback
+  try {
+    const uid = localStorage.getItem('360mvp_user_uid');
+    if (uid) {
+      return localStorage.getItem(`selectedOrgId_${uid}`);
+    }
+    return null;
+  } catch (error) {
+    console.warn('[getActiveOrgIdFromContext] Error accessing localStorage:', error);
+    return null;
+  }
+};
 
   // Debug helper (only available in debug mode)
   if (typeof window !== 'undefined' && isDebug()) {
     window.__debugOrgContext = {
+      cache: globalCache,
+      loadingStates,
+      debugOnly: () => isDebug(),
+      forceReset: () => {
+        globalCache.clear();
+        loadingStates.clear();
+        localStorage.removeItem('selectedOrgId');
+        localStorage.removeItem('ORGCTX_KILL');
+        localStorage.removeItem('DEBUG');
+        console.log('[OrgContext] Debug state cleared, reloading...');
+        location.reload();
+      },
+      enableDebug: () => {
+        localStorage.setItem('DEBUG', '1');
+        console.log('[OrgContext] Debug mode enabled, reload to see logs');
+      },
+      disableDebug: () => {
+        localStorage.removeItem('DEBUG');
+        console.log('[OrgContext] Debug mode disabled, reload to hide logs');
+      }
+    };
+  
+  console.log('🔧 OrgContext debug tools available:');
+  console.log('  __debugOrgContext.forceReset() - Clear all state');
+  console.log('  __debugOrgContext.enableDebug() - Enable debug logs');
+  console.log('  __debugOrgContext.disableDebug() - Disable debug logs');
+}
+
+export default OrgContext;
+      cache: globalCache,
+      loadingStates,
+      debugOnly: () => isDebug(),
+      forceReset: () => {
+        globalCache.clear();
+        loadingStates.clear();
+        localStorage.removeItem('selectedOrgId');
+        localStorage.removeItem('ORGCTX_KILL');
+        localStorage.removeItem('DEBUG');
+        console.log('[OrgContext] Debug state cleared, reloading...');
+        location.reload();
+      },
+      enableDebug: () => {
+        localStorage.setItem('DEBUG', '1');
+        console.log('[OrgContext] Debug mode enabled, reload to see logs');
+      },
+      disableDebug: () => {
+        localStorage.removeItem('DEBUG');
+        console.log('[OrgContext] Debug mode disabled, reload to hide logs');
+      }
+    };
+  
+  console.log('🔧 OrgContext debug tools available:');
+  console.log('  __debugOrgContext.forceReset() - Clear all state');
+  console.log('  __debugOrgContext.enableDebug() - Enable debug logs');
+  console.log('  __debugOrgContext.disableDebug() - Disable debug logs');
+}
+
+export default OrgContext;
       cache: globalCache,
       loadingStates,
       debugOnly: () => isDebug(),

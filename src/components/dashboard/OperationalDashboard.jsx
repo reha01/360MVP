@@ -11,7 +11,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useMultiTenant } from '../../hooks/useMultiTenant';
-import { useFeatureFlags } from '../../hooks/useFeatureFlags';
+import { useRuntimeFeatureFlags } from '../../hooks/useRuntimeFeatureFlags';
 import campaignService from '../../services/campaignService';
 import evaluation360AggregationService from '../../services/evaluation360AggregationService';
 import { Card, Button, Spinner, Alert } from '../ui';
@@ -19,7 +19,7 @@ import { Search, Filter, Download, RefreshCw, TrendingUp, Users, Clock, CheckCir
 
 const OperationalDashboard = () => {
   const { currentOrgId } = useMultiTenant();
-  const { isEnabled: dashboardEnabled } = useFeatureFlags('FEATURE_DASHBOARD_360');
+  const { isEnabled: dashboardEnabled, loading: flagsLoading } = useRuntimeFeatureFlags('FEATURE_DASHBOARD_360');
   
   // Estados principales
   const [campaigns, setCampaigns] = useState([]);
@@ -115,7 +115,7 @@ const OperationalDashboard = () => {
   
   // Efecto para cargar datos iniciales
   useEffect(() => {
-    if (currentOrgId) {
+    if (currentOrgId && !flagsLoading) {
       loadData();
     }
   }, [currentOrgId, loadData]);

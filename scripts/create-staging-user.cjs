@@ -9,11 +9,21 @@
 const admin = require('firebase-admin');
 
 // Inicializar Firebase Admin
+// NOTA: Este script requiere que estés autenticado con Firebase CLI
+// Ejecuta: firebase login antes de usar este script
 if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.applicationDefault(),
-    projectId: 'mvp-staging-3e1cd'
-  });
+  try {
+    admin.initializeApp({
+      credential: admin.credential.applicationDefault(),
+      projectId: 'mvp-staging-3e1cd'
+    });
+  } catch (error) {
+    console.error('⚠️  Error de credenciales. Intentando sin credenciales explícitas...');
+    // Fallback: solo con projectId (usa credenciales del entorno)
+    admin.initializeApp({
+      projectId: 'mvp-staging-3e1cd'
+    });
+  }
 }
 
 const db = admin.firestore();
@@ -120,6 +130,26 @@ async function createUser() {
     
   } catch (error) {
     console.error('❌ Error:', error);
+    process.exit(1);
+  }
+}
+
+createUser();
+
+
+
+
+
+    process.exit(1);
+  }
+}
+
+createUser();
+
+
+
+
+
     process.exit(1);
   }
 }

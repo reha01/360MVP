@@ -13,10 +13,24 @@ import {
 } from "firebase/auth";
 import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 
+// ✅ DIAGNÓSTICO: Logs temporales para verificar qué valores se están usando
+const apiKey = import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCozdMcZGpS-W7f1y5N02Vh089Qbm3giSQ";
+const authDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "mvp-staging-3e1cd.firebaseapp.com";
+const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || "mvp-staging-3e1cd";
+
+if (typeof window !== 'undefined') {
+  console.log('[Firebase Config] 🔍 DIAGNÓSTICO:');
+  console.log('[Firebase Config] API Key:', apiKey ? `${apiKey.substring(0, 20)}...` : 'MISSING');
+  console.log('[Firebase Config] Auth Domain:', authDomain);
+  console.log('[Firebase Config] Project ID:', projectId);
+  console.log('[Firebase Config] Usando env var?', import.meta.env.VITE_FIREBASE_API_KEY ? '✅ SÍ' : '❌ NO (fallback)');
+  console.log('[Firebase Config] Current origin:', window.location.origin);
+}
+
 const firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCozdMcZGpS-W7f1y5N02Vh089Qbm3giSQ",
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "mvp-staging-3e1cd.firebaseapp.com",
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "mvp-staging-3e1cd",
+    apiKey: apiKey,
+    authDomain: authDomain,
+    projectId: projectId,
     storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "mvp-staging-3e1cd.firebasestorage.app",
     messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "537831427065",
     appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:537831427065:web:3f10f1e837ecb83976cb28",
@@ -51,6 +65,34 @@ if (useEmulators && (location.hostname === "127.0.0.1" || location.hostname === 
 } else {
   console.log('[360MVP] Firebase: Usando servicios reales de Firebase');
 }
+
+const googleProvider = new GoogleAuthProvider();
+
+// Funciones de conveniencia (mantenemos compatibilidad)
+export const signUpWithEmail = (email, password) => createUserWithEmailAndPassword(auth, email, password);
+export const signInWithEmail = (email, password) => signInWithEmailAndPassword(auth, email, password);
+export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
+export const signOutUser = () => signOut(auth);
+
+// Exportaciones adicionales para compatibilidad
+export { googleProvider };
+
+export { app, auth, db };
+
+
+const googleProvider = new GoogleAuthProvider();
+
+// Funciones de conveniencia (mantenemos compatibilidad)
+export const signUpWithEmail = (email, password) => createUserWithEmailAndPassword(auth, email, password);
+export const signInWithEmail = (email, password) => signInWithEmailAndPassword(auth, email, password);
+export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
+export const signOutUser = () => signOut(auth);
+
+// Exportaciones adicionales para compatibilidad
+export { googleProvider };
+
+export { app, auth, db };
+
 
 const googleProvider = new GoogleAuthProvider();
 
