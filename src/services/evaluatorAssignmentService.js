@@ -1,8 +1,8 @@
-/**
- * Servicio para gestión de EvaluatorAssignments
+﻿/**
+ * Servicio para gestiÃ³n de EvaluatorAssignments
  * 
- * Maneja CRUD de asignaciones de evaluadores, generación de tokens,
- * y envío de invitaciones
+ * Maneja CRUD de asignaciones de evaluadores, generaciÃ³n de tokens,
+ * y envÃ­o de invitaciones
  */
 
 import { 
@@ -39,7 +39,7 @@ import orgStructureService from './orgStructureService';
 // ========== EVALUATOR ASSIGNMENT MANAGEMENT ==========
 
 /**
- * Obtener asignaciones de evaluadores de una sesión 360°
+ * Obtener asignaciones de evaluadores de una sesiÃ³n 360Â°
  */
 export const getSessionAssignments = async (orgId, session360Id) => {
   try {
@@ -66,7 +66,7 @@ export const getSessionAssignments = async (orgId, session360Id) => {
 };
 
 /**
- * Obtener asignación específica
+ * Obtener asignaciÃ³n especÃ­fica
  */
 export const getEvaluatorAssignment = async (orgId, assignmentId) => {
   try {
@@ -88,7 +88,7 @@ export const getEvaluatorAssignment = async (orgId, assignmentId) => {
 };
 
 /**
- * Obtener asignación por token
+ * Obtener asignaciÃ³n por token
  */
 export const getAssignmentByToken = async (token) => {
   try {
@@ -98,7 +98,7 @@ export const getAssignmentByToken = async (token) => {
     
     const tokenHash = hashToken(token);
     
-    // Buscar en todas las organizaciones (en implementación real, optimizar)
+    // Buscar en todas las organizaciones (en implementaciÃ³n real, optimizar)
     const orgsSnapshot = await getDocs(collection(db, 'organizations'));
     
     for (const orgDoc of orgsSnapshot.docs) {
@@ -126,7 +126,7 @@ export const getAssignmentByToken = async (token) => {
 };
 
 /**
- * Crear asignación de evaluador
+ * Crear asignaciÃ³n de evaluador
  */
 export const createEvaluatorAssignment = async (orgId, assignmentData, userId) => {
   try {
@@ -136,7 +136,7 @@ export const createEvaluatorAssignment = async (orgId, assignmentData, userId) =
       throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
     }
     
-    // Crear asignación
+    // Crear asignaciÃ³n
     const newAssignment = createEvaluatorAssignmentModel({
       ...assignmentData,
       orgId,
@@ -160,14 +160,14 @@ export const createEvaluatorAssignment = async (orgId, assignmentData, userId) =
 };
 
 /**
- * Actualizar asignación de evaluador
+ * Actualizar asignaciÃ³n de evaluador
  */
 export const updateEvaluatorAssignment = async (orgId, assignmentId, updates, userId) => {
   try {
-    // Obtener asignación actual
+    // Obtener asignaciÃ³n actual
     const currentAssignment = await getEvaluatorAssignment(orgId, assignmentId);
     
-    // Crear asignación actualizada
+    // Crear asignaciÃ³n actualizada
     const updatedAssignment = {
       ...currentAssignment,
       ...updates,
@@ -188,29 +188,29 @@ export const updateEvaluatorAssignment = async (orgId, assignmentId, updates, us
 };
 
 /**
- * Generar asignaciones automáticas para una sesión 360°
+ * Generar asignaciones automÃ¡ticas para una sesiÃ³n 360Â°
  */
 export const generateSessionAssignments = async (orgId, session360Id, sessionData) => {
   try {
     const batch = writeBatch(db);
     const assignments = [];
     
-    // Obtener información del evaluado
+    // Obtener informaciÃ³n del evaluado
     const evaluatee = await orgStructureService.getOrgUser(orgId, sessionData.evaluateeId);
     if (!evaluatee) {
       throw new Error(`Evaluatee ${sessionData.evaluateeId} not found`);
     }
     
-    // Obtener Job Family del evaluado para configuración
+    // Obtener Job Family del evaluado para configuraciÃ³n
     const jobFamilies = await jobFamilyService.getOrgJobFamilies(orgId);
     const userJobFamily = evaluatee.jobFamilyIds && evaluatee.jobFamilyIds.length > 0 
       ? jobFamilies.find(f => evaluatee.jobFamilyIds.includes(f.id))
       : null;
     
-    // Generar asignaciones según configuración
+    // Generar asignaciones segÃºn configuraciÃ³n
     const config = sessionData.evaluatorConfig;
     
-    // 1. Autoevaluación
+    // 1. AutoevaluaciÃ³n
     if (config.self.required) {
       const selfAssignment = createEvaluatorAssignmentModel({
         orgId,
@@ -351,7 +351,7 @@ export const getPeersForUser = async (orgId, user) => {
   try {
     const users = await orgStructureService.getOrgUsers(orgId);
     
-    // Filtrar pares: mismo nivel jerárquico, misma área/departamento
+    // Filtrar pares: mismo nivel jerÃ¡rquico, misma Ã¡rea/departamento
     const peers = users.filter(u => 
       u.id !== user.id &&
       u.areaId === user.areaId &&
@@ -391,7 +391,7 @@ export const getSubordinatesForUser = async (orgId, user) => {
 // ========== TOKEN MANAGEMENT ==========
 
 /**
- * Validar token y obtener asignación
+ * Validar token y obtener asignaciÃ³n
  */
 export const validateToken = async (token) => {
   try {
@@ -401,7 +401,7 @@ export const validateToken = async (token) => {
       throw new Error('Token cannot be used');
     }
     
-    // Actualizar último acceso
+    // Actualizar Ãºltimo acceso
     await updateEvaluatorAssignment(
       assignment.orgId,
       assignment.id,
@@ -445,7 +445,7 @@ export const markTokenAsUsed = async (orgId, assignmentId, userId) => {
 // ========== EMAIL MANAGEMENT ==========
 
 /**
- * Enviar invitación por email
+ * Enviar invitaciÃ³n por email
  */
 export const sendInvitationEmail = async (orgId, assignmentId, userId) => {
   try {
@@ -455,19 +455,19 @@ export const sendInvitationEmail = async (orgId, assignmentId, userId) => {
       throw new Error('Invitation already sent');
     }
     
-    // Obtener información de la campaña y sesión
+    // Obtener informaciÃ³n de la campaÃ±a y sesiÃ³n
     const [campaign, session] = await Promise.all([
       campaignService.getCampaign(orgId, assignment.campaignId),
       campaignService.getCampaignSession(orgId, assignment.session360Id)
     ]);
     
-    // Generar URL de evaluación
+    // Generar URL de evaluaciÃ³n
     const evaluationUrl = generateEvaluationUrl(assignment.token);
     
-    // Enviar email (en implementación real, usar Cloud Function)
+    // Enviar email (en implementaciÃ³n real, usar Cloud Function)
     const emailResult = await sendEmail({
       to: assignment.evaluatorEmail,
-      subject: `Invitación a Evaluación 360° - ${campaign.title}`,
+      subject: `InvitaciÃ³n a EvaluaciÃ³n 360Â° - ${campaign.title}`,
       template: 'invitation',
       data: {
         evaluatorName: assignment.evaluatorName,
@@ -479,7 +479,7 @@ export const sendInvitationEmail = async (orgId, assignmentId, userId) => {
       }
     });
     
-    // Actualizar asignación
+    // Actualizar asignaciÃ³n
     await updateEvaluatorAssignment(orgId, assignmentId, {
       emailSent: true,
       emailSentAt: serverTimestamp(),
@@ -505,13 +505,13 @@ export const sendReminderEmail = async (orgId, assignmentId, userId) => {
       throw new Error('Assignment already completed');
     }
     
-    // Obtener información de la campaña
+    // Obtener informaciÃ³n de la campaÃ±a
     const campaign = await campaignService.getCampaign(orgId, assignment.campaignId);
     
-    // Generar URL de evaluación
+    // Generar URL de evaluaciÃ³n
     const evaluationUrl = generateEvaluationUrl(assignment.token);
     
-    // Calcular días restantes
+    // Calcular dÃ­as restantes
     const daysRemaining = Math.ceil(
       (new Date(campaign.config.endDate) - new Date()) / (1000 * 60 * 60 * 24)
     );
@@ -519,7 +519,7 @@ export const sendReminderEmail = async (orgId, assignmentId, userId) => {
     // Enviar email
     const emailResult = await sendEmail({
       to: assignment.evaluatorEmail,
-      subject: `Recordatorio: Evaluación 360° - ${campaign.title}`,
+      subject: `Recordatorio: EvaluaciÃ³n 360Â° - ${campaign.title}`,
       template: 'reminder',
       data: {
         evaluatorName: assignment.evaluatorName,
@@ -541,14 +541,14 @@ export const sendReminderEmail = async (orgId, assignmentId, userId) => {
 // ========== UTILITY FUNCTIONS ==========
 
 /**
- * Generar URL de evaluación
+ * Generar URL de evaluaciÃ³n
  */
 export const generateEvaluationUrl = (token, baseUrl = '') => {
   return `${baseUrl}/eval/${token}`;
 };
 
 /**
- * Obtener estadísticas de asignaciones
+ * Obtener estadÃ­sticas de asignaciones
  */
 export const getAssignmentStats = async (orgId, campaignId) => {
   try {
@@ -592,10 +592,10 @@ export const getAssignmentStats = async (orgId, campaignId) => {
 // ========== MOCK FUNCTIONS (Para desarrollo) ==========
 
 /**
- * Mock function para envío de emails
+ * Mock function para envÃ­o de emails
  */
 const sendEmail = async (emailData) => {
-  // En implementación real, esto sería una llamada a Cloud Function
+  // En implementaciÃ³n real, esto serÃ­a una llamada a Cloud Function
   console.log('[EvaluatorAssignment] Mock email sent:', emailData);
   return { success: true, messageId: 'mock-message-id' };
 };
@@ -603,7 +603,7 @@ const sendEmail = async (emailData) => {
 // ========== EXPORT ==========
 
 /**
- * Reenviar invitación (para acciones masivas)
+ * Reenviar invitaciÃ³n (para acciones masivas)
  */
 export const resendInvitation = async (orgId, assignmentId, customMessage = '') => {
   try {
@@ -613,7 +613,7 @@ export const resendInvitation = async (orgId, assignmentId, customMessage = '') 
       throw new Error('Assignment not found');
     }
     
-    // Actualizar timestamp de último envío
+    // Actualizar timestamp de Ãºltimo envÃ­o
     await updateEvaluatorAssignment(orgId, assignmentId, {
       lastInvitationSent: new Date(),
       invitationCount: (assignment.invitationCount || 0) + 1,
@@ -629,7 +629,7 @@ export const resendInvitation = async (orgId, assignmentId, customMessage = '') 
 };
 
 /**
- * Extender plazo de evaluación
+ * Extender plazo de evaluaciÃ³n
  */
 export const extendDeadline = async (orgId, assignmentId, extensionDays) => {
   try {
@@ -658,7 +658,7 @@ export const extendDeadline = async (orgId, assignmentId, extensionDays) => {
 };
 
 /**
- * Obtener todas las asignaciones con filtros y paginación (para acciones masivas)
+ * Obtener todas las asignaciones con filtros y paginaciÃ³n (para acciones masivas)
  */
 export const getAllAssignments = async (orgId, options = {}) => {
   try {
@@ -668,12 +668,12 @@ export const getAllAssignments = async (orgId, options = {}) => {
         id: 'assignment-1',
         session360Id: 'session-1',
         campaignId: 'campaign-1',
-        campaignName: 'Evaluación Q1 2024',
+        campaignName: 'EvaluaciÃ³n Q1 2024',
         evaluateeId: 'user-1',
-        evaluateeName: 'Juan Pérez',
+        evaluateeName: 'Juan PÃ©rez',
         evaluatorId: 'user-2',
         evaluatorEmail: 'maria@example.com',
-        evaluatorName: 'María García',
+        evaluatorName: 'MarÃ­a GarcÃ­a',
         evaluatorType: 'peer',
         status: 'pending',
         token: 'xxx-token-1',
@@ -689,12 +689,12 @@ export const getAllAssignments = async (orgId, options = {}) => {
         id: 'assignment-2',
         session360Id: 'session-1',
         campaignId: 'campaign-1',
-        campaignName: 'Evaluación Q1 2024',
+        campaignName: 'EvaluaciÃ³n Q1 2024',
         evaluateeId: 'user-1',
-        evaluateeName: 'Juan Pérez',
+        evaluateeName: 'Juan PÃ©rez',
         evaluatorId: 'user-3',
         evaluatorEmail: 'carlos@example.com',
-        evaluatorName: 'Carlos López',
+        evaluatorName: 'Carlos LÃ³pez',
         evaluatorType: 'manager',
         status: 'completed',
         token: 'xxx-token-2',
@@ -711,12 +711,12 @@ export const getAllAssignments = async (orgId, options = {}) => {
         id: 'assignment-3',
         session360Id: 'session-2',
         campaignId: 'campaign-1',
-        campaignName: 'Evaluación Q1 2024',
+        campaignName: 'EvaluaciÃ³n Q1 2024',
         evaluateeId: 'user-2',
-        evaluateeName: 'María García',
+        evaluateeName: 'MarÃ­a GarcÃ­a',
         evaluatorId: 'user-1',
         evaluatorEmail: 'juan@example.com',
-        evaluatorName: 'Juan Pérez',
+        evaluatorName: 'Juan PÃ©rez',
         evaluatorType: 'peer',
         status: 'pending',
         token: 'xxx-token-3',
@@ -732,12 +732,12 @@ export const getAllAssignments = async (orgId, options = {}) => {
         id: 'assignment-4',
         session360Id: 'session-3',
         campaignId: 'campaign-2',
-        campaignName: 'Evaluación Q2 2024',
+        campaignName: 'EvaluaciÃ³n Q2 2024',
         evaluateeId: 'user-3',
-        evaluateeName: 'Carlos López',
+        evaluateeName: 'Carlos LÃ³pez',
         evaluatorId: 'user-4',
         evaluatorEmail: 'ana@example.com',
-        evaluatorName: 'Ana Martínez',
+        evaluatorName: 'Ana MartÃ­nez',
         evaluatorType: 'direct',
         status: 'expired',
         token: 'xxx-token-4',
@@ -753,12 +753,12 @@ export const getAllAssignments = async (orgId, options = {}) => {
         id: 'assignment-5',
         session360Id: 'session-4',
         campaignId: 'campaign-3',
-        campaignName: 'Evaluación Anual 2024',
+        campaignName: 'EvaluaciÃ³n Anual 2024',
         evaluateeId: 'user-4',
-        evaluateeName: 'Ana Martínez',
+        evaluateeName: 'Ana MartÃ­nez',
         evaluatorId: 'user-5',
         evaluatorEmail: 'pedro@example.com',
-        evaluatorName: 'Pedro Rodríguez',
+        evaluatorName: 'Pedro RodrÃ­guez',
         evaluatorType: 'self',
         status: 'in_progress',
         token: 'xxx-token-5',
@@ -776,10 +776,10 @@ export const getAllAssignments = async (orgId, options = {}) => {
         campaignId: 'campaign-5',
         campaignName: 'DST Test Campaign',
         evaluateeId: 'user-5',
-        evaluateeName: 'Pedro Rodríguez',
+        evaluateeName: 'Pedro RodrÃ­guez',
         evaluatorId: 'user-1',
         evaluatorEmail: 'juan@example.com',
-        evaluatorName: 'Juan Pérez',
+        evaluatorName: 'Juan PÃ©rez',
         evaluatorType: 'manager',
         status: 'pending',
         token: 'xxx-token-6',
@@ -816,7 +816,7 @@ export const getAllAssignments = async (orgId, options = {}) => {
       filteredAssignments = filteredAssignments.filter(a => a.evaluatorType === options.evaluatorType);
     }
     
-    // Paginación
+    // PaginaciÃ³n
     const page = options.page || 1;
     const pageSize = options.pageSize || 20;
     const startIndex = (page - 1) * pageSize;
@@ -840,29 +840,3 @@ export const getAllAssignments = async (orgId, options = {}) => {
   }
 };
 
-export default {
-  // Assignment management
-  getSessionAssignments,
-  getEvaluatorAssignment,
-  getAssignmentByToken,
-  createEvaluatorAssignment,
-  updateEvaluatorAssignment,
-  generateSessionAssignments,
-  getAllAssignments,
-  
-  // Token management
-  validateToken,
-  markTokenAsUsed,
-  
-  // Email management
-  sendInvitationEmail,
-  sendReminderEmail,
-  
-  // Bulk actions
-  resendInvitation,
-  extendDeadline,
-  
-  // Utilities
-  generateEvaluationUrl,
-  getAssignmentStats
-};

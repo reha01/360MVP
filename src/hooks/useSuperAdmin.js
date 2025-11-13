@@ -1,8 +1,8 @@
-/**
+﻿/**
  * useSuperAdmin Hook
  * 
  * Detecta si el usuario actual es el Super Admin (reha01@gmail.com)
- * El Super Admin tiene permisos para gestionar el catálogo global de tests
+ * El Super Admin tiene permisos para gestionar el catÃ¡logo global de tests
  */
 
 import { useAuth } from '../context/AuthContext';
@@ -21,5 +21,6 @@ export const useSuperAdmin = () => {
   };
 };
 
-export default useSuperAdmin;
 
+
+export default useSuperAdmin;

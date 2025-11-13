@@ -1,8 +1,8 @@
-/**
- * Modelo de EvaluatorAssignment para 360° Evaluations
+﻿/**
+ * Modelo de EvaluatorAssignment para 360Â° Evaluations
  * 
- * Define las asignaciones de evaluadores con tokens únicos
- * para acceder a evaluaciones específicas
+ * Define las asignaciones de evaluadores con tokens Ãºnicos
+ * para acceder a evaluaciones especÃ­ficas
  */
 
 // ========== CONSTANTS ==========
@@ -88,7 +88,7 @@ export const createEvaluatorAssignmentModel = (data) => {
     emailClicked: data.emailClicked || false,
     emailClickedAt: data.emailClickedAt || null,
     
-    // Configuración
+    // ConfiguraciÃ³n
     isExternal: data.isExternal || false,
     requiresAuthentication: data.requiresAuthentication !== undefined ? data.requiresAuthentication : !data.isExternal,
     customInstructions: data.customInstructions || null
@@ -119,7 +119,7 @@ export const generateSecureToken = () => {
  * Hashear token para almacenamiento seguro
  */
 export const hashToken = (token) => {
-  // En implementación real, usar crypto.createHash('sha256')
+  // En implementaciÃ³n real, usar crypto.createHash('sha256')
   // Por ahora, usar un hash simple para desarrollo
   let hash = 0;
   for (let i = 0; i < token.length; i++) {
@@ -168,17 +168,17 @@ export const validateTokenFormat = (token) => {
 export const validateEvaluatorAssignment = (assignment) => {
   const errors = [];
   
-  // Validaciones básicas
+  // Validaciones bÃ¡sicas
   if (!assignment.evaluatorEmail || !/\S+@\S+\.\S+/.test(assignment.evaluatorEmail)) {
-    errors.push('Email del evaluador requerido y válido');
+    errors.push('Email del evaluador requerido y vÃ¡lido');
   }
   
   if (!assignment.evaluatorName || assignment.evaluatorName.trim().length < 2) {
-    errors.push('Nombre del evaluador requerido (mínimo 2 caracteres)');
+    errors.push('Nombre del evaluador requerido (mÃ­nimo 2 caracteres)');
   }
   
   if (!Object.values(EVALUATOR_TYPE).includes(assignment.evaluatorType)) {
-    errors.push('Tipo de evaluador inválido');
+    errors.push('Tipo de evaluador invÃ¡lido');
   }
   
   if (!assignment.testId) {
@@ -187,7 +187,7 @@ export const validateEvaluatorAssignment = (assignment) => {
   
   // Validar token
   if (!validateTokenFormat(assignment.token)) {
-    errors.push('Formato de token inválido');
+    errors.push('Formato de token invÃ¡lido');
   }
   
   // Validar fechas
@@ -197,7 +197,7 @@ export const validateEvaluatorAssignment = (assignment) => {
   
   // Validar uso de token
   if (assignment.tokenUses > assignment.maxTokenUses) {
-    errors.push('Token excede el número máximo de usos');
+    errors.push('Token excede el nÃºmero mÃ¡ximo de usos');
   }
   
   return {
@@ -209,7 +209,7 @@ export const validateEvaluatorAssignment = (assignment) => {
 // ========== UTILITY FUNCTIONS ==========
 
 /**
- * Obtener estado de asignación como string legible
+ * Obtener estado de asignaciÃ³n como string legible
  */
 export const getAssignmentStatusLabel = (status) => {
   switch (status) {
@@ -224,7 +224,7 @@ export const getAssignmentStatusLabel = (status) => {
 };
 
 /**
- * Obtener color para estado de asignación
+ * Obtener color para estado de asignaciÃ³n
  */
 export const getAssignmentStatusColor = (status) => {
   switch (status) {
@@ -243,7 +243,7 @@ export const getAssignmentStatusColor = (status) => {
  */
 export const getEvaluatorTypeLabel = (type) => {
   switch (type) {
-    case EVALUATOR_TYPE.SELF: return 'Autoevaluación';
+    case EVALUATOR_TYPE.SELF: return 'AutoevaluaciÃ³n';
     case EVALUATOR_TYPE.MANAGER: return 'Manager';
     case EVALUATOR_TYPE.PEER: return 'Par';
     case EVALUATOR_TYPE.SUBORDINATE: return 'Subordinado';
@@ -267,7 +267,7 @@ export const getEvaluatorTypeColor = (type) => {
 };
 
 /**
- * Verificar si el token está expirado
+ * Verificar si el token estÃ¡ expirado
  */
 export const isTokenExpired = (assignment) => {
   if (!assignment.tokenExpiresAt) {
@@ -297,7 +297,7 @@ export const canUseToken = (assignment) => {
 };
 
 /**
- * Generar URL de evaluación con token
+ * Generar URL de evaluaciÃ³n con token
  */
 export const generateEvaluationUrl = (token, baseUrl = '') => {
   return `${baseUrl}/eval/${token}`;
@@ -327,7 +327,7 @@ export const getTokenTimeRemaining = (assignment) => {
 };
 
 /**
- * Obtener estadísticas de asignación
+ * Obtener estadÃ­sticas de asignaciÃ³n
  */
 export const getAssignmentStats = (assignments) => {
   const stats = {
@@ -357,30 +357,5 @@ export const getAssignmentStats = (assignments) => {
 // ========== EXPORT DEFAULT ==========
 
 export default {
-  // Constants
-  EVALUATOR_ASSIGNMENT_STATUS,
-  EVALUATOR_TYPE,
-  TOKEN_CONFIG,
-  
-  // Models
-  createEvaluatorAssignmentModel,
-  
-  // Token functions
-  generateSecureToken,
-  hashToken,
-  validateTokenFormat,
-  
-  // Validation
-  validateEvaluatorAssignment,
-  
-  // Utilities
-  getAssignmentStatusLabel,
-  getAssignmentStatusColor,
-  getEvaluatorTypeLabel,
-  getEvaluatorTypeColor,
-  isTokenExpired,
-  canUseToken,
-  generateEvaluationUrl,
-  getTokenTimeRemaining,
-  getAssignmentStats
+
 };

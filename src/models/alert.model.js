@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Alert Model
  * Represents system alerts, notifications, and DLQ entries
  */
@@ -331,4 +331,3 @@ export class Alert {
   }
 }
 
-export default Alert;

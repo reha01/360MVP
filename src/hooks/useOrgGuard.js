@@ -1,4 +1,4 @@
-// src/hooks/useOrgGuard.js
+﻿// src/hooks/useOrgGuard.js
 // Custom hook for route-level organization access control
 
 import { useEffect, useState } from 'react';
@@ -204,28 +204,6 @@ export const withOrgGuard = (WrappedComponent, guardOptions = {}) => {
   };
 };
 
+
+
 export default useOrgGuard;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

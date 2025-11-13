@@ -1,8 +1,8 @@
-/**
- * Servicio para gestión de Campaigns 360°
+﻿/**
+ * Servicio para gestiÃ³n de Campaigns 360Â°
  * 
- * Maneja CRUD de campañas, sesiones de evaluación 360°,
- * y generación automática de evaluadores
+ * Maneja CRUD de campaÃ±as, sesiones de evaluaciÃ³n 360Â°,
+ * y generaciÃ³n automÃ¡tica de evaluadores
  */
 
 import { 
@@ -38,7 +38,7 @@ import evaluatorAssignmentService from './evaluatorAssignmentService';
 // ========== CAMPAIGN MANAGEMENT ==========
 
 /**
- * Obtener todas las campañas de una organización
+ * Obtener todas las campaÃ±as de una organizaciÃ³n
  */
 export const getOrgCampaigns = async (orgId) => {
   try {
@@ -63,7 +63,7 @@ export const getOrgCampaigns = async (orgId) => {
 };
 
 /**
- * Obtener campañas con filtros y paginación (para dashboard)
+ * Obtener campaÃ±as con filtros y paginaciÃ³n (para dashboard)
  */
 export const getCampaigns = async (orgId, options = {}) => {
   try {
@@ -75,8 +75,8 @@ export const getCampaigns = async (orgId, options = {}) => {
     const mockCampaigns = [
       {
         id: 'campaign-1',
-        name: 'Evaluación Q1 2024',
-        description: 'Evaluación trimestral de liderazgo',
+        name: 'EvaluaciÃ³n Q1 2024',
+        description: 'EvaluaciÃ³n trimestral de liderazgo',
         status: 'active',
         startDate: '2024-01-15',
         endDate: '2024-02-15',
@@ -87,8 +87,8 @@ export const getCampaigns = async (orgId, options = {}) => {
       },
       {
         id: 'campaign-2',
-        name: 'Evaluación Q2 2024',
-        description: 'Evaluación de competencias técnicas',
+        name: 'EvaluaciÃ³n Q2 2024',
+        description: 'EvaluaciÃ³n de competencias tÃ©cnicas',
         status: 'completed',
         startDate: '2024-04-01',
         endDate: '2024-05-01',
@@ -99,8 +99,8 @@ export const getCampaigns = async (orgId, options = {}) => {
       },
       {
         id: 'campaign-3',
-        name: 'Evaluación Anual 2024',
-        description: 'Evaluación integral anual',
+        name: 'EvaluaciÃ³n Anual 2024',
+        description: 'EvaluaciÃ³n integral anual',
         status: 'active',
         startDate: '2024-10-01',
         endDate: '2024-11-30',
@@ -111,8 +111,8 @@ export const getCampaigns = async (orgId, options = {}) => {
       },
       {
         id: 'campaign-4',
-        name: 'Evaluación Ventas Q3',
-        description: 'Evaluación del equipo de ventas',
+        name: 'EvaluaciÃ³n Ventas Q3',
+        description: 'EvaluaciÃ³n del equipo de ventas',
         status: 'draft',
         startDate: '2024-07-01',
         endDate: '2024-07-31',
@@ -124,7 +124,7 @@ export const getCampaigns = async (orgId, options = {}) => {
       {
         id: 'campaign-5',
         name: 'DST Test Campaign',
-        description: 'Campaña que cruza cambio de hora',
+        description: 'CampaÃ±a que cruza cambio de hora',
         status: 'active',
         startDate: '2024-08-15',
         endDate: '2024-10-15',
@@ -173,7 +173,7 @@ export const getCampaigns = async (orgId, options = {}) => {
       );
     }
     
-    // Paginación
+    // PaginaciÃ³n
     const page = options.page || 1;
     const pageSize = options.pageSize || 20;
     const startIndex = (page - 1) * pageSize;
@@ -198,7 +198,7 @@ export const getCampaigns = async (orgId, options = {}) => {
 };
 
 /**
- * Obtener campaña específica
+ * Obtener campaÃ±a especÃ­fica
  */
 export const getCampaign = async (orgId, campaignId) => {
   try {
@@ -220,7 +220,7 @@ export const getCampaign = async (orgId, campaignId) => {
 };
 
 /**
- * Crear nueva campaña
+ * Crear nueva campaÃ±a
  */
 export const createCampaign = async (orgId, campaignData, userId) => {
   try {
@@ -230,7 +230,7 @@ export const createCampaign = async (orgId, campaignData, userId) => {
       throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
     }
     
-    // Crear campaña
+    // Crear campaÃ±a
     const newCampaign = createCampaignModel({
       ...campaignData,
       orgId,
@@ -255,7 +255,7 @@ export const createCampaign = async (orgId, campaignData, userId) => {
 };
 
 /**
- * Actualizar campaña existente
+ * Actualizar campaÃ±a existente
  */
 export const updateCampaign = async (orgId, campaignId, updates, userId) => {
   try {
@@ -265,10 +265,10 @@ export const updateCampaign = async (orgId, campaignId, updates, userId) => {
       throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
     }
     
-    // Obtener campaña actual
+    // Obtener campaÃ±a actual
     const currentCampaign = await getCampaign(orgId, campaignId);
     
-    // Crear campaña actualizada
+    // Crear campaÃ±a actualizada
     const updatedCampaign = {
       ...currentCampaign,
       ...updates,
@@ -289,11 +289,11 @@ export const updateCampaign = async (orgId, campaignId, updates, userId) => {
 };
 
 /**
- * Activar campaña
+ * Activar campaÃ±a
  */
 export const activateCampaign = async (orgId, campaignId, userId) => {
   try {
-    // Obtener campaña actual
+    // Obtener campaÃ±a actual
     const campaign = await getCampaign(orgId, campaignId);
     
     // Verificar que puede activarse
@@ -302,10 +302,10 @@ export const activateCampaign = async (orgId, campaignId, userId) => {
       throw new Error(`Cannot activate campaign: ${activationCheck.issues.join(', ')}`);
     }
     
-    // Generar sesiones de evaluación 360°
+    // Generar sesiones de evaluaciÃ³n 360Â°
     const sessions = await generateEvaluation360Sessions(orgId, campaignId, campaign);
     
-    // Actualizar campaña
+    // Actualizar campaÃ±a
     const updatedCampaign = {
       ...campaign,
       status: CAMPAIGN_STATUS.ACTIVE,
@@ -331,18 +331,18 @@ export const activateCampaign = async (orgId, campaignId, userId) => {
 };
 
 /**
- * Cerrar campaña
+ * Cerrar campaÃ±a
  */
 export const closeCampaign = async (orgId, campaignId, userId) => {
   try {
-    // Obtener campaña actual
+    // Obtener campaÃ±a actual
     const campaign = await getCampaign(orgId, campaignId);
     
     if (campaign.status !== CAMPAIGN_STATUS.ACTIVE) {
       throw new Error('Only active campaigns can be closed');
     }
     
-    // Actualizar campaña
+    // Actualizar campaÃ±a
     const updatedCampaign = {
       ...campaign,
       status: CAMPAIGN_STATUS.CLOSED,
@@ -366,7 +366,7 @@ export const closeCampaign = async (orgId, campaignId, userId) => {
 // ========== EVALUATION360SESSION MANAGEMENT ==========
 
 /**
- * Obtener sesiones de evaluación 360° de una campaña
+ * Obtener sesiones de evaluaciÃ³n 360Â° de una campaÃ±a
  */
 export const getCampaignSessions = async (orgId, campaignId) => {
   try {
@@ -392,18 +392,18 @@ export const getCampaignSessions = async (orgId, campaignId) => {
 };
 
 /**
- * Generar sesiones de evaluación 360° para una campaña
+ * Generar sesiones de evaluaciÃ³n 360Â° para una campaÃ±a
  */
 export const generateEvaluation360Sessions = async (orgId, campaignId, campaign) => {
   try {
-    // Obtener usuarios según filtros
+    // Obtener usuarios segÃºn filtros
     const users = await getUsersByFilters(orgId, campaign.evaluateeFilters);
     
     if (users.length === 0) {
       throw new Error('No users found matching the campaign filters');
     }
     
-    // Obtener Job Families para asignación automática de tests
+    // Obtener Job Families para asignaciÃ³n automÃ¡tica de tests
     const jobFamilies = await jobFamilyService.getOrgJobFamilies(orgId);
     const jobFamiliesMap = jobFamilies.reduce((acc, family) => {
       acc[family.id] = family;
@@ -424,14 +424,14 @@ export const generateEvaluation360Sessions = async (orgId, campaignId, campaign)
         continue;
       }
       
-      // Generar configuración de evaluadores basada en Job Family
+      // Generar configuraciÃ³n de evaluadores basada en Job Family
       const userJobFamilies = user.jobFamilyIds || [];
       const primaryJobFamily = userJobFamilies.length > 0 ? 
                               jobFamiliesMap[userJobFamilies[0]] : null;
       
       const evaluatorConfig = generateEvaluatorConfigFromJobFamily(primaryJobFamily);
       
-      // Crear sesión
+      // Crear sesiÃ³n
       const session = createEvaluation360SessionModel({
         orgId,
         campaignId,
@@ -465,7 +465,7 @@ export const generateEvaluation360Sessions = async (orgId, campaignId, campaign)
 };
 
 /**
- * Obtener usuarios según filtros de campaña
+ * Obtener usuarios segÃºn filtros de campaÃ±a
  */
 export const getUsersByFilters = async (orgId, filters) => {
   try {
@@ -481,7 +481,7 @@ export const getUsersByFilters = async (orgId, filters) => {
       );
     }
     
-    // Filtrar por Áreas
+    // Filtrar por Ãreas
     if (filters.areaIds && filters.areaIds.length > 0) {
       filteredUsers = filteredUsers.filter(user => 
         filters.areaIds.includes(user.areaId) || 
@@ -489,7 +489,7 @@ export const getUsersByFilters = async (orgId, filters) => {
       );
     }
     
-    // Filtrar por IDs específicos
+    // Filtrar por IDs especÃ­ficos
     if (filters.userIds && filters.userIds.length > 0) {
       filteredUsers = filteredUsers.filter(user => 
         filters.userIds.includes(user.id)
@@ -530,7 +530,7 @@ export const getDefaultTestForUser = (user, jobFamiliesMap) => {
 // ========== STATISTICS AND ANALYTICS ==========
 
 /**
- * Obtener estadísticas de campaña
+ * Obtener estadÃ­sticas de campaÃ±a
  */
 export const getCampaignStats = async (orgId, campaignId) => {
   try {
@@ -541,7 +541,7 @@ export const getCampaignStats = async (orgId, campaignId) => {
     
     const stats = calculateCampaignStats(campaign, sessions);
     
-    // Actualizar estadísticas en la campaña si han cambiado
+    // Actualizar estadÃ­sticas en la campaÃ±a si han cambiado
     if (JSON.stringify(stats) !== JSON.stringify(campaign.stats)) {
       await updateCampaign(orgId, campaignId, { stats }, 'system');
     }
@@ -554,7 +554,7 @@ export const getCampaignStats = async (orgId, campaignId) => {
 };
 
 /**
- * Obtener estadísticas generales de campañas
+ * Obtener estadÃ­sticas generales de campaÃ±as
  */
 export const getCampaignsOverview = async (orgId) => {
   try {
@@ -600,7 +600,7 @@ export const getCampaignsOverview = async (orgId) => {
 // ========== UTILITY FUNCTIONS ==========
 
 /**
- * Obtener campañas por estado
+ * Obtener campaÃ±as por estado
  */
 export const getCampaignsByStatus = async (orgId, status) => {
   try {
@@ -623,21 +623,21 @@ export const getCampaignsByStatus = async (orgId, status) => {
 };
 
 /**
- * Obtener campañas activas
+ * Obtener campaÃ±as activas
  */
 export const getActiveCampaigns = async (orgId) => {
   return getCampaignsByStatus(orgId, CAMPAIGN_STATUS.ACTIVE);
 };
 
 /**
- * Verificar si una campaña puede ser editada
+ * Verificar si una campaÃ±a puede ser editada
  */
 export const canEditCampaign = (campaign) => {
   return campaign.status === CAMPAIGN_STATUS.DRAFT;
 };
 
 /**
- * Verificar si una campaña puede ser eliminada
+ * Verificar si una campaÃ±a puede ser eliminada
  */
 export const canDeleteCampaign = (campaign) => {
   return campaign.status === CAMPAIGN_STATUS.DRAFT;
@@ -645,26 +645,3 @@ export const canDeleteCampaign = (campaign) => {
 
 // ========== EXPORT ==========
 
-export default {
-  // Campaign management
-  getOrgCampaigns,
-  getCampaign,
-  createCampaign,
-  updateCampaign,
-  activateCampaign,
-  closeCampaign,
-  
-  // Session management
-  getCampaignSessions,
-  generateEvaluation360Sessions,
-  
-  // Statistics
-  getCampaignStats,
-  getCampaignsOverview,
-  
-  // Utilities
-  getCampaignsByStatus,
-  getActiveCampaigns,
-  canEditCampaign,
-  canDeleteCampaign
-};

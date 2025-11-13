@@ -1,8 +1,8 @@
-/**
- * Modelo de Estructura Organizacional para 360° Evaluations
+﻿/**
+ * Modelo de Estructura Organizacional para 360Â° Evaluations
  * 
- * Define la jerarquía de 3 niveles: Organización → Área → Departamento
- * Con soporte para managers múltiples (funcional, proyecto, matriz)
+ * Define la jerarquÃ­a de 3 niveles: OrganizaciÃ³n â†’ Ãrea â†’ Departamento
+ * Con soporte para managers mÃºltiples (funcional, proyecto, matriz)
  */
 
 // ========== CONSTANTS ==========
@@ -29,7 +29,7 @@ export const VALIDATION_RULES = {
 // ========== DATA MODELS ==========
 
 /**
- * Modelo de Área/Departamento
+ * Modelo de Ãrea/Departamento
  */
 export const createAreaModel = (data) => {
   const now = new Date();
@@ -39,14 +39,14 @@ export const createAreaModel = (data) => {
     areaId: data.areaId || `area_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     orgId: data.orgId,
     
-    // Información básica
+    // InformaciÃ³n bÃ¡sica
     name: data.name?.trim(),
     description: data.description?.trim() || '',
     
-    // Jerarquía
+    // JerarquÃ­a
     level: data.level || ORG_LEVELS.AREA,
     parentId: data.parentId || null,
-    path: data.path || [], // Array de IDs desde raíz
+    path: data.path || [], // Array de IDs desde raÃ­z
     
     // Manager
     managerId: data.managerId || null,
@@ -75,7 +75,7 @@ export const createExtendedUserModel = (data) => {
     userId: data.userId,
     orgId: data.orgId,
     
-    // Información básica
+    // InformaciÃ³n bÃ¡sica
     email: data.email,
     displayName: data.displayName,
     jobTitle: data.jobTitle,
@@ -84,12 +84,12 @@ export const createExtendedUserModel = (data) => {
     areaId: data.areaId || null,
     departmentId: data.departmentId || null,
     
-    // Relaciones jerárquicas
+    // Relaciones jerÃ¡rquicas
     managerId: data.managerId || null,
     managerType: data.managerType || MANAGER_TYPES.FUNCTIONAL,
     subordinateIds: data.subordinateIds || [],
     
-    // Job Families (múltiples permitidas)
+    // Job Families (mÃºltiples permitidas)
     jobFamilyIds: data.jobFamilyIds || [],
     
     // Metadatos
@@ -107,12 +107,12 @@ export const createExtendedUserModel = (data) => {
 // ========== VALIDATION FUNCTIONS ==========
 
 /**
- * Validar estructura de área
+ * Validar estructura de Ã¡rea
  */
 export const validateArea = (area) => {
   const errors = [];
   
-  // Validaciones básicas
+  // Validaciones bÃ¡sicas
   if (!area.name || area.name.length < VALIDATION_RULES.MIN_NAME_LENGTH) {
     errors.push(`Nombre debe tener al menos ${VALIDATION_RULES.MIN_NAME_LENGTH} caracteres`);
   }
@@ -122,22 +122,22 @@ export const validateArea = (area) => {
   }
   
   if (area.description && area.description.length > VALIDATION_RULES.MAX_DESCRIPTION_LENGTH) {
-    errors.push(`Descripción no puede exceder ${VALIDATION_RULES.MAX_DESCRIPTION_LENGTH} caracteres`);
+    errors.push(`DescripciÃ³n no puede exceder ${VALIDATION_RULES.MAX_DESCRIPTION_LENGTH} caracteres`);
   }
   
   // Validaciones de nivel
   if (area.level < ORG_LEVELS.ORGANIZATION || area.level > ORG_LEVELS.DEPARTMENT) {
-    errors.push('Nivel debe estar entre 1 (Organización) y 3 (Departamento)');
+    errors.push('Nivel debe estar entre 1 (OrganizaciÃ³n) y 3 (Departamento)');
   }
   
-  // Validación de profundidad
+  // ValidaciÃ³n de profundidad
   if (area.level > VALIDATION_RULES.MAX_DEPTH) {
-    errors.push(`Profundidad máxima permitida: ${VALIDATION_RULES.MAX_DEPTH} niveles`);
+    errors.push(`Profundidad mÃ¡xima permitida: ${VALIDATION_RULES.MAX_DEPTH} niveles`);
   }
   
-  // Validación de manager type
+  // ValidaciÃ³n de manager type
   if (area.managerType && !Object.values(MANAGER_TYPES).includes(area.managerType)) {
-    errors.push(`Tipo de manager inválido: ${area.managerType}`);
+    errors.push(`Tipo de manager invÃ¡lido: ${area.managerType}`);
   }
   
   return {
@@ -152,21 +152,21 @@ export const validateArea = (area) => {
 export const validateExtendedUser = (user) => {
   const errors = [];
   
-  // Validaciones básicas
+  // Validaciones bÃ¡sicas
   if (!user.email || !user.email.includes('@')) {
-    errors.push('Email válido requerido');
+    errors.push('Email vÃ¡lido requerido');
   }
   
   if (!user.displayName || user.displayName.length < 2) {
-    errors.push('Nombre de usuario requerido (mínimo 2 caracteres)');
+    errors.push('Nombre de usuario requerido (mÃ­nimo 2 caracteres)');
   }
   
-  // Validación de manager type
+  // ValidaciÃ³n de manager type
   if (user.managerType && !Object.values(MANAGER_TYPES).includes(user.managerType)) {
-    errors.push(`Tipo de manager inválido: ${user.managerType}`);
+    errors.push(`Tipo de manager invÃ¡lido: ${user.managerType}`);
   }
   
-  // Validación de job families
+  // ValidaciÃ³n de job families
   if (user.jobFamilyIds && !Array.isArray(user.jobFamilyIds)) {
     errors.push('Job Family IDs debe ser un array');
   }
@@ -180,7 +180,7 @@ export const validateExtendedUser = (user) => {
 // ========== HIERARCHY FUNCTIONS ==========
 
 /**
- * Construir path jerárquico para un área
+ * Construir path jerÃ¡rquico para un Ã¡rea
  */
 export const buildAreaPath = (areaId, areasMap) => {
   const path = [];
@@ -195,25 +195,25 @@ export const buildAreaPath = (areaId, areasMap) => {
 };
 
 /**
- * Obtener todas las áreas hijas de un área padre
+ * Obtener todas las Ã¡reas hijas de un Ã¡rea padre
  */
 export const getChildAreas = (parentId, areas) => {
   return areas.filter(area => area.parentId === parentId);
 };
 
 /**
- * Obtener árbol completo de estructura organizacional
+ * Obtener Ã¡rbol completo de estructura organizacional
  */
 export const buildOrgTree = (areas) => {
   const areasMap = {};
   const rootAreas = [];
   
-  // Crear mapa de áreas
+  // Crear mapa de Ã¡reas
   areas.forEach(area => {
     areasMap[area.areaId] = { ...area, children: [] };
   });
   
-  // Construir árbol
+  // Construir Ã¡rbol
   areas.forEach(area => {
     if (area.parentId && areasMap[area.parentId]) {
       areasMap[area.parentId].children.push(areasMap[area.areaId]);
@@ -267,7 +267,7 @@ export const detectManagerCycles = (users) => {
 };
 
 /**
- * Validar nombres únicos por nivel
+ * Validar nombres Ãºnicos por nivel
  */
 export const validateUniqueNames = (areas, newArea) => {
   const siblings = areas.filter(area => 
@@ -289,14 +289,14 @@ export const validateUniqueNames = (areas, newArea) => {
 // ========== UTILITY FUNCTIONS ==========
 
 /**
- * Obtener área por ID
+ * Obtener Ã¡rea por ID
  */
 export const getAreaById = (areaId, areas) => {
   return areas.find(area => area.areaId === areaId);
 };
 
 /**
- * Obtener usuarios por área
+ * Obtener usuarios por Ã¡rea
  */
 export const getUsersByArea = (areaId, users) => {
   return users.filter(user => 
@@ -305,7 +305,7 @@ export const getUsersByArea = (areaId, users) => {
 };
 
 /**
- * Obtener manager chain (jerarquía hacia arriba)
+ * Obtener manager chain (jerarquÃ­a hacia arriba)
  */
 export const getManagerChain = (userId, users) => {
   const chain = [];
@@ -347,30 +347,5 @@ export const getAllSubordinates = (managerId, users) => {
 // ========== EXPORT DEFAULT ==========
 
 export default {
-  // Constants
-  ORG_LEVELS,
-  MANAGER_TYPES,
-  VALIDATION_RULES,
-  
-  // Models
-  createAreaModel,
-  createExtendedUserModel,
-  
-  // Validation
-  validateArea,
-  validateExtendedUser,
-  validateUniqueNames,
-  
-  // Hierarchy
-  buildAreaPath,
-  getChildAreas,
-  buildOrgTree,
-  detectManagerCycles,
-  
-  // Utilities
-  getAreaById,
-  getUsersByArea,
-  getManagerChain,
-  getDirectSubordinates,
-  getAllSubordinates
+
 };

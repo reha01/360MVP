@@ -1,10 +1,10 @@
-// src/hooks/useAssignedTasks.js
+﻿// src/hooks/useAssignedTasks.js
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 
 /**
- * useAssignedTasks - Hook para obtener tareas de evaluación 180/360 asignadas
- * TODO: Conectar con Firestore real cuando el backend esté implementado
+ * useAssignedTasks - Hook para obtener tareas de evaluaciÃ³n 180/360 asignadas
+ * TODO: Conectar con Firestore real cuando el backend estÃ© implementado
  */
 export const useAssignedTasks = () => {
   const { user } = useAuth();
@@ -32,15 +32,15 @@ export const useAssignedTasks = () => {
         const mockTasks = [
           {
             id: 'task_1',
-            subjectName: 'María González',
+            subjectName: 'MarÃ­a GonzÃ¡lez',
             subjectEmail: 'maria.gonzalez@company.com',
             role: 'peer', // peer, manager, direct
-            deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 días desde hoy
+            deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 dÃ­as desde hoy
             status: 'pending', // pending, in_progress, completed
-            processName: 'Evaluación Q4 2024',
+            processName: 'EvaluaciÃ³n Q4 2024',
             evaluationType: '360', // 180, 360
             url: '/evaluation/assigned_task_1',
-            assignedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // hace 3 días
+            assignedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // hace 3 dÃ­as
             estimatedTime: '15-20 min'
           },
           {
@@ -48,23 +48,23 @@ export const useAssignedTasks = () => {
             subjectName: 'Carlos Ruiz',
             subjectEmail: 'carlos.ruiz@company.com',
             role: 'direct',
-            deadline: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000), // 5 días
+            deadline: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000), // 5 dÃ­as
             status: 'in_progress',
-            processName: 'Evaluación Liderazgo',
+            processName: 'EvaluaciÃ³n Liderazgo',
             evaluationType: '180',
             url: '/evaluation/assigned_task_2',
-            assignedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // hace 5 días
+            assignedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // hace 5 dÃ­as
             estimatedTime: '10-15 min',
             progress: 0.4 // 40% completado
           },
           {
             id: 'task_3',
-            subjectName: 'Ana Martín',
+            subjectName: 'Ana MartÃ­n',
             subjectEmail: 'ana.martin@company.com',
             role: 'manager',
-            deadline: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000), // 10 días
+            deadline: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000), // 10 dÃ­as
             status: 'pending',
-            processName: 'Evaluación Desarrollo',
+            processName: 'EvaluaciÃ³n Desarrollo',
             evaluationType: '360',
             url: '/evaluation/assigned_task_3',
             assignedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // ayer
@@ -73,7 +73,7 @@ export const useAssignedTasks = () => {
         ];
 
         // En desarrollo, mostrar algunas tareas
-        // En producción real, esto vendría de una query a Firestore
+        // En producciÃ³n real, esto vendrÃ­a de una query a Firestore
         setTasks(mockTasks.slice(0, 2)); // Mostrar solo las primeras 2
         
       } catch (err) {
@@ -89,7 +89,7 @@ export const useAssignedTasks = () => {
 
   // Helper function para obtener todas las tareas (para la vista completa)
   const getAllTasks = () => {
-    // TODO: Implementar paginación real
+    // TODO: Implementar paginaciÃ³n real
     return tasks;
   };
 
@@ -114,5 +114,7 @@ export const useAssignedTasks = () => {
     getAllTasks
   };
 };
+
+
 
 export default useAssignedTasks;

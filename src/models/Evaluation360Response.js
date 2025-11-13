@@ -1,7 +1,7 @@
-/**
- * Modelo de Evaluation360Response para respuestas de evaluaciones 360°
+﻿/**
+ * Modelo de Evaluation360Response para respuestas de evaluaciones 360Â°
  * 
- * Define las respuestas de evaluadores en evaluaciones 360°
+ * Define las respuestas de evaluadores en evaluaciones 360Â°
  */
 
 // ========== CONSTANTS ==========
@@ -96,11 +96,11 @@ export const createEvaluation360ResponseModel = (data) => {
     timeSpent: data.timeSpent || 0, // en minutos
     lastActivityAt: data.lastActivityAt || now,
     
-    // Validación
+    // ValidaciÃ³n
     isValid: data.isValid || false,
     validationErrors: data.validationErrors || [],
     
-    // Configuración
+    // ConfiguraciÃ³n
     isAnonymous: data.isAnonymous !== undefined ? data.isAnonymous : true,
     allowPartialSave: data.allowPartialSave !== undefined ? data.allowPartialSave : true,
     autoSave: data.autoSave !== undefined ? data.autoSave : true
@@ -115,7 +115,7 @@ export const createAnswerModel = (data) => {
     questionId: data.questionId,
     questionType: data.questionType,
     answer: data.answer, // Valor de la respuesta
-    value: data.value, // Valor numérico para cálculos
+    value: data.value, // Valor numÃ©rico para cÃ¡lculos
     text: data.text, // Texto libre si aplica
     options: data.options || [], // Opciones seleccionadas
     ranking: data.ranking || [], // Orden de ranking
@@ -127,7 +127,7 @@ export const createAnswerModel = (data) => {
     isRequired: data.isRequired || false,
     isAnswered: data.isAnswered || false,
     
-    // Validación
+    // ValidaciÃ³n
     isValid: data.isValid || false,
     validationMessage: data.validationMessage || null
   };
@@ -142,16 +142,16 @@ export const validateAnswer = (answer, question) => {
   const errors = [];
   
   if (!answer || !question) {
-    errors.push('Respuesta o pregunta no válida');
+    errors.push('Respuesta o pregunta no vÃ¡lida');
     return { isValid: false, errors };
   }
   
   // Validar tipo de pregunta
   if (!Object.values(QUESTION_TYPES).includes(question.type)) {
-    errors.push('Tipo de pregunta no válido');
+    errors.push('Tipo de pregunta no vÃ¡lido');
   }
   
-  // Validar según tipo de pregunta
+  // Validar segÃºn tipo de pregunta
   switch (question.type) {
     case QUESTION_TYPES.LIKERT:
       if (answer.value === null || answer.value === undefined) {
@@ -164,10 +164,10 @@ export const validateAnswer = (answer, question) => {
     case QUESTION_TYPES.MULTIPLE_CHOICE:
       if (!answer.options || answer.options.length === 0) {
         if (question.required) {
-          errors.push('Debe seleccionar al menos una opción');
+          errors.push('Debe seleccionar al menos una opciÃ³n');
         }
       } else if (question.maxSelections && answer.options.length > question.maxSelections) {
-        errors.push(`Máximo ${question.maxSelections} opciones permitidas`);
+        errors.push(`MÃ¡ximo ${question.maxSelections} opciones permitidas`);
       }
       break;
       
@@ -187,7 +187,7 @@ export const validateAnswer = (answer, question) => {
           errors.push('Respuesta de texto requerida');
         }
       } else if (question.maxLength && answer.text.length > question.maxLength) {
-        errors.push(`Máximo ${question.maxLength} caracteres permitidos`);
+        errors.push(`MÃ¡ximo ${question.maxLength} caracteres permitidos`);
       }
       break;
       
@@ -213,7 +213,7 @@ export const validateEvaluation360Response = (response, testDefinition) => {
   const errors = [];
   
   if (!response || !testDefinition) {
-    errors.push('Respuesta o definición de test no válida');
+    errors.push('Respuesta o definiciÃ³n de test no vÃ¡lida');
     return { isValid: false, errors };
   }
   
@@ -247,7 +247,7 @@ export const validateEvaluation360Response = (response, testDefinition) => {
 // ========== UTILITY FUNCTIONS ==========
 
 /**
- * Calcular progreso de evaluación
+ * Calcular progreso de evaluaciÃ³n
  */
 export const calculateProgress = (response, testDefinition) => {
   if (!response || !testDefinition) {
@@ -297,7 +297,7 @@ export const getResponseStatusColor = (status) => {
 export const getQuestionTypeLabel = (type) => {
   switch (type) {
     case QUESTION_TYPES.LIKERT: return 'Escala Likert';
-    case QUESTION_TYPES.MULTIPLE_CHOICE: return 'Selección Múltiple';
+    case QUESTION_TYPES.MULTIPLE_CHOICE: return 'SelecciÃ³n MÃºltiple';
     case QUESTION_TYPES.RANKING: return 'Ranking';
     case QUESTION_TYPES.TEXT_OPEN: return 'Texto Abierto';
     case QUESTION_TYPES.MATRIX: return 'Matriz';
@@ -321,7 +321,7 @@ export const calculateTimeSpent = (response) => {
 };
 
 /**
- * Verificar si la evaluación está completa
+ * Verificar si la evaluaciÃ³n estÃ¡ completa
  */
 export const isEvaluationComplete = (response, testDefinition) => {
   if (!response || !testDefinition) {
@@ -337,7 +337,7 @@ export const isEvaluationComplete = (response, testDefinition) => {
 };
 
 /**
- * Obtener estadísticas de respuesta
+ * Obtener estadÃ­sticas de respuesta
  */
 export const getResponseStats = (response, testDefinition) => {
   if (!response || !testDefinition) {
@@ -364,25 +364,5 @@ export const getResponseStats = (response, testDefinition) => {
 // ========== EXPORT DEFAULT ==========
 
 export default {
-  // Constants
-  RESPONSE_STATUS,
-  QUESTION_TYPES,
-  LIKERT_SCALES,
-  
-  // Models
-  createEvaluation360ResponseModel,
-  createAnswerModel,
-  
-  // Validation
-  validateAnswer,
-  validateEvaluation360Response,
-  
-  // Utilities
-  calculateProgress,
-  getResponseStatusLabel,
-  getResponseStatusColor,
-  getQuestionTypeLabel,
-  calculateTimeSpent,
-  isEvaluationComplete,
-  getResponseStats
+
 };

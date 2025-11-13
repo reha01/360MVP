@@ -1,4 +1,4 @@
-/**
+﻿/**
  * BulkAction Model
  * Represents a bulk action performed on multiple items
  */
@@ -264,4 +264,3 @@ export class BulkAction {
   }
 }
 
-export default BulkAction;

@@ -1,4 +1,4 @@
-// src/services/scopingService.js
+﻿// src/services/scopingService.js
 // Service for managing organization-scoped queries
 
 import { 
@@ -272,4 +272,3 @@ export const assertEvaluationBelongsToOrg = (evaluationId, userId) =>
 export const assertMemberCan = (userId, action) =>
   scopingService.assertMemberCan(userId, action);
 
-export default scopingService;

@@ -1,7 +1,7 @@
-/**
- * Modelo de Campaign (Campaña 360°) para 360° Evaluations
+﻿/**
+ * Modelo de Campaign (CampaÃ±a 360Â°) para 360Â° Evaluations
  * 
- * Define campañas que agrupan múltiples evaluaciones 360° individuales
+ * Define campaÃ±as que agrupan mÃºltiples evaluaciones 360Â° individuales
  * bajo un proceso unificado con reglas, plazos y configuraciones comunes
  */
 
@@ -63,7 +63,7 @@ export const createCampaignModel = (data) => {
     campaignId: data.campaignId || `campaign_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     orgId: data.orgId,
     
-    // Información básica
+    // InformaciÃ³n bÃ¡sica
     title: data.title?.trim(),
     description: data.description?.trim() || '',
     type: data.type || CAMPAIGN_TYPE.CUSTOM,
@@ -71,12 +71,12 @@ export const createCampaignModel = (data) => {
     // Estado
     status: data.status || CAMPAIGN_STATUS.DRAFT,
     
-    // Configuración
+    // ConfiguraciÃ³n
     config: {
       startDate: data.config?.startDate || null,
       endDate: data.config?.endDate || null,
       timezone: data.config?.timezone || 'UTC',
-      reminderSchedule: data.config?.reminderSchedule || [3, 7, 14], // Días
+      reminderSchedule: data.config?.reminderSchedule || [3, 7, 14], // DÃ­as
       anonymityThresholds: {
         peers: data.config?.anonymityThresholds?.peers || 3,
         subordinates: data.config?.anonymityThresholds?.subordinates || 3,
@@ -120,7 +120,7 @@ export const createCampaignModel = (data) => {
     activatedAt: data.activatedAt || null,
     closedAt: data.closedAt || null,
     
-    // Estadísticas
+    // EstadÃ­sticas
     stats: {
       totalEvaluatees: data.stats?.totalEvaluatees || 0,
       totalInvitations: data.stats?.totalInvitations || 0,
@@ -146,9 +146,9 @@ export const createEvaluation360SessionModel = (data) => {
     // Test asignado
     testId: data.testId,
     testVersion: data.testVersion || '1.0',
-    testSnapshot: data.testSnapshot || null, // Snapshot del test al momento de la evaluación
+    testSnapshot: data.testSnapshot || null, // Snapshot del test al momento de la evaluaciÃ³n
     
-    // Configuración de evaluadores
+    // ConfiguraciÃ³n de evaluadores
     evaluatorConfig: {
       self: {
         required: data.evaluatorConfig?.self?.required !== undefined ? data.evaluatorConfig.self.required : true,
@@ -201,22 +201,22 @@ export const createEvaluation360SessionModel = (data) => {
 export const validateCampaign = (campaign) => {
   const errors = [];
   
-  // Validaciones básicas
+  // Validaciones bÃ¡sicas
   if (!campaign.title || campaign.title.length < VALIDATION_RULES.MIN_TITLE_LENGTH) {
-    errors.push(`Título debe tener al menos ${VALIDATION_RULES.MIN_TITLE_LENGTH} caracteres`);
+    errors.push(`TÃ­tulo debe tener al menos ${VALIDATION_RULES.MIN_TITLE_LENGTH} caracteres`);
   }
   
   if (campaign.title && campaign.title.length > VALIDATION_RULES.MAX_TITLE_LENGTH) {
-    errors.push(`Título no puede exceder ${VALIDATION_RULES.MAX_TITLE_LENGTH} caracteres`);
+    errors.push(`TÃ­tulo no puede exceder ${VALIDATION_RULES.MAX_TITLE_LENGTH} caracteres`);
   }
   
   if (campaign.description && campaign.description.length > VALIDATION_RULES.MAX_DESCRIPTION_LENGTH) {
-    errors.push(`Descripción no puede exceder ${VALIDATION_RULES.MAX_DESCRIPTION_LENGTH} caracteres`);
+    errors.push(`DescripciÃ³n no puede exceder ${VALIDATION_RULES.MAX_DESCRIPTION_LENGTH} caracteres`);
   }
   
   // Validar tipo
   if (!Object.values(CAMPAIGN_TYPE).includes(campaign.type)) {
-    errors.push(`Tipo de campaña inválido: ${campaign.type}`);
+    errors.push(`Tipo de campaÃ±a invÃ¡lido: ${campaign.type}`);
   }
   
   // Validar fechas
@@ -230,30 +230,30 @@ export const validateCampaign = (campaign) => {
     
     const durationDays = (endDate - startDate) / (1000 * 60 * 60 * 24);
     if (durationDays < VALIDATION_RULES.MIN_DURATION_DAYS) {
-      errors.push(`La duración mínima es ${VALIDATION_RULES.MIN_DURATION_DAYS} día(s)`);
+      errors.push(`La duraciÃ³n mÃ­nima es ${VALIDATION_RULES.MIN_DURATION_DAYS} dÃ­a(s)`);
     }
     
     if (durationDays > VALIDATION_RULES.MAX_DURATION_DAYS) {
-      errors.push(`La duración máxima es ${VALIDATION_RULES.MAX_DURATION_DAYS} días`);
+      errors.push(`La duraciÃ³n mÃ¡xima es ${VALIDATION_RULES.MAX_DURATION_DAYS} dÃ­as`);
     }
   }
   
-  // Validar configuración de evaluadores
+  // Validar configuraciÃ³n de evaluadores
   if (campaign.config.requiredEvaluators) {
     const config = campaign.config.requiredEvaluators;
     
     // Validar pares
     if (config.peers && config.peers.min > config.peers.max) {
-      errors.push('Mínimo de pares no puede ser mayor al máximo');
+      errors.push('MÃ­nimo de pares no puede ser mayor al mÃ¡ximo');
     }
     
     if (config.peers && config.peers.min < VALIDATION_RULES.MIN_EVALUATORS.peer) {
-      errors.push(`Mínimo de pares debe ser al menos ${VALIDATION_RULES.MIN_EVALUATORS.peer}`);
+      errors.push(`MÃ­nimo de pares debe ser al menos ${VALIDATION_RULES.MIN_EVALUATORS.peer}`);
     }
     
     // Validar subordinados
     if (config.subordinates && config.subordinates.min < 0) {
-      errors.push('Mínimo de subordinados no puede ser negativo');
+      errors.push('MÃ­nimo de subordinados no puede ser negativo');
     }
   }
   
@@ -280,7 +280,7 @@ export const validateCampaign = (campaign) => {
 export const validateEvaluation360Session = (session) => {
   const errors = [];
   
-  // Validaciones básicas
+  // Validaciones bÃ¡sicas
   if (!session.evaluateeId) {
     errors.push('ID del evaluado requerido');
   }
@@ -289,11 +289,11 @@ export const validateEvaluation360Session = (session) => {
     errors.push('ID del test requerido');
   }
   
-  // Validar configuración de evaluadores
+  // Validar configuraciÃ³n de evaluadores
   if (session.evaluatorConfig) {
     const config = session.evaluatorConfig;
     
-    // Validar que se cumplan los mínimos requeridos
+    // Validar que se cumplan los mÃ­nimos requeridos
     if (config.peers.required.min > 0 && config.peers.assigned.length < config.peers.required.min) {
       errors.push(`Se requieren al menos ${config.peers.required.min} evaluadores pares`);
     }
@@ -312,7 +312,7 @@ export const validateEvaluation360Session = (session) => {
 // ========== UTILITY FUNCTIONS ==========
 
 /**
- * Obtener estado de campaña como string legible
+ * Obtener estado de campaÃ±a como string legible
  */
 export const getCampaignStatusLabel = (status) => {
   switch (status) {
@@ -325,7 +325,7 @@ export const getCampaignStatusLabel = (status) => {
 };
 
 /**
- * Obtener color para estado de campaña
+ * Obtener color para estado de campaÃ±a
  */
 export const getCampaignStatusColor = (status) => {
   switch (status) {
@@ -338,25 +338,25 @@ export const getCampaignStatusColor = (status) => {
 };
 
 /**
- * Obtener tipo de campaña como string legible
+ * Obtener tipo de campaÃ±a como string legible
  */
 export const getCampaignTypeLabel = (type) => {
   switch (type) {
-    case CAMPAIGN_TYPE.ORG_WIDE: return 'Organización Completa';
-    case CAMPAIGN_TYPE.AREA: return 'Por Área';
+    case CAMPAIGN_TYPE.ORG_WIDE: return 'OrganizaciÃ³n Completa';
+    case CAMPAIGN_TYPE.AREA: return 'Por Ãrea';
     case CAMPAIGN_TYPE.CUSTOM: return 'Personalizada';
     default: return 'Tipo Desconocido';
   }
 };
 
 /**
- * Verificar si una campaña puede activarse
+ * Verificar si una campaÃ±a puede activarse
  */
 export const canActivateCampaign = (campaign) => {
   const issues = [];
   
   if (!campaign.title) {
-    issues.push('Título requerido');
+    issues.push('TÃ­tulo requerido');
   }
   
   if (!campaign.config.startDate || !campaign.config.endDate) {
@@ -382,7 +382,7 @@ export const canActivateCampaign = (campaign) => {
 };
 
 /**
- * Calcular estadísticas de campaña
+ * Calcular estadÃ­sticas de campaÃ±a
  */
 export const calculateCampaignStats = (campaign, sessions) => {
   const totalSessions = sessions.length;
@@ -409,7 +409,7 @@ export const calculateCampaignStats = (campaign, sessions) => {
 };
 
 /**
- * Generar configuración de evaluadores basada en Job Family
+ * Generar configuraciÃ³n de evaluadores basada en Job Family
  */
 export const generateEvaluatorConfigFromJobFamily = (jobFamily) => {
   if (!jobFamily || !jobFamily.evaluatorConfig) {
@@ -442,26 +442,4 @@ export const generateEvaluatorConfigFromJobFamily = (jobFamily) => {
 
 // ========== EXPORT DEFAULT ==========
 
-export default {
-  // Constants
-  CAMPAIGN_STATUS,
-  CAMPAIGN_TYPE,
-  EVALUATOR_TYPE,
-  VALIDATION_RULES,
-  
-  // Models
-  createCampaignModel,
-  createEvaluation360SessionModel,
-  
-  // Validation
-  validateCampaign,
-  validateEvaluation360Session,
-  
-  // Utilities
-  getCampaignStatusLabel,
-  getCampaignStatusColor,
-  getCampaignTypeLabel,
-  canActivateCampaign,
-  calculateCampaignStats,
-  generateEvaluatorConfigFromJobFamily
-};
+export default Campaign;

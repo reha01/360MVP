@@ -1,10 +1,10 @@
-// src/hooks/useFeatureFlags.js
+﻿// src/hooks/useFeatureFlags.js
 import { useMemo } from 'react';
 import { useMultiTenant } from './useMultiTenant';
 import * as featureFlags from '../lib/featureFlags';
 
 /**
- * useFeatureFlags - Hook para acceder fácilmente a feature flags
+ * useFeatureFlags - Hook para acceder fÃ¡cilmente a feature flags
  * Wrapper del servicio FeatureFlags para uso en componentes
  */
 export const useFeatureFlags = (flagName) => {
@@ -12,7 +12,7 @@ export const useFeatureFlags = (flagName) => {
   
   const flags = useMemo(() => {
     try {
-      // Si se especifica un flag específico, verificar solo ese
+      // Si se especifica un flag especÃ­fico, verificar solo ese
       if (flagName) {
         return {
           isEnabled: featureFlags.isFeatureEnabled(flagName, currentOrgId),
@@ -74,5 +74,7 @@ export const useFeatureFlags = (flagName) => {
 
   return flags;
 };
+
+
 
 export default useFeatureFlags;

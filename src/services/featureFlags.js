@@ -1,7 +1,7 @@
-// src/services/featureFlags.js
+﻿// src/services/featureFlags.js
 
 /**
- * FeatureFlags - Sistema de feature flags híbrido
+ * FeatureFlags - Sistema de feature flags hÃ­brido
  * Build-time para performance, runtime para UI toggles
  */
 
@@ -19,7 +19,7 @@ class FeatureFlagsService {
    */
   _loadFlags() {
     return {
-      // Módulo organizacional (dashboards, procesos, CSV)
+      // MÃ³dulo organizacional (dashboards, procesos, CSV)
       org: this._getBooleanFlag('VITE_FEATURE_ORG', true),
       
       // Export PDF en reportes
@@ -28,10 +28,10 @@ class FeatureFlagsService {
       // Sistema de invitaciones por token
       invites: this._getBooleanFlag('VITE_FEATURE_INVITES', true),
       
-      // Wizard de evaluación avanzado
+      // Wizard de evaluaciÃ³n avanzado
       wizard: this._getBooleanFlag('VITE_FEATURE_WIZARD', true),
       
-      // Sistema de créditos y pagos
+      // Sistema de crÃ©ditos y pagos
       credits: this._getBooleanFlag('VITE_FEATURE_CREDITS', false),
       
       // Sistema de emails transaccionales
@@ -40,7 +40,7 @@ class FeatureFlagsService {
       // Logs de debug
       debugLogs: this._getBooleanFlag('VITE_DEBUG_LOGS', true),
       
-      // Métricas de performance
+      // MÃ©tricas de performance
       performanceMetrics: this._getBooleanFlag('VITE_PERFORMANCE_METRICS', true),
       
       // Usar emuladores
@@ -59,7 +59,7 @@ class FeatureFlagsService {
   }
 
   /**
-   * Obtener entorno actual (público)
+   * Obtener entorno actual (pÃºblico)
    */
   getEnvironment() {
     return this._getEnvironment();
@@ -75,35 +75,35 @@ class FeatureFlagsService {
   }
 
   /**
-   * Verificar si el módulo organizacional está habilitado
+   * Verificar si el mÃ³dulo organizacional estÃ¡ habilitado
    */
   isOrgEnabled() {
     return this.flags.org && this.environment !== 'demo';
   }
 
   /**
-   * Verificar si PDF export está habilitado
+   * Verificar si PDF export estÃ¡ habilitado
    */
   isPdfEnabled() {
     return this.flags.pdf;
   }
 
   /**
-   * Verificar si invitaciones por token están habilitadas
+   * Verificar si invitaciones por token estÃ¡n habilitadas
    */
   isInvitesEnabled() {
     return this.flags.invites;
   }
 
   /**
-   * Verificar si wizard avanzado está habilitado
+   * Verificar si wizard avanzado estÃ¡ habilitado
    */
   isWizardEnabled() {
     return this.flags.wizard;
   }
 
   /**
-   * Verificar si sistema de créditos está habilitado
+   * Verificar si sistema de crÃ©ditos estÃ¡ habilitado
    */
   isCreditsEnabled() {
     return this.flags.credits;
@@ -124,35 +124,35 @@ class FeatureFlagsService {
   }
 
   /**
-   * Verificar si mostrar métricas de performance
+   * Verificar si mostrar mÃ©tricas de performance
    */
   isPerformanceMetricsEnabled() {
     return this.flags.performanceMetrics;
   }
 
   /**
-   * Verificar si multi-tenancy V1 está habilitado
+   * Verificar si multi-tenancy V1 estÃ¡ habilitado
    */
   isTenancyV1Enabled() {
     return this.flags.tenancyV1;
   }
 
   /**
-   * Obtener configuración del tenant por defecto
+   * Obtener configuraciÃ³n del tenant por defecto
    */
   getDefaultTenant() {
     return import.meta.env.VITE_TENANT_DEFAULT || 'demo-corp';
   }
 
   /**
-   * Obtener URL base de la aplicación
+   * Obtener URL base de la aplicaciÃ³n
    */
   getAppBaseUrl() {
     return import.meta.env.VITE_APP_BASE_URL || window.location.origin;
   }
 
   /**
-   * Obtener configuración completa para debugging
+   * Obtener configuraciÃ³n completa para debugging
    */
   getConfiguration() {
     return {
@@ -168,7 +168,7 @@ class FeatureFlagsService {
   }
 
   /**
-   * Log configuración si debug está habilitado
+   * Log configuraciÃ³n si debug estÃ¡ habilitado
    */
   logConfiguration() {
     if (this.isDebugEnabled()) {
@@ -182,20 +182,12 @@ class FeatureFlagsService {
 // Singleton instance
 export const FeatureFlags = new FeatureFlagsService();
 
+// Export commonly used methods for convenience
+export const isTenancyV1Enabled = () => FeatureFlags.isTenancyV1Enabled();
+export const isFeatureEnabled = (flagName) => FeatureFlags.isFeatureEnabled(flagName);
+export const getFeatureFlags = () => FeatureFlags.getFeatureFlags();
+
 // Initialize logging
 FeatureFlags.logConfiguration();
 
 // Default export
-export default FeatureFlags;
-
-// Convenience exports
-export const isOrgEnabled = () => FeatureFlags.isOrgEnabled();
-export const isPdfEnabled = () => FeatureFlags.isPdfEnabled();
-export const isInvitesEnabled = () => FeatureFlags.isInvitesEnabled();
-export const isWizardEnabled = () => FeatureFlags.isWizardEnabled();
-export const isCreditsEnabled = () => FeatureFlags.isCreditsEnabled();
-export const shouldUseEmulators = () => FeatureFlags.shouldUseEmulators();
-export const isDebugEnabled = () => FeatureFlags.isDebugEnabled();
-export const isTenancyV1Enabled = () => FeatureFlags.isTenancyV1Enabled();
-export const getDefaultTenant = () => FeatureFlags.getDefaultTenant();
-export const getAppBaseUrl = () => FeatureFlags.getAppBaseUrl();

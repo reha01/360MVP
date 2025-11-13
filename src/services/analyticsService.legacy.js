@@ -1,4 +1,4 @@
-// src/services/analyticsService.legacy.js
+﻿// src/services/analyticsService.legacy.js
 // Legacy analytics service - will be replaced by scoped version in Phase 1
 
 import { 
@@ -87,28 +87,3 @@ class LegacyAnalyticsService {
 
 // Export singleton instance for backward compatibility
 export const legacyAnalyticsService = new LegacyAnalyticsService();
-export default legacyAnalyticsService;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

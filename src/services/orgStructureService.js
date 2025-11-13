@@ -485,3 +485,18 @@ export default {
   getOrgTree,
   validateOrgStructure
 };
+
+// Added for Sprint 7 - Member Manager
+export const updateOrgMember = async (orgId, memberId, updates) => {
+  try {
+    const memberRef = doc(db, 'members', memberId);
+    await updateDoc(memberRef, {
+      ...updates,
+      updatedAt: serverTimestamp()
+    });
+  } catch (error) {
+    console.error('[OrgStructure] Error updating member:', error);
+    throw error;
+  }
+};
+

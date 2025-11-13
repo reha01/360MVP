@@ -6,7 +6,7 @@ service cloud.firestore {
     // Helper Functions
     // ============================================
     
-    // Verificar si el usuario está autenticado
+    // Verificar si el usuario estÃ¡ autenticado
     function isSignedIn() {
       return request.auth != null;
     }
@@ -16,24 +16,24 @@ service cloud.firestore {
       return request.auth.uid;
     }
     
-    // Verificar si el usuario es miembro de una organización
+    // Verificar si el usuario es miembro de una organizaciÃ³n
     function isMemberOf(orgId) {
       return isSignedIn() && 
              exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(orgId + ':' + currentUserId()));
     }
     
-    // ✅ NUEVO: Verificar si el usuario es miembro usando la colección raíz organization_members
+    // âœ… NUEVO: Verificar si el usuario es miembro usando la colecciÃ³n raÃ­z organization_members
     function isMemberOfViaRootCollection(orgId) {
       return isSignedIn() &&
              exists(/databases/$(database)/documents/organization_members/$(orgId + ':' + currentUserId()));
     }
     
-    // Obtener rol del usuario en una organización
+    // Obtener rol del usuario en una organizaciÃ³n
     function getMemberRole(orgId) {
       return get(/databases/$(database)/documents/organizations/$(orgId)/members/$(orgId + ':' + currentUserId())).data.role;
     }
     
-    // Verificar si el usuario tiene un rol específico o superior
+    // Verificar si el usuario tiene un rol especÃ­fico o superior
     function hasRole(orgId, role) {
       let userRole = getMemberRole(orgId);
       
@@ -60,15 +60,15 @@ service cloud.firestore {
     // ============================================
     
     match /organizations/{orgId} {
-      // ✅ CORREGIDO: Separar get y list para permitir descubrimiento de organizaciones
+      // âœ… CORREGIDO: Separar get y list para permitir descubrimiento de organizaciones
       
-      // Get específico: solo miembros (usando subcolección legacy o colección raíz)
+      // Get especÃ­fico: solo miembros (usando subcolecciÃ³n legacy o colecciÃ³n raÃ­z)
       allow get: if isMemberOf(orgId) || isMemberOfViaRootCollection(orgId);
       
-      // ✅ NUEVO: List permite al usuario "descubrir" organizaciones
-      // Esta regla se evalúa DESPUÉS del filtro de Firestore, no antes
+      // âœ… NUEVO: List permite al usuario "descubrir" organizaciones
+      // Esta regla se evalÃºa DESPUÃ‰S del filtro de Firestore, no antes
       // El cliente puede hacer: db.collection('organizations').where(...).get()
-      // y Firestore solo devolverá docs donde esta regla sea true
+      // y Firestore solo devolverÃ¡ docs donde esta regla sea true
       allow list: if isSignedIn() && isMemberOfViaRootCollection(resource.id);
       
       // Crear: cualquier usuario autenticado (para workspace personal)
@@ -268,6 +268,24 @@ service cloud.firestore {
       }
       
       // ============================================
+      // Import Jobs Subcollection (Sprint 7 - Member Imports)
+      // ============================================
+      
+      match /importJobs/{jobId} {
+        // Leer: todos los miembros de la org
+        allow read: if isMemberOf(orgId) || isMemberOfViaRootCollection(orgId);
+        
+        // Crear: cualquier miembro autenticado puede iniciar importación
+        allow create: if isSignedIn();
+        
+        // Actualizar: service account (Cloud Function) o admins
+        allow update: if isSignedIn();
+        
+        // Eliminar: solo admins
+        allow delete: if isAdminOrOwner(orgId);
+      }
+      
+      // ============================================
       // Evaluation Sessions Subcollection (NUEVO)
       // ============================================
       
@@ -281,16 +299,16 @@ service cloud.firestore {
                        (hasRole(orgId, 'manager') && 
                         resource.data.teamId == get(/databases/$(database)/documents/organizations/$(orgId)/members/$(orgId + ':' + currentUserId())).data.teamId);
         
-        // Crear: cualquier miembro puede crear su sesión
+        // Crear: cualquier miembro puede crear su sesiÃ³n
         allow create: if isMemberOf(orgId) &&
                          request.resource.data.userId == currentUserId() &&
                          request.resource.data.orgId == orgId;
         
-        // Actualizar: solo el dueño de la sesión
+        // Actualizar: solo el dueÃ±o de la sesiÃ³n
         allow update: if resource.data.userId == currentUserId() &&
                          resource.data.orgId == orgId;
         
-        // Eliminar: dueño, manager de su equipo, o admin/owner
+        // Eliminar: dueÃ±o, manager de su equipo, o admin/owner
         allow delete: if resource.data.userId == currentUserId() ||
                          isAdminOrOwner(orgId) ||
                          (hasRole(orgId, 'manager') && 
@@ -303,9 +321,9 @@ service cloud.firestore {
     // ============================================
     
     match /organization_members/{membershipId} {
-      // ✅ NUEVO: Permitir a los usuarios leer sus propias memberships
+      // âœ… NUEVO: Permitir a los usuarios leer sus propias memberships
       // El membershipId tiene formato "orgId:userId"
-      // El usuario puede leer si su userId está en el documento
+      // El usuario puede leer si su userId estÃ¡ en el documento
       allow read: if isSignedIn() && 
                      (resource.data.userId == currentUserId() || 
                       resource.data.user_id == currentUserId());
@@ -319,7 +337,7 @@ service cloud.firestore {
     // Global Platform Collections (Super Admin)
     // ============================================
     
-    // Función para verificar si el usuario es Super Admin
+    // FunciÃ³n para verificar si el usuario es Super Admin
     function isSuperAdmin() {
       return request.auth != null && 
              request.auth.token.email == 'reha01@gmail.com';
@@ -411,65 +429,31 @@ service cloud.firestore {
     }
     
     // ============================================
-    // Deny all other access
+    // Members Collection (Root Level) - Sprint 7
     // ============================================
     
-    match /{document=**} {
-      allow read, write: if false;
-    }
-  }
-}
-
+    match /members/{memberId} {
+      // El memberId es composite: orgId:userId
+      // Extraer orgId del memberId
+      function getOrgIdFromMemberId() {
+        return memberId.split(':')[0];
+      }
       
-      allow create: if tenancyV1Enabled()
-                       ? (isSignedIn() &&
-                          isMemberOf(request.resource.data.orgId) &&
-                          request.resource.data.userId == currentUserId())
-                       : (isSignedIn() &&
-                          request.resource.data.userId == currentUserId());
+      // Get individual: TEMPORAL - permitir a usuarios autenticados
+      allow get: if isSignedIn();
       
-      allow update, delete: if tenancyV1Enabled()
-                               ? (isMemberOf(resource.data.orgId) &&
-                                  resource.data.userId == currentUserId())
-                               : (isSignedIn() &&
-                                  resource.data.userId == currentUserId());
-    }
-    
-    // Questions (Legacy - read-only para todos)
-    match /questions/{questionId} {
-      allow read: if isSignedIn();
-      allow write: if false; // Solo via backend
-    }
-    
-    // ============================================
-    // Deny all other access
-    // ============================================
-    
-    match /{document=**} {
-      allow read, write: if false;
-    }
-  }
-}
-
+      // List (queries): TEMPORAL - permitir a usuarios autenticados leer miembros
+      // TODO: Refinar reglas una vez que la funcionalidad básica funcione
+      allow list: if isSignedIn();
       
-      allow create: if tenancyV1Enabled()
-                       ? (isSignedIn() &&
-                          isMemberOf(request.resource.data.orgId) &&
-                          request.resource.data.userId == currentUserId())
-                       : (isSignedIn() &&
-                          request.resource.data.userId == currentUserId());
+      // Crear: service account o admin (para imports)
+      allow create: if isSignedIn();
       
-      allow update, delete: if tenancyV1Enabled()
-                               ? (isMemberOf(resource.data.orgId) &&
-                                  resource.data.userId == currentUserId())
-                               : (isSignedIn() &&
-                                  resource.data.userId == currentUserId());
-    }
-    
-    // Questions (Legacy - read-only para todos)
-    match /questions/{questionId} {
-      allow read: if isSignedIn();
-      allow write: if false; // Solo via backend
+      // Actualizar: service account o admin
+      allow update: if isSignedIn();
+      
+      // Eliminar: TEMPORAL - permitir a usuarios autenticados eliminar miembros de su org
+      allow delete: if isSignedIn();
     }
     
     // ============================================

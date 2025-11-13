@@ -1,4 +1,4 @@
-// src/services/firebase.js
+﻿// src/services/firebase.js
 import { initializeApp } from "firebase/app";
 import { 
   getAuth,
@@ -13,17 +13,17 @@ import {
 } from "firebase/auth";
 import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 
-// ✅ DIAGNÓSTICO: Logs temporales para verificar qué valores se están usando
+// âœ… DIAGNÃ“STICO: Logs temporales para verificar quÃ© valores se estÃ¡n usando
 const apiKey = import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCozdMcZGpS-W7f1y5N02Vh089Qbm3giSQ";
 const authDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "mvp-staging-3e1cd.firebaseapp.com";
 const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || "mvp-staging-3e1cd";
 
 if (typeof window !== 'undefined') {
-  console.log('[Firebase Config] 🔍 DIAGNÓSTICO:');
+  console.log('[Firebase Config] ðŸ” DIAGNÃ“STICO:');
   console.log('[Firebase Config] API Key:', apiKey ? `${apiKey.substring(0, 20)}...` : 'MISSING');
   console.log('[Firebase Config] Auth Domain:', authDomain);
   console.log('[Firebase Config] Project ID:', projectId);
-  console.log('[Firebase Config] Usando env var?', import.meta.env.VITE_FIREBASE_API_KEY ? '✅ SÍ' : '❌ NO (fallback)');
+  console.log('[Firebase Config] Usando env var?', import.meta.env.VITE_FIREBASE_API_KEY ? 'âœ… SÃ' : 'âŒ NO (fallback)');
   console.log('[Firebase Config] Current origin:', window.location.origin);
 }
 
@@ -43,7 +43,7 @@ const db = getFirestore(app);
 // Configurar persistencia
 setPersistence(auth, browserLocalPersistence);
 
-// Conectar emuladores solo si se especifica explícitamente
+// Conectar emuladores solo si se especifica explÃ­citamente
 const useEmulators = import.meta.env.VITE_USE_EMULATORS === 'true';
 
 if (useEmulators && (location.hostname === "127.0.0.1" || location.hostname === "localhost")) {
@@ -83,6 +83,7 @@ export { app, auth, db };
 const googleProvider = new GoogleAuthProvider();
 
 // Funciones de conveniencia (mantenemos compatibilidad)
+
 export const signUpWithEmail = (email, password) => createUserWithEmailAndPassword(auth, email, password);
 export const signInWithEmail = (email, password) => signInWithEmailAndPassword(auth, email, password);
 export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);

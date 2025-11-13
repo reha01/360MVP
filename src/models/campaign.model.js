@@ -1,6 +1,6 @@
-/**
+﻿/**
  * Campaign Model
- * Represents a 360° evaluation campaign
+ * Represents a 360Â° evaluation campaign
  */
 
 export const CampaignStatus = {
@@ -151,4 +151,3 @@ export class Campaign {
   }
 }
 
-export default Campaign;

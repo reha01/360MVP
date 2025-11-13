@@ -1,7 +1,7 @@
-/**
- * Modelo de Reporte 360°
+﻿/**
+ * Modelo de Reporte 360Â°
  * 
- * Define la estructura y validación de reportes 360°
+ * Define la estructura y validaciÃ³n de reportes 360Â°
  */
 
 // ========== CONSTANTS ==========
@@ -40,7 +40,7 @@ export const VISUALIZATION_TYPES = {
 // ========== DATA MODELS ==========
 
 /**
- * Modelo de Reporte 360°
+ * Modelo de Reporte 360Â°
  */
 export const createReport360Model = (data) => {
   const now = new Date();
@@ -81,13 +81,13 @@ export const createReport360Model = (data) => {
     updatedAt: data.updatedAt || now,
     generatedAt: data.generatedAt || null,
     
-    // Configuración
+    // ConfiguraciÃ³n
     plan: data.plan || 'premium',
     language: data.language || 'es',
     includeNarrative: data.includeNarrative !== undefined ? data.includeNarrative : true,
     includeRecommendations: data.includeRecommendations !== undefined ? data.includeRecommendations : true,
     
-    // Validación
+    // ValidaciÃ³n
     isValid: data.isValid || false,
     validationErrors: data.validationErrors || [],
     warnings: data.warnings || []
@@ -111,7 +111,7 @@ export const createExecutiveSummaryModel = (data) => {
 };
 
 /**
- * Modelo de análisis por categoría
+ * Modelo de anÃ¡lisis por categorÃ­a
  */
 export const createCategoryAnalysisModel = (data) => {
   return {
@@ -129,7 +129,7 @@ export const createCategoryAnalysisModel = (data) => {
 };
 
 /**
- * Modelo de análisis de brechas
+ * Modelo de anÃ¡lisis de brechas
  */
 export const createGapAnalysisModel = (data) => {
   return {
@@ -160,7 +160,7 @@ export const createRecommendationsModel = (data) => {
 };
 
 /**
- * Modelo de visualización
+ * Modelo de visualizaciÃ³n
  */
 export const createVisualizationModel = (data) => {
   return {
@@ -177,13 +177,13 @@ export const createVisualizationModel = (data) => {
 // ========== VALIDATION FUNCTIONS ==========
 
 /**
- * Validar reporte 360°
+ * Validar reporte 360Â°
  */
 export const validateReport360 = (report) => {
   const errors = [];
   const warnings = [];
   
-  // Validar datos básicos
+  // Validar datos bÃ¡sicos
   if (!report.evaluateeId) {
     errors.push('evaluateeId es requerido');
   }
@@ -201,9 +201,9 @@ export const validateReport360 = (report) => {
     warnings.push('No hay scores por tipo de evaluador');
   }
   
-  // Validar análisis de categorías
+  // Validar anÃ¡lisis de categorÃ­as
   if (report.categoryAnalysis && Object.keys(report.categoryAnalysis).length === 0) {
-    warnings.push('No hay análisis de categorías');
+    warnings.push('No hay anÃ¡lisis de categorÃ­as');
   }
   
   // Validar narrativa
@@ -242,7 +242,7 @@ export const getScoreLevelLabel = (level) => {
     case 'good': return 'Bueno';
     case 'satisfactory': return 'Satisfactorio';
     case 'needs_improvement': return 'Necesita Mejora';
-    case 'critical': return 'Crítico';
+    case 'critical': return 'CrÃ­tico';
     default: return 'Desconocido';
   }
 };
@@ -284,7 +284,7 @@ export const getConsensusLevelLabel = (level) => {
 };
 
 /**
- * Obtener interpretación de brecha
+ * Obtener interpretaciÃ³n de brecha
  */
 export const getGapInterpretation = (gap) => {
   if (gap > 0.5) return 'overestimation';
@@ -293,12 +293,12 @@ export const getGapInterpretation = (gap) => {
 };
 
 /**
- * Obtener etiqueta de interpretación de brecha
+ * Obtener etiqueta de interpretaciÃ³n de brecha
  */
 export const getGapInterpretationLabel = (interpretation) => {
   switch (interpretation) {
-    case 'overestimation': return 'Sobreestimación';
-    case 'underestimation': return 'Subestimación';
+    case 'overestimation': return 'SobreestimaciÃ³n';
+    case 'underestimation': return 'SubestimaciÃ³n';
     case 'aligned': return 'Alineado';
     default: return 'Desconocido';
   }
@@ -343,16 +343,16 @@ export const getReportTypeLabel = (type) => {
 };
 
 /**
- * Obtener etiqueta para tipo de visualización
+ * Obtener etiqueta para tipo de visualizaciÃ³n
  */
 export const getVisualizationTypeLabel = (type) => {
   switch (type) {
-    case VISUALIZATION_TYPES.RADAR_CHART: return 'Gráfico Radar';
-    case VISUALIZATION_TYPES.BAR_CHART: return 'Gráfico de Barras';
-    case VISUALIZATION_TYPES.LINE_CHART: return 'Gráfico de Líneas';
-    case VISUALIZATION_TYPES.SCATTER_PLOT: return 'Gráfico de Dispersión';
+    case VISUALIZATION_TYPES.RADAR_CHART: return 'GrÃ¡fico Radar';
+    case VISUALIZATION_TYPES.BAR_CHART: return 'GrÃ¡fico de Barras';
+    case VISUALIZATION_TYPES.LINE_CHART: return 'GrÃ¡fico de LÃ­neas';
+    case VISUALIZATION_TYPES.SCATTER_PLOT: return 'GrÃ¡fico de DispersiÃ³n';
     case VISUALIZATION_TYPES.HEATMAP: return 'Mapa de Calor';
-    case VISUALIZATION_TYPES.DONUT_CHART: return 'Gráfico de Donut';
+    case VISUALIZATION_TYPES.DONUT_CHART: return 'GrÃ¡fico de Donut';
     default: return 'Tipo Desconocido';
   }
 };
@@ -391,7 +391,7 @@ export const calculateKeyOpportunities = (categoryAnalysis, limit = 3) => {
 };
 
 /**
- * Calcular brechas críticas
+ * Calcular brechas crÃ­ticas
  */
 export const calculateCriticalGaps = (gapAnalysis, threshold = 0.5) => {
   if (!gapAnalysis.selfVsOthers) return [];
@@ -410,36 +410,5 @@ export const calculateCriticalGaps = (gapAnalysis, threshold = 0.5) => {
 // ========== EXPORT DEFAULT ==========
 
 export default {
-  // Constants
-  REPORT_STATUS,
-  REPORT_TYPES,
-  REPORT_SECTIONS,
-  VISUALIZATION_TYPES,
-  
-  // Models
-  createReport360Model,
-  createExecutiveSummaryModel,
-  createCategoryAnalysisModel,
-  createGapAnalysisModel,
-  createRecommendationsModel,
-  createVisualizationModel,
-  
-  // Validation
-  validateReport360,
-  
-  // Utilities
-  getScoreLevel,
-  getScoreLevelLabel,
-  getScoreLevelColor,
-  getConsensusLevel,
-  getConsensusLevelLabel,
-  getGapInterpretation,
-  getGapInterpretationLabel,
-  getReportStatusLabel,
-  getReportStatusColor,
-  getReportTypeLabel,
-  getVisualizationTypeLabel,
-  calculateTopStrengths,
-  calculateKeyOpportunities,
-  calculateCriticalGaps
+
 };

@@ -1,11 +1,11 @@
-// src/hooks/useReports.js
+﻿// src/hooks/useReports.js
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import featureFlags from '../lib/featureFlags';
 
 /**
  * useReports - Hook para obtener reportes del usuario
- * TODO: Conectar con reportService real cuando esté implementado
+ * TODO: Conectar con reportService real cuando estÃ© implementado
  */
 export const useReports = () => {
   const { user } = useAuth();
@@ -33,8 +33,8 @@ export const useReports = () => {
         const mockReports = [
           {
             id: 'report_1',
-            title: 'Autoevaluación Liderazgo',
-            date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // hace 2 días
+            title: 'AutoevaluaciÃ³n Liderazgo',
+            date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // hace 2 dÃ­as
             type: 'self', // self, 180, 360
             category: 'leadership',
             url: '/report/report_1',
@@ -43,13 +43,13 @@ export const useReports = () => {
             score: 7.8,
             status: 'completed',
             generatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-            insights: 3, // Número de insights clave
-            recommendations: 5 // Número de recomendaciones
+            insights: 3, // NÃºmero de insights clave
+            recommendations: 5 // NÃºmero de recomendaciones
           },
           {
             id: 'report_2',
-            title: 'Evaluación 360° Comunicación',
-            date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // hace 7 días
+            title: 'EvaluaciÃ³n 360Â° ComunicaciÃ³n',
+            date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // hace 7 dÃ­as
             type: '360',
             category: 'communication',
             url: '/report/report_2',
@@ -58,14 +58,14 @@ export const useReports = () => {
             score: 8.2,
             status: 'completed',
             generatedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-            participants: 5, // Número de participantes en la evaluación 360
+            participants: 5, // NÃºmero de participantes en la evaluaciÃ³n 360
             insights: 4,
             recommendations: 7
           },
           {
             id: 'report_3',
-            title: 'Evaluación 180° Gestión de Equipo',
-            date: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000), // hace 14 días
+            title: 'EvaluaciÃ³n 180Â° GestiÃ³n de Equipo',
+            date: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000), // hace 14 dÃ­as
             type: '180',
             category: 'teamwork',
             url: '/report/report_3',
@@ -96,7 +96,7 @@ export const useReports = () => {
 
   // Helper function para obtener todos los reportes (para vista completa)
   const getAllReports = () => {
-    // TODO: Implementar paginación real
+    // TODO: Implementar paginaciÃ³n real
     return reports;
   };
 
@@ -128,5 +128,7 @@ export const useReports = () => {
     generateShareableLink
   };
 };
+
+
 
 export default useReports;

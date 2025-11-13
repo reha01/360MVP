@@ -1,4 +1,4 @@
-// src/context/OrgContext.jsx
+﻿// src/context/OrgContext.jsx
 // CRITICAL FIX: Loop prevention with global cache and strict guards
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
@@ -477,7 +477,7 @@ export const OrgProvider = ({ children }) => {
     
     loadingStates.set(uid, loadPromise);
     
-  }, [user?.uid, user?.email, authLoading]); // ✅ CORREGIDO: Remover funciones de dependencias
+  }, [user?.uid, user?.email, authLoading]); // âœ… CORREGIDO: Remover funciones de dependencias
   
   // Navigation effect - only navigate when truly needed AND user is authenticated
   useEffect(() => {
@@ -493,7 +493,7 @@ export const OrgProvider = ({ children }) => {
         navigate('/select-workspace', { replace: true });
       }
     }
-  }, [status, memberships.length, user?.uid]); // ✅ CORREGIDO: Remover navigate y location.pathname
+  }, [status, memberships.length, user?.uid]); // âœ… CORREGIDO: Remover navigate y location.pathname
   
   // Actions
   const setActiveOrgId = useCallback((orgId) => {
@@ -520,7 +520,7 @@ export const OrgProvider = ({ children }) => {
     
     debugLog('Active org changed', { orgId });
     return true;
-  }, [memberships]); // ✅ CORREGIDO: Remover storeOrgId de dependencias
+  }, [memberships]); // âœ… CORREGIDO: Remover storeOrgId de dependencias
   
   const refreshMemberships = useCallback(() => {
     if (!user?.uid) return;
@@ -538,7 +538,7 @@ export const OrgProvider = ({ children }) => {
     storeOrgId(null);
     navigationRef.current = false;
     debugLog('Workspace cleared');
-  }, []); // ✅ CORREGIDO: Sin dependencias innecesarias
+  }, []); // âœ… CORREGIDO: Sin dependencias innecesarias
   
   // Computed values
   const isPersonalWorkspace = activeOrg?.type === 'personal';
@@ -571,7 +571,7 @@ export const OrgProvider = ({ children }) => {
     canSwitchWorkspace,
     activeMembership,
     loading: status === 'loading',
-    isReady: status === 'success' && activeOrgId !== null, // ✅ NUEVO: indica si está listo para feature flags
+    isReady: status === 'success' && activeOrgId !== null, // âœ… NUEVO: indica si estÃ¡ listo para feature flags
     
     // Actions
     setActiveOrg: setActiveOrgId,
@@ -601,7 +601,7 @@ export const useOrg = () => {
 
 // Legacy compatibility
 export const getActiveOrgIdFromContext = () => {
-  // Esta función debe ser llamada desde fuera del contexto de React
+  // Esta funciÃ³n debe ser llamada desde fuera del contexto de React
   // Retorna el orgId activo desde localStorage como fallback
   try {
     const uid = localStorage.getItem('360mvp_user_uid');
@@ -640,65 +640,7 @@ export const getActiveOrgIdFromContext = () => {
       }
     };
   
-  console.log('🔧 OrgContext debug tools available:');
-  console.log('  __debugOrgContext.forceReset() - Clear all state');
-  console.log('  __debugOrgContext.enableDebug() - Enable debug logs');
-  console.log('  __debugOrgContext.disableDebug() - Disable debug logs');
-}
-
-export default OrgContext;
-      cache: globalCache,
-      loadingStates,
-      debugOnly: () => isDebug(),
-      forceReset: () => {
-        globalCache.clear();
-        loadingStates.clear();
-        localStorage.removeItem('selectedOrgId');
-        localStorage.removeItem('ORGCTX_KILL');
-        localStorage.removeItem('DEBUG');
-        console.log('[OrgContext] Debug state cleared, reloading...');
-        location.reload();
-      },
-      enableDebug: () => {
-        localStorage.setItem('DEBUG', '1');
-        console.log('[OrgContext] Debug mode enabled, reload to see logs');
-      },
-      disableDebug: () => {
-        localStorage.removeItem('DEBUG');
-        console.log('[OrgContext] Debug mode disabled, reload to hide logs');
-      }
-    };
-  
-  console.log('🔧 OrgContext debug tools available:');
-  console.log('  __debugOrgContext.forceReset() - Clear all state');
-  console.log('  __debugOrgContext.enableDebug() - Enable debug logs');
-  console.log('  __debugOrgContext.disableDebug() - Disable debug logs');
-}
-
-export default OrgContext;
-      cache: globalCache,
-      loadingStates,
-      debugOnly: () => isDebug(),
-      forceReset: () => {
-        globalCache.clear();
-        loadingStates.clear();
-        localStorage.removeItem('selectedOrgId');
-        localStorage.removeItem('ORGCTX_KILL');
-        localStorage.removeItem('DEBUG');
-        console.log('[OrgContext] Debug state cleared, reloading...');
-        location.reload();
-      },
-      enableDebug: () => {
-        localStorage.setItem('DEBUG', '1');
-        console.log('[OrgContext] Debug mode enabled, reload to see logs');
-      },
-      disableDebug: () => {
-        localStorage.removeItem('DEBUG');
-        console.log('[OrgContext] Debug mode disabled, reload to hide logs');
-      }
-    };
-  
-  console.log('🔧 OrgContext debug tools available:');
+  console.log('ðŸ”§ OrgContext debug tools available:');
   console.log('  __debugOrgContext.forceReset() - Clear all state');
   console.log('  __debugOrgContext.enableDebug() - Enable debug logs');
   console.log('  __debugOrgContext.disableDebug() - Disable debug logs');

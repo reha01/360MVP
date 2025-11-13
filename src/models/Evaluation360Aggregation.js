@@ -1,8 +1,8 @@
-/**
- * Modelo de Agregación para Evaluaciones 360°
+﻿/**
+ * Modelo de AgregaciÃ³n para Evaluaciones 360Â°
  * 
- * Define la agregación de respuestas con umbrales de anonimato
- * y cálculo de scores por tipo de evaluador
+ * Define la agregaciÃ³n de respuestas con umbrales de anonimato
+ * y cÃ¡lculo de scores por tipo de evaluador
  */
 
 // ========== CONSTANTS ==========
@@ -16,7 +16,7 @@ export const AGGREGATION_STATUS = {
 };
 
 export const EVALUATOR_TYPE_WEIGHTS = {
-  SELF: 0.1,        // Autoevaluación tiene menor peso
+  SELF: 0.1,        // AutoevaluaciÃ³n tiene menor peso
   MANAGER: 0.3,     // Manager tiene mayor peso
   PEER: 0.25,       // Pares tienen peso medio-alto
   SUBORDINATE: 0.25, // Subordinados tienen peso medio-alto
@@ -24,10 +24,10 @@ export const EVALUATOR_TYPE_WEIGHTS = {
 };
 
 export const ANONYMITY_THRESHOLDS = {
-  PEER: 3,          // Mínimo 3 pares
-  SUBORDINATE: 3,   // Mínimo 3 subordinados
-  EXTERNAL: 1,      // Mínimo 1 externo
-  MANAGER: 1        // Mínimo 1 manager
+  PEER: 3,          // MÃ­nimo 3 pares
+  SUBORDINATE: 3,   // MÃ­nimo 3 subordinados
+  EXTERNAL: 1,      // MÃ­nimo 1 externo
+  MANAGER: 1        // MÃ­nimo 1 manager
 };
 
 export const SCORING_METHODS = {
@@ -40,7 +40,7 @@ export const SCORING_METHODS = {
 // ========== DATA MODELS ==========
 
 /**
- * Modelo de Agregación 360°
+ * Modelo de AgregaciÃ³n 360Â°
  */
 export const createEvaluation360AggregationModel = (data) => {
   const now = new Date();
@@ -75,7 +75,7 @@ export const createEvaluation360AggregationModel = (data) => {
     subdimensionScores: data.subdimensionScores || {},
     overallScore: data.overallScore || 0,
     
-    // Métricas
+    // MÃ©tricas
     metrics: data.metrics || {
       completionRate: 0,
       responseRate: 0,
@@ -91,11 +91,11 @@ export const createEvaluation360AggregationModel = (data) => {
     updatedAt: data.updatedAt || now,
     processedAt: data.processedAt || null,
     
-    // Configuración
+    // ConfiguraciÃ³n
     scoringMethod: data.scoringMethod || SCORING_METHODS.WEIGHTED_AVERAGE,
     evaluatorWeights: data.evaluatorWeights || EVALUATOR_TYPE_WEIGHTS,
     
-    // Validación
+    // ValidaciÃ³n
     isValid: data.isValid || false,
     validationErrors: data.validationErrors || [],
     warnings: data.warnings || []
@@ -115,7 +115,7 @@ export const createAggregatedResponseModel = (data) => {
     // Respuestas por tipo de evaluador
     responsesByType: data.responsesByType || {},
     
-    // Estadísticas
+    // EstadÃ­sticas
     statistics: data.statistics || {
       mean: 0,
       median: 0,
@@ -129,7 +129,7 @@ export const createAggregatedResponseModel = (data) => {
     aggregatedScore: data.aggregatedScore || 0,
     weightedScore: data.weightedScore || 0,
     
-    // Validación
+    // ValidaciÃ³n
     isValid: data.isValid || false,
     anonymityMet: data.anonymityMet || false,
     outlierCount: data.outlierCount || 0
@@ -150,14 +150,14 @@ export const createEvaluatorTypeScoreModel = (data) => {
     subdimensionScores: data.subdimensionScores || {},
     overallScore: data.overallScore || 0,
     
-    // Métricas
+    // MÃ©tricas
     metrics: data.metrics || {
       completionRate: 0,
       responseRate: 0,
       consensusIndex: 0
     },
     
-    // Validación
+    // ValidaciÃ³n
     anonymityMet: data.anonymityMet || false,
     isValid: data.isValid || false
   };
@@ -205,13 +205,13 @@ export const validateAnonymityThresholds = (responses, thresholds) => {
 };
 
 /**
- * Validar agregación
+ * Validar agregaciÃ³n
  */
 export const validateAggregation = (aggregation) => {
   const errors = [];
   const warnings = [];
   
-  // Validar respuestas mínimas
+  // Validar respuestas mÃ­nimas
   if (aggregation.totalResponses < 1) {
     errors.push('No hay respuestas para agregar');
   }
@@ -290,7 +290,7 @@ export const aggregateResponsesByQuestion = (responses, testDefinition) => {
     });
   });
   
-  // Calcular estadísticas para cada pregunta
+  // Calcular estadÃ­sticas para cada pregunta
   Object.values(aggregatedResponses).forEach(aggregated => {
     const values = aggregated.responses.map(r => r.value).filter(v => v !== null && v !== undefined);
     
@@ -305,7 +305,7 @@ export const aggregateResponsesByQuestion = (responses, testDefinition) => {
 };
 
 /**
- * Calcular estadísticas de un conjunto de valores
+ * Calcular estadÃ­sticas de un conjunto de valores
  */
 export const calculateStatistics = (values) => {
   if (values.length === 0) {
@@ -339,7 +339,7 @@ export const calculateStatistics = (values) => {
     frequency[a] > frequency[b] ? a : b
   );
   
-  // Desviación estándar
+  // DesviaciÃ³n estÃ¡ndar
   const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / n;
   const standardDeviation = Math.sqrt(variance);
   
@@ -424,7 +424,7 @@ export const calculateWeightedOverallScore = (scoresByType, evaluatorWeights) =>
 // ========== UTILITY FUNCTIONS ==========
 
 /**
- * Obtener estado de agregación como string legible
+ * Obtener estado de agregaciÃ³n como string legible
  */
 export const getAggregationStatusLabel = (status) => {
   switch (status) {
@@ -438,7 +438,7 @@ export const getAggregationStatusLabel = (status) => {
 };
 
 /**
- * Obtener color para estado de agregación
+ * Obtener color para estado de agregaciÃ³n
  */
 export const getAggregationStatusColor = (status) => {
   switch (status) {
@@ -452,7 +452,7 @@ export const getAggregationStatusColor = (status) => {
 };
 
 /**
- * Obtener etiqueta para método de scoring
+ * Obtener etiqueta para mÃ©todo de scoring
  */
 export const getScoringMethodLabel = (method) => {
   switch (method) {
@@ -460,12 +460,12 @@ export const getScoringMethodLabel = (method) => {
     case SCORING_METHODS.WEIGHTED_AVERAGE: return 'Promedio Ponderado';
     case SCORING_METHODS.NORMALIZED_SCORE: return 'Score Normalizado';
     case SCORING_METHODS.PERCENTILE_RANK: return 'Percentil';
-    default: return 'Método Desconocido';
+    default: return 'MÃ©todo Desconocido';
   }
 };
 
 /**
- * Calcular índice de consenso
+ * Calcular Ã­ndice de consenso
  */
 export const calculateConsensusIndex = (responses) => {
   if (responses.length < 2) return 0;
@@ -477,7 +477,7 @@ export const calculateConsensusIndex = (responses) => {
   const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
   const standardDeviation = Math.sqrt(variance);
   
-  // Índice de consenso (inverso de la desviación estándar normalizada)
+  // Ãndice de consenso (inverso de la desviaciÃ³n estÃ¡ndar normalizada)
   const maxPossibleSD = 2; // Para escala 1-5
   const consensusIndex = Math.max(0, 1 - (standardDeviation / maxPossibleSD));
   
@@ -501,31 +501,5 @@ export const detectOutliers = (values, threshold = 2) => {
 // ========== EXPORT DEFAULT ==========
 
 export default {
-  // Constants
-  AGGREGATION_STATUS,
-  EVALUATOR_TYPE_WEIGHTS,
-  ANONYMITY_THRESHOLDS,
-  SCORING_METHODS,
-  
-  // Models
-  createEvaluation360AggregationModel,
-  createAggregatedResponseModel,
-  createEvaluatorTypeScoreModel,
-  
-  // Validation
-  validateAnonymityThresholds,
-  validateAggregation,
-  
-  // Aggregation
-  aggregateResponsesByQuestion,
-  calculateStatistics,
-  calculateScoresByType,
-  calculateWeightedOverallScore,
-  
-  // Utilities
-  getAggregationStatusLabel,
-  getAggregationStatusColor,
-  getScoringMethodLabel,
-  calculateConsensusIndex,
-  detectOutliers
+
 };

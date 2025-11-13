@@ -1,4 +1,4 @@
-// src/hooks/useRecentActivity.js
+﻿// src/hooks/useRecentActivity.js
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 
@@ -33,9 +33,9 @@ export const useRecentActivity = () => {
           {
             id: 'event_1',
             type: 'report_ready',
-            label: 'Tu informe "Autoevaluación Liderazgo" está listo',
+            label: 'Tu informe "AutoevaluaciÃ³n Liderazgo" estÃ¡ listo',
             date: new Date(Date.now() - 2 * 60 * 60 * 1000), // hace 2 horas
-            icon: '📊',
+            icon: 'ðŸ“Š',
             action: {
               text: 'Ver informe',
               url: '/report/report_1'
@@ -48,22 +48,22 @@ export const useRecentActivity = () => {
           {
             id: 'event_2',
             type: 'invitation_sent',
-            label: 'Se envió invitación para evaluar a María González',
+            label: 'Se enviÃ³ invitaciÃ³n para evaluar a MarÃ­a GonzÃ¡lez',
             date: new Date(Date.now() - 6 * 60 * 60 * 1000), // hace 6 horas
-            icon: '📧',
+            icon: 'ðŸ“§',
             metadata: {
-              subjectName: 'María González',
+              subjectName: 'MarÃ­a GonzÃ¡lez',
               evaluationType: '360'
             }
           },
           {
             id: 'event_3',
             type: 'evaluation_assigned',
-            label: 'Nueva evaluación asignada: Carlos Ruiz',
-            date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // hace 1 día
-            icon: '🎯',
+            label: 'Nueva evaluaciÃ³n asignada: Carlos Ruiz',
+            date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // hace 1 dÃ­a
+            icon: 'ðŸŽ¯',
             action: {
-              text: 'Comenzar evaluación',
+              text: 'Comenzar evaluaciÃ³n',
               url: '/evaluation/assigned_task_2'
             },
             metadata: {
@@ -75,25 +75,25 @@ export const useRecentActivity = () => {
           {
             id: 'event_4',
             type: 'reminder',
-            label: 'Recordatorio: 2 días para finalizar evaluación de Ana Martín',
-            date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // hace 2 días
-            icon: '⏰',
+            label: 'Recordatorio: 2 dÃ­as para finalizar evaluaciÃ³n de Ana MartÃ­n',
+            date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // hace 2 dÃ­as
+            icon: 'â°',
             priority: 'medium', // low, medium, high
             action: {
-              text: 'Continuar evaluación',
+              text: 'Continuar evaluaciÃ³n',
               url: '/evaluation/assigned_task_3'
             },
             metadata: {
-              subjectName: 'Ana Martín',
+              subjectName: 'Ana MartÃ­n',
               daysRemaining: 2
             }
           },
           {
             id: 'event_5',
             type: 'evaluation_completed',
-            label: 'Completaste la autoevaluación de Comunicación',
-            date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // hace 3 días
-            icon: '✅',
+            label: 'Completaste la autoevaluaciÃ³n de ComunicaciÃ³n',
+            date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // hace 3 dÃ­as
+            icon: 'âœ…',
             metadata: {
               evaluationType: 'self',
               category: 'communication'
@@ -115,9 +115,9 @@ export const useRecentActivity = () => {
     fetchRecentActivity();
   }, [user]);
 
-  // Helper function para marcar evento como leído
+  // Helper function para marcar evento como leÃ­do
   const markAsRead = (eventId) => {
-    // TODO: Implementar marcado como leído en backend
+    // TODO: Implementar marcado como leÃ­do en backend
     setEvents(prevEvents =>
       prevEvents.map(event =>
         event.id === eventId ? { ...event, read: true } : event
@@ -125,7 +125,7 @@ export const useRecentActivity = () => {
     );
   };
 
-  // Helper function para obtener eventos no leídos
+  // Helper function para obtener eventos no leÃ­dos
   const getUnreadCount = () => {
     return events.filter(event => !event.read).length;
   };
@@ -148,7 +148,7 @@ export const useRecentActivity = () => {
     } else {
       const diffInDays = Math.floor(diffInHours / 24);
       if (diffInDays < 7) {
-        return `Hace ${diffInDays} día${diffInDays > 1 ? 's' : ''}`;
+        return `Hace ${diffInDays} dÃ­a${diffInDays > 1 ? 's' : ''}`;
       } else {
         return date.toLocaleDateString('es-ES');
       }
@@ -165,5 +165,7 @@ export const useRecentActivity = () => {
     formatRelativeDate
   };
 };
+
+
 
 export default useRecentActivity;

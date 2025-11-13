@@ -54,7 +54,33 @@ const Header = () => {
           <Link to="/dashboard" className="nav-link">Dashboard</Link>
           <Link to="/evaluations" className="nav-link">Evaluaciones</Link>
           <Link to="/reports" className="nav-link">Reportes</Link>
-          <Link to="/admin/tests" className="nav-link admin-link">Admin Tests</Link>
+          
+          {/* Gestión Dropdown */}
+          <div className="nav-dropdown">
+            <span className="nav-link">Gestión ▾</span>
+            <div className="nav-dropdown-menu">
+              <Link to="/gestion/miembros" className="nav-dropdown-link">
+                👤 Gestor de Miembros
+                <span className="nav-badge">Nuevo</span>
+              </Link>
+              <Link to="/bulk-actions" className="nav-dropdown-link">📧 Acciones Masivas</Link>
+              <Link to="/gestion/politicas" className="nav-dropdown-link">🛡️ Políticas</Link>
+              <Link to="/gestion/alertas" className="nav-dropdown-link">🔔 Alertas</Link>
+              <Link to="/gestion/campanas" className="nav-dropdown-link">📅 Campañas</Link>
+              <Link to="/comparacion-campanas" className="nav-dropdown-link">📈 Comparación</Link>
+            </div>
+          </div>
+          
+          {/* Super Admin Dropdown */}
+          {(activeMembership?.role === 'owner' || activeMembership?.role === 'admin') && (
+            <div className="nav-dropdown">
+              <span className="nav-link admin-link">Super Admin ▾</span>
+              <div className="nav-dropdown-menu">
+                <Link to="/super-admin" className="nav-dropdown-link">🎯 Panel Principal</Link>
+                <Link to="/admin/tests" className="nav-dropdown-link">📝 Gestión de Tests</Link>
+              </div>
+            </div>
+          )}
         </nav>
 
         {/* Workspace Switcher */}

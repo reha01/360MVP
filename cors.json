@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["https://mvp-staging-3e1cd.web.app"],
+    "method": ["POST", "PUT", "OPTIONS"],
+    "header": ["Authorization", "x-goog-meta-*", "Content-Type"],
+    "maxAgeSeconds": 3600
+  }
+]

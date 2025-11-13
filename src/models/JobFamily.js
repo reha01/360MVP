@@ -1,8 +1,8 @@
-/**
- * Modelo de Job Family (Familia de Puestos) para 360° Evaluations
+﻿/**
+ * Modelo de Job Family (Familia de Puestos) para 360Â° Evaluations
  * 
  * Define agrupaciones de roles similares que comparten competencias
- * y criterios de evaluación comunes
+ * y criterios de evaluaciÃ³n comunes
  */
 
 // ========== CONSTANTS ==========
@@ -42,7 +42,7 @@ export const createJobFamilyModel = (data) => {
     familyId: data.familyId || `jobfamily_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     orgId: data.orgId,
     
-    // Información básica
+    // InformaciÃ³n bÃ¡sica
     name: data.name?.trim(),
     description: data.description?.trim() || '',
     level: data.level || JOB_LEVELS.INDIVIDUAL_CONTRIBUTOR,
@@ -54,7 +54,7 @@ export const createJobFamilyModel = (data) => {
       excluded: data.testMappings?.excluded || []
     },
     
-    // Configuración de evaluadores
+    // ConfiguraciÃ³n de evaluadores
     evaluatorConfig: {
       requireSelf: data.evaluatorConfig?.requireSelf !== undefined ? data.evaluatorConfig.requireSelf : true,
       requireManager: data.evaluatorConfig?.requireManager !== undefined ? data.evaluatorConfig.requireManager : true,
@@ -97,7 +97,7 @@ export const createTestMappingModel = (data) => {
 export const validateJobFamily = (jobFamily) => {
   const errors = [];
   
-  // Validaciones básicas
+  // Validaciones bÃ¡sicas
   if (!jobFamily.name || jobFamily.name.length < VALIDATION_RULES.MIN_NAME_LENGTH) {
     errors.push(`Nombre debe tener al menos ${VALIDATION_RULES.MIN_NAME_LENGTH} caracteres`);
   }
@@ -107,22 +107,22 @@ export const validateJobFamily = (jobFamily) => {
   }
   
   if (jobFamily.description && jobFamily.description.length > VALIDATION_RULES.MAX_DESCRIPTION_LENGTH) {
-    errors.push(`Descripción no puede exceder ${VALIDATION_RULES.MAX_DESCRIPTION_LENGTH} caracteres`);
+    errors.push(`DescripciÃ³n no puede exceder ${VALIDATION_RULES.MAX_DESCRIPTION_LENGTH} caracteres`);
   }
   
   // Validar nivel
   if (!Object.values(JOB_LEVELS).includes(jobFamily.level)) {
-    errors.push(`Nivel inválido: ${jobFamily.level}`);
+    errors.push(`Nivel invÃ¡lido: ${jobFamily.level}`);
   }
   
   // Validar test mappings
   if (jobFamily.testMappings) {
     // Validar tests recomendados
     if (jobFamily.testMappings.recommended && jobFamily.testMappings.recommended.length > VALIDATION_RULES.MAX_RECOMMENDED_TESTS) {
-      errors.push(`Máximo ${VALIDATION_RULES.MAX_RECOMMENDED_TESTS} tests recomendados permitidos`);
+      errors.push(`MÃ¡ximo ${VALIDATION_RULES.MAX_RECOMMENDED_TESTS} tests recomendados permitidos`);
     }
     
-    // Validar que no haya tests duplicados entre categorías
+    // Validar que no haya tests duplicados entre categorÃ­as
     const allTestIds = [
       ...(jobFamily.testMappings.recommended || []).map(t => t.testId),
       ...(jobFamily.testMappings.allowed || []),
@@ -135,20 +135,20 @@ export const validateJobFamily = (jobFamily) => {
     }
   }
   
-  // Validar configuración de evaluadores
+  // Validar configuraciÃ³n de evaluadores
   if (jobFamily.evaluatorConfig) {
     const config = jobFamily.evaluatorConfig;
     
     if (config.peersMin < 0 || config.peersMin > VALIDATION_RULES.MAX_PEERS_REQUIRED) {
-      errors.push(`Mínimo de pares debe estar entre 0 y ${VALIDATION_RULES.MAX_PEERS_REQUIRED}`);
+      errors.push(`MÃ­nimo de pares debe estar entre 0 y ${VALIDATION_RULES.MAX_PEERS_REQUIRED}`);
     }
     
     if (config.peersMax < config.peersMin) {
-      errors.push('Máximo de pares no puede ser menor al mínimo');
+      errors.push('MÃ¡ximo de pares no puede ser menor al mÃ­nimo');
     }
     
     if (config.subordinatesMin < 0) {
-      errors.push('Mínimo de subordinados no puede ser negativo');
+      errors.push('MÃ­nimo de subordinados no puede ser negativo');
     }
   }
   
@@ -169,7 +169,7 @@ export const validateTestMapping = (mapping) => {
   }
   
   if (mapping.reason && mapping.reason.length > 200) {
-    errors.push('Razón no puede exceder 200 caracteres');
+    errors.push('RazÃ³n no puede exceder 200 caracteres');
   }
   
   if (mapping.priority && (mapping.priority < 1 || mapping.priority > 10)) {
@@ -227,24 +227,24 @@ export const getExcludedTests = (jobFamily) => {
 };
 
 /**
- * Verificar si un test está permitido para una Job Family
+ * Verificar si un test estÃ¡ permitido para una Job Family
  */
 export const isTestAllowedForJobFamily = (testId, jobFamily) => {
   const excluded = getExcludedTests(jobFamily);
   const allowed = getAllowedTests(jobFamily);
   const recommended = getRecommendedTests(jobFamily);
   
-  // Si está excluido, no está permitido
+  // Si estÃ¡ excluido, no estÃ¡ permitido
   if (excluded.includes(testId)) {
     return false;
   }
   
-  // Si está en allowed o recommended, está permitido
+  // Si estÃ¡ en allowed o recommended, estÃ¡ permitido
   return allowed.includes(testId) || recommended.some(t => t.testId === testId);
 };
 
 /**
- * Obtener configuración de evaluadores para una Job Family
+ * Obtener configuraciÃ³n de evaluadores para una Job Family
  */
 export const getEvaluatorConfig = (jobFamily) => {
   return jobFamily.evaluatorConfig || {
@@ -361,31 +361,5 @@ export const generateTestSuggestions = (jobFamily, availableTests) => {
 // ========== EXPORT DEFAULT ==========
 
 export default {
-  // Constants
-  JOB_LEVELS,
-  TEST_MAPPING_TYPES,
-  VALIDATION_RULES,
-  
-  // Models
-  createJobFamilyModel,
-  createTestMappingModel,
-  
-  // Validation
-  validateJobFamily,
-  validateTestMapping,
-  
-  // Utilities
-  getJobFamilyById,
-  getJobFamiliesByLevel,
-  getActiveJobFamilies,
-  getRecommendedTests,
-  getAllowedTests,
-  getExcludedTests,
-  isTestAllowedForJobFamily,
-  getEvaluatorConfig,
-  getUsersByJobFamily,
-  getJobFamiliesByUser,
-  getJobLevelLabel,
-  getJobLevelColor,
-  generateTestSuggestions
+
 };

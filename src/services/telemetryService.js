@@ -1,4 +1,4 @@
-// src/services/telemetryService.js
+﻿// src/services/telemetryService.js
 // Telemetry service for tracking multi-tenant scoping compliance
 
 import { isTenancyV1Enabled } from './featureFlags.js';
@@ -70,7 +70,7 @@ class TelemetryService {
     
     // Warning in console if tenancy is enabled
     if (isTenancyV1Enabled()) {
-      console.warn(`⚠️ [UNSCOPED ${operation.toUpperCase()}] Collection: ${collection}`);
+      console.warn(`âš ï¸ [UNSCOPED ${operation.toUpperCase()}] Collection: ${collection}`);
       console.warn('Stack:', call.stack);
     }
   }
@@ -89,7 +89,7 @@ class TelemetryService {
     this.metrics.legacyDocsFound++;
     
     if (isTenancyV1Enabled()) {
-      console.warn(`⚠️ [LEGACY DOC] Collection: ${collection}, Doc: ${docId} missing org_id`);
+      console.warn(`âš ï¸ [LEGACY DOC] Collection: ${collection}, Doc: ${docId} missing org_id`);
     }
   }
 
@@ -99,7 +99,7 @@ class TelemetryService {
   trackCrossOrgAttempt(userOrgId, attemptedOrgId, collection) {
     this.metrics.crossOrgAttempts++;
     
-    console.error(`🚫 [CROSS-ORG DENIED] User org: ${userOrgId}, Attempted: ${attemptedOrgId}, Collection: ${collection}`);
+    console.error(`ðŸš« [CROSS-ORG DENIED] User org: ${userOrgId}, Attempted: ${attemptedOrgId}, Collection: ${collection}`);
   }
 
   /**
@@ -196,17 +196,17 @@ class TelemetryService {
    * Print telemetry report
    */
   printReport() {
-    console.group('📊 Multi-Tenant Telemetry Report');
+    console.group('ðŸ“Š Multi-Tenant Telemetry Report');
     console.table(this.getMetrics());
     
     if (this.unscopedCalls.length > 0) {
-      console.group('⚠️ Unscoped Calls');
+      console.group('âš ï¸ Unscoped Calls');
       console.table(this.unscopedCalls.slice(-10)); // Last 10 calls
       console.groupEnd();
     }
     
     if (this.legacyDocs.length > 0) {
-      console.group('📋 Legacy Documents');
+      console.group('ðŸ“‹ Legacy Documents');
       console.table(this.legacyDocs.slice(-10)); // Last 10 docs
       console.groupEnd();
     }
@@ -256,6 +256,9 @@ class TelemetryService {
 // Singleton instance
 export const telemetry = new TelemetryService();
 
+// Default export for backward compatibility
+export default telemetry;
+
 // Auto-print report in development every 30 seconds if there's activity
 if (import.meta.env.VITE_DEBUG_LOGS === 'true') {
   setInterval(() => {
@@ -266,4 +269,3 @@ if (import.meta.env.VITE_DEBUG_LOGS === 'true') {
   }, 30000);
 }
 
-export default telemetry;

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Assignment Model
  * Represents an evaluation assignment for a user in a campaign
  */
@@ -208,4 +208,3 @@ export class Assignment {
   }
 }
 
-export default Assignment;

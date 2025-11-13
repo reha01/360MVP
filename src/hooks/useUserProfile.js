@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 
 /**
@@ -77,5 +77,7 @@ export const useUserProfile = () => {
     hasDisplayName: !!(user?.displayName)
   };
 };
+
+
 
 export default useUserProfile;
