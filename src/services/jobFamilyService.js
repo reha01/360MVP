@@ -29,7 +29,6 @@ import {
   validateTestMapping,
   getJobFamilyById,
   getActiveJobFamilies,
-  getUsersByJobFamily,
   JOB_LEVELS
 } from '../models/JobFamily';
 
@@ -413,7 +412,7 @@ export const getUsersByJobFamily = async (orgId, familyId) => {
 /**
  * Asignar Job Family a usuario
  */
-export const assignJobFamilyToUser = async (orgId, userId, familyId, userId) => {
+export const assignJobFamilyToUser = async (orgId, userId, familyId, assignedBy) => {
   try {
     // Obtener usuario actual
     const userRef = doc(db, 'orgs', orgId, 'members', userId);

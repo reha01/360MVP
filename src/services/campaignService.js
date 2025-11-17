@@ -645,3 +645,22 @@ export const canDeleteCampaign = (campaign) => {
 
 // ========== EXPORT ==========
 
+export default {
+  getOrgCampaigns,
+  getCampaigns,
+  getCampaign,
+  createCampaign,
+  updateCampaign,
+  activateCampaign,
+  closeCampaign,
+  getCampaignSessions,
+  generateEvaluation360Sessions,
+  getUsersByFilters,
+  getDefaultTestForUser,
+  getCampaignStats,
+  getCampaignsOverview,
+  getCampaignsByStatus,
+  getActiveCampaigns,
+  canEditCampaign,
+  canDeleteCampaign
+};

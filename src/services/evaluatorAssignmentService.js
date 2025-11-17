@@ -662,8 +662,61 @@ export const extendDeadline = async (orgId, assignmentId, extensionDays) => {
  */
 export const getAllAssignments = async (orgId, options = {}) => {
   try {
-    // Mock data para desarrollo
-    const mockAssignments = [
+    // Intentar obtener miembros reales de Firestore
+    let realMembers = [];
+    try {
+      const membersRef = collection(db, 'members');
+      const membersQuery = query(
+        membersRef,
+        where('orgId', '==', orgId),
+        where('isActive', '==', true)
+      );
+      const membersSnapshot = await getDocs(membersQuery);
+      realMembers = membersSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      console.log(`[EvaluatorAssignment] Found ${realMembers.length} real members for org ${orgId}`);
+    } catch (err) {
+      console.warn('[EvaluatorAssignment] Could not load real members, using mock data:', err);
+    }
+    
+    // Si hay miembros reales, convertirlos en asignaciones
+    let assignments = [];
+    if (realMembers.length > 0) {
+      assignments = realMembers.map((member, index) => {
+        // Obtener último recordatorio de localStorage si existe
+        const reminderKey = `reminder_${orgId}_${member.id}`;
+        const lastReminderSentStr = localStorage.getItem(reminderKey);
+        const lastReminderSent = lastReminderSentStr ? new Date(lastReminderSentStr) : null;
+        
+        // Determinar estado basado en datos del miembro
+        let status = 'pending';
+        if (member.lastEvaluationCompleted) {
+          status = 'completed';
+        } else if (member.lastEvaluationStarted && !member.lastEvaluationCompleted) {
+          status = 'in_progress';
+        } else if (member.deadline && new Date(member.deadline) < new Date()) {
+          status = 'expired';
+        }
+        
+        return {
+          id: member.id,
+          evaluatorId: member.id,
+          evaluatorEmail: member.email,
+          evaluatorName: member.nombre || member.displayName || member.email,
+          evaluatorType: member.rol || 'employee',
+          status: status,
+          lastInvitationSent: member.lastInvitationSent || member.createdAt || new Date(),
+          lastReminderSent: lastReminderSent,
+          createdAt: member.createdAt || new Date(),
+          deadline: member.deadline || null,
+          area: member.area || '--'
+        };
+      });
+    } else {
+      // Fallback a mock data si no hay miembros reales
+      const mockAssignments = [
       {
         id: 'assignment-1',
         session360Id: 'session-1',
@@ -683,6 +736,7 @@ export const getAllAssignments = async (orgId, options = {}) => {
         createdAt: new Date('2024-01-15'),
         lastInvitationSent: new Date('2024-01-15'),
         invitationCount: 1,
+        lastReminderSent: new Date('2024-01-20'),
         deadline: new Date('2024-02-15')
       },
       {
@@ -791,10 +845,12 @@ export const getAllAssignments = async (orgId, options = {}) => {
         invitationCount: 1,
         deadline: new Date('2024-10-15')
       }
-    ];
+      ];
+      assignments = mockAssignments;
+    }
     
     // Aplicar filtros
-    let filteredAssignments = [...mockAssignments];
+    let filteredAssignments = [...assignments];
     
     if (options.search) {
       filteredAssignments = filteredAssignments.filter(a => 
@@ -840,3 +896,24 @@ export const getAllAssignments = async (orgId, options = {}) => {
   }
 };
 
+// ========== EXPORTS ==========
+
+export default {
+  getSessionAssignments,
+  getEvaluatorAssignment,
+  getAssignmentByToken,
+  createEvaluatorAssignment,
+  updateEvaluatorAssignment,
+  generateSessionAssignments,
+  getPeersForUser,
+  getSubordinatesForUser,
+  validateToken,
+  markTokenAsUsed,
+  sendInvitationEmail,
+  sendReminderEmail,
+  generateEvaluationUrl,
+  getAssignmentStats,
+  resendInvitation,
+  extendDeadline,
+  getAllAssignments
+};

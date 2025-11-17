@@ -29,7 +29,6 @@ import {
   detectManagerCycles,
   buildOrgTree,
   getAreaById,
-  getUsersByArea,
   ORG_LEVELS,
   MANAGER_TYPES
 } from '../models/OrgStructure';

@@ -21,8 +21,8 @@ import TestsAdmin from './pages/admin/TestsAdmin';
 import { TEST_CATALOG } from './lib/featureFlags';
 // Import Phase 2 components
 import MemberManager from './components/members/MemberManager';
+import BulkActionsManager from './components/bulk/BulkActionsManager';
 // Note: Using temporary placeholders for other components due to build issues
-const BulkActionsManager = () => <div style={{padding: '20px'}}><h1>Acciones Masivas</h1><p>Funcionalidad disponible próximamente</p></div>;
 const PolicyManager = () => <div style={{padding: '20px'}}><h1>Políticas Organizacionales</h1><p>Funcionalidad disponible próximamente</p></div>;
 const AlertManager = () => <div style={{padding: '20px'}}><h1>Gestión de Alertas</h1><p>Funcionalidad disponible próximamente</p></div>;
 const CampaignComparison = () => <div style={{padding: '20px'}}><h1>Comparación de Campañas</h1><p>Funcionalidad disponible próximamente</p></div>;

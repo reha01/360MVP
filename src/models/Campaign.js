@@ -441,5 +441,5 @@ export const generateEvaluatorConfigFromJobFamily = (jobFamily) => {
 };
 
 // ========== EXPORT DEFAULT ==========
-
-export default Campaign;
+// Note: Campaign class is exported from campaign.model.js, not from this file
+// This file only exports utility functions and constants

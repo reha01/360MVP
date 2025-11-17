@@ -87,3 +87,8 @@ class LegacyAnalyticsService {
 
 // Export singleton instance for backward compatibility
 export const legacyAnalyticsService = new LegacyAnalyticsService();
+
+
+
+
+
