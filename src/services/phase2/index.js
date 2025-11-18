@@ -5,17 +5,17 @@
 
 import campaignService from './campaignService';
 import metricsService from './metricsService';
-import dlqService from './dlqService';
+// import dlqService from './dlqService'; // UNUSED - Using bulkActionDLQ directly instead
 
 export {
   campaignService,
   metricsService,
-  dlqService
+  // dlqService // UNUSED
 };
 
 // Default export with all services
 export default {
   campaign: campaignService,
   metrics: metricsService,
-  dlq: dlqService
+  // dlq: dlqService // UNUSED
 };

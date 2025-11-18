@@ -1,0 +1,148 @@
+/* HelpInstructions - Componente reutilizable de instrucciones */
+
+/* Botón de ayuda minimalista */
+.help-button {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: white;
+  border: 1px solid #dee2e6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  z-index: 1000;
+  font-size: 20px;
+  padding: 0;
+  outline: none;
+}
+
+.help-button:focus {
+  outline: 2px solid #0d6efd;
+  outline-offset: 2px;
+}
+
+.help-button:hover {
+  background-color: #f8f9fa;
+  border-color: #0d6efd;
+  box-shadow: 0 4px 12px rgba(13, 110, 253, 0.2);
+  transform: scale(1.05);
+}
+
+.help-button-active {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+  color: white;
+}
+
+.help-button-active:hover {
+  background-color: #0b5ed7;
+  border-color: #0a58ca;
+}
+
+.help-icon {
+  display: block;
+  line-height: 1;
+}
+
+/* Panel de instrucciones */
+.instructions-panel {
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  padding: 20px;
+  margin-bottom: 24px;
+  border-left: 4px solid #0d6efd;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.instructions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.instructions-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #212529;
+  margin: 0;
+}
+
+.btn-close-instructions {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #6c757d;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.btn-close-instructions:hover {
+  background-color: #f8f9fa;
+  color: #212529;
+}
+
+.instructions-content {
+  font-size: 14px;
+  color: #495057;
+  line-height: 1.6;
+}
+
+.instructions-content p {
+  margin: 0 0 12px 0;
+}
+
+.instructions-content p:last-child {
+  margin-bottom: 0;
+}
+
+.instructions-content ul {
+  margin: 8px 0 16px 20px;
+  padding: 0;
+}
+
+.instructions-content li {
+  margin-bottom: 8px;
+}
+
+.instructions-content strong {
+  color: #212529;
+  font-weight: 600;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .help-button {
+    bottom: 16px;
+    right: 16px;
+    width: 44px;
+    height: 44px;
+    font-size: 18px;
+  }
+  
+  .instructions-panel {
+    padding: 16px;
+  }
+}
+

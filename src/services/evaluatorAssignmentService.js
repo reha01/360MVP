@@ -35,6 +35,7 @@ import {
 import campaignService from './campaignService';
 import jobFamilyService from './jobFamilyService';
 import orgStructureService from './orgStructureService';
+import { getOrgRoles, normalizeRole } from './roleService';
 
 // ========== EVALUATOR ASSIGNMENT MANAGEMENT ==========
 
@@ -684,34 +685,107 @@ export const getAllAssignments = async (orgId, options = {}) => {
     // Si hay miembros reales, convertirlos en asignaciones
     let assignments = [];
     if (realMembers.length > 0) {
-      assignments = realMembers.map((member, index) => {
-        // Obtener último recordatorio de localStorage si existe
-        const reminderKey = `reminder_${orgId}_${member.id}`;
-        const lastReminderSentStr = localStorage.getItem(reminderKey);
-        const lastReminderSent = lastReminderSentStr ? new Date(lastReminderSentStr) : null;
+      // Obtener todos los recordatorios de Firestore para esta org en un solo query
+      const remindersRef = collection(db, 'reminders');
+      const remindersQuery = query(
+        remindersRef,
+        where('orgId', '==', orgId)
+      );
+      const remindersSnapshot = await getDocs(remindersQuery);
+      
+      // Crear un mapa de assignmentId -> lastReminderSent para acceso rápido
+      const remindersMap = new Map();
+      remindersSnapshot.forEach((doc) => {
+        const data = doc.data();
+        const reminderDate = data.lastReminderSentDate 
+          ? new Date(data.lastReminderSentDate)
+          : (data.lastReminderSent?.toDate ? data.lastReminderSent.toDate() : null);
+        if (reminderDate) {
+          remindersMap.set(data.assignmentId, reminderDate);
+        }
+      });
+      
+      // Obtener todas las extensiones de plazo de Firestore para esta org (opcional)
+      const extensionsMap = new Map();
+      try {
+        const extensionsRef = collection(db, `organizations/${orgId}/deadlineExtensions`);
+        const extensionsSnapshot = await getDocs(extensionsRef);
         
-        // Determinar estado basado en datos del miembro
+        // Crear un mapa de assignmentId -> extension data para acceso rápido
+        extensionsSnapshot.forEach((doc) => {
+          const data = doc.data();
+          if (data.newDeadline) {
+            extensionsMap.set(data.assignmentId, {
+              newDeadline: new Date(data.newDeadline),
+              extensionDays: data.extensionDays || 0,
+              extendedAt: data.extendedAt?.toDate ? data.extendedAt.toDate() : null
+            });
+          }
+        });
+        console.log(`[EvaluatorAssignment] Loaded ${extensionsMap.size} deadline extensions from Firestore`);
+      } catch (extensionsErr) {
+        console.warn('[EvaluatorAssignment] Could not load deadline extensions from Firestore (non-critical):', extensionsErr);
+        // Continuar sin extensiones - no es crítico para mostrar las asignaciones
+      }
+      
+      assignments = realMembers.map((member, index) => {
+        // Obtener último recordatorio de Firestore
+        const lastReminderSent = remindersMap.get(member.id) || null;
+        
+        // Obtener extensión de plazo de Firestore si existe
+        const extension = extensionsMap.get(member.id);
+        let deadline = member.deadline || null;
+        if (extension && extension.newDeadline) {
+          deadline = extension.newDeadline.toISOString();
+        } else if (deadline) {
+          deadline = deadline instanceof Date ? deadline.toISOString() : deadline;
+        }
+        
+        // Determinar estado basado en datos del miembro y deadline extendido
         let status = 'pending';
         if (member.lastEvaluationCompleted) {
           status = 'completed';
         } else if (member.lastEvaluationStarted && !member.lastEvaluationCompleted) {
           status = 'in_progress';
-        } else if (member.deadline && new Date(member.deadline) < new Date()) {
+        } else if (deadline && new Date(deadline) < new Date()) {
           status = 'expired';
         }
+        
+        // Obtener fecha de última invitación (puede venir como Timestamp o como string ISO)
+        let lastInvitationSent = null;
+        if (member.lastInvitationSentDate) {
+          lastInvitationSent = new Date(member.lastInvitationSentDate);
+        } else if (member.lastInvitationSent) {
+          // Si es un Timestamp de Firestore, convertir a Date
+          lastInvitationSent = member.lastInvitationSent?.toDate 
+            ? member.lastInvitationSent.toDate() 
+            : new Date(member.lastInvitationSent);
+        } else if (member.createdAt) {
+          lastInvitationSent = member.createdAt?.toDate 
+            ? member.createdAt.toDate() 
+            : new Date(member.createdAt);
+        } else {
+          lastInvitationSent = new Date();
+        }
+        
+        // Normalizar rol usando los roles de la organización
+        const normalizedRole = normalizeRole(member.role || member.memberRole || member.rol || 'member');
         
         return {
           id: member.id,
           evaluatorId: member.id,
           evaluatorEmail: member.email,
           evaluatorName: member.nombre || member.displayName || member.email,
-          evaluatorType: member.rol || 'employee',
+          evaluatorType: normalizedRole, // Usar rol normalizado
           status: status,
-          lastInvitationSent: member.lastInvitationSent || member.createdAt || new Date(),
+          lastInvitationSent: lastInvitationSent,
           lastReminderSent: lastReminderSent,
           createdAt: member.createdAt || new Date(),
-          deadline: member.deadline || null,
-          area: member.area || '--'
+          deadline: deadline,
+          area: member.area || '--',
+          invitationCount: member.invitationCount || 0,
+          deadlineExtended: extension ? true : false,
+          extensionDays: extension?.extensionDays || 0
         };
       });
     } else {

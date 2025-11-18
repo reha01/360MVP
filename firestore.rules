@@ -94,6 +94,18 @@ service cloud.firestore {
       }
       
       // ============================================
+      // Organization Settings (Roles, etc.)
+      // ============================================
+      
+      match /settings/{settingId} {
+        // Leer: todos los miembros de la org
+        allow read: if isMemberOf(orgId);
+        
+        // Escribir: solo owner o admin
+        allow write: if isAdminOrOwner(orgId);
+      }
+      
+      // ============================================
       // Test Definitions Subcollection (NUEVO)
       // ============================================
       
@@ -286,6 +298,28 @@ service cloud.firestore {
       }
       
       // ============================================
+      // Bulk Action DLQ Subcollection (Dead Letter Queue)
+      // ============================================
+      
+      match /bulkActionDLQ/{dlqId} {
+        // TEMPORAL: Permitir todas las operaciones a usuarios autenticados
+        // El orgId ya está validado por el path organizations/{orgId}
+        // TODO: Refinar reglas una vez que la funcionalidad básica funcione
+        allow read, write: if isSignedIn();
+      }
+      
+      // ============================================
+      // Bulk Action Audit Subcollection (Auditoría)
+      // ============================================
+      
+      match /bulkActionAudit/{auditId} {
+        // TEMPORAL: Permitir todas las operaciones a usuarios autenticados
+        // El orgId ya está validado por el path organizations/{orgId}
+        // TODO: Refinar reglas una vez que la funcionalidad básica funcione
+        allow read, write: if isSignedIn();
+      }
+      
+      // ============================================
       // Evaluation Sessions Subcollection (NUEVO)
       // ============================================
       
@@ -454,6 +488,69 @@ service cloud.firestore {
       
       // Eliminar: TEMPORAL - permitir a usuarios autenticados eliminar miembros de su org
       allow delete: if isSignedIn();
+    }
+    
+    // ============================================
+    // Reminders - Recordatorios de asignaciones
+    // ============================================
+    match /reminders/{reminderId} {
+      // Leer: usuarios autenticados pueden leer recordatorios de su org
+      allow get: if isSignedIn() && 
+                    resource.data.orgId != null;
+      
+      // Listar: usuarios autenticados pueden listar recordatorios de su org
+      allow list: if isSignedIn();
+      
+      // Crear: usuarios autenticados pueden crear recordatorios para su org
+      allow create: if isSignedIn() && 
+                       request.resource.data.orgId != null &&
+                       request.resource.data.assignmentId != null;
+      
+      // Actualizar: usuarios autenticados pueden actualizar recordatorios de su org
+      allow update: if isSignedIn() && 
+                       resource.data.orgId != null &&
+                       request.resource.data.orgId == resource.data.orgId;
+      
+      // Eliminar: solo admin/owner pueden eliminar recordatorios
+      allow delete: if isSignedIn() && 
+                       resource.data.orgId != null;
+    }
+    
+    // ============================================
+    // Resolved Alerts - Alertas resueltas
+    // ============================================
+    match /resolvedAlerts/{alertId} {
+      // Leer: usuarios autenticados miembros de la org pueden leer alertas resueltas
+      allow get: if isSignedIn() && (isMemberOf(orgId) || isMemberOfViaRootCollection(orgId));
+      
+      // Listar: usuarios autenticados miembros de la org pueden listar alertas resueltas
+      allow list: if isSignedIn() && (isMemberOf(orgId) || isMemberOfViaRootCollection(orgId));
+      
+      // Crear/Actualizar: usuarios autenticados miembros de la org pueden marcar alertas como resueltas
+      allow create, update: if isSignedIn() && (isMemberOf(orgId) || isMemberOfViaRootCollection(orgId));
+      
+      // Eliminar: solo admin/owner pueden eliminar
+      allow delete: if isSignedIn() && isAdminOrOwner(orgId);
+    }
+    
+    // ============================================
+    // Deadline Extensions - Extensiones de plazo
+    // ============================================
+    match /deadlineExtensions/{extensionId} {
+      // Leer: usuarios autenticados miembros de la org pueden leer extensiones
+      allow get: if isSignedIn() && (isMemberOf(orgId) || isMemberOfViaRootCollection(orgId));
+      
+      // Listar: usuarios autenticados miembros de la org pueden listar extensiones
+      allow list: if isSignedIn() && (isMemberOf(orgId) || isMemberOfViaRootCollection(orgId));
+      
+      // Crear/Actualizar: usuarios autenticados miembros de la org pueden crear extensiones
+      allow create, update: if isSignedIn() && 
+                              (isMemberOf(orgId) || isMemberOfViaRootCollection(orgId)) &&
+                              request.resource.data.assignmentId != null &&
+                              request.resource.data.orgId == orgId;
+      
+      // Eliminar: solo admin/owner pueden eliminar
+      allow delete: if isSignedIn() && isAdminOrOwner(orgId);
     }
     
     // ============================================

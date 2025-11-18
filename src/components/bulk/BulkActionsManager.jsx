@@ -13,15 +13,43 @@ import { useMultiTenant } from '../../hooks/useMultiTenant';
 import { useRuntimeFeatureFlags } from '../../hooks/useRuntimeFeatureFlags';
 import bulkActionService from '../../services/bulkActionService';
 import evaluatorAssignmentService from '../../services/evaluatorAssignmentService';
+import { getOrgUsers } from '../../services/orgStructureServiceWrapper';
+import { doc, updateDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 import './BulkActionsManager.css';
+
+// Función helper para formatear fechas: dd-mm-yy HH:mm (24 horas)
+const formatDateCompact = (dateValue) => {
+  if (!dateValue) return '--';
+  try {
+    const date = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
+    if (isNaN(date.getTime())) return '--';
+    
+    // Formato: dd-mm-yy HH:mm (24 horas)
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = String(date.getFullYear()).slice(-2); // Últimos 2 dígitos del año
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    
+    return `${day}-${month}-${year} ${hours}:${minutes}`;
+  } catch {
+    return '--';
+  }
+};
 
 const BulkActionsManager = () => {
   const { currentOrgId } = useMultiTenant();
   const { isEnabled: bulkActionsEnabled, loading: flagsLoading } = useRuntimeFeatureFlags('FEATURE_BULK_ACTIONS');
   
+  // Estado para toggle entre vistas
+  const [activeView, setActiveView] = useState('assignments'); // 'assignments' o 'members'
+  
   // Estados principales
   const [assignments, setAssignments] = useState([]);
   const [selectedAssignments, setSelectedAssignments] = useState([]);
+  const [members, setMembers] = useState([]);
+  const [selectedMembers, setSelectedMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [actionInProgress, setActionInProgress] = useState(false);
@@ -75,12 +103,33 @@ const BulkActionsManager = () => {
     }
   }, [currentOrgId, pagination.page, pagination.pageSize, filters]);
   
-  // Efecto para cargar datos iniciales
+  // Cargar datos de miembros
+  const loadMembers = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const users = await getOrgUsers(currentOrgId);
+      setMembers(users || []);
+      
+    } catch (err) {
+      console.error('[BulkActionsManager] Error loading members:', err);
+      setError('Error al cargar los miembros');
+    } finally {
+      setLoading(false);
+    }
+  }, [currentOrgId]);
+  
+  // Efecto para cargar datos según la vista activa
   useEffect(() => {
     if (currentOrgId) {
-      loadAssignments();
+      if (activeView === 'assignments') {
+        loadAssignments();
+      } else if (activeView === 'members') {
+        loadMembers();
+      }
     }
-  }, [currentOrgId, loadAssignments]);
+  }, [currentOrgId, activeView, loadAssignments, loadMembers]);
   
   // Manejar selección de asignaciones
   const handleSelectAssignment = (assignmentId) => {
@@ -102,7 +151,7 @@ const BulkActionsManager = () => {
     }
   };
   
-  // Ejecutar acción masiva
+  // Ejecutar acción masiva para Asignaciones
   const executeBulkAction = async (type) => {
     if (selectedAssignments.length === 0) {
       setError('Debes seleccionar al menos una asignación');
@@ -117,13 +166,7 @@ const BulkActionsManager = () => {
     try {
       let result;
       
-      if (type === 'resend') {
-        result = await bulkActionService.resendInvitations(
-          currentOrgId, 
-          selectedAssignments,
-          customMessage
-        );
-      } else if (type === 'extend') {
+      if (type === 'extend') {
         result = await bulkActionService.extendDeadlines(
           currentOrgId, 
           selectedAssignments,
@@ -135,19 +178,11 @@ const BulkActionsManager = () => {
           selectedAssignments,
           customMessage
         );
-      } else if (type === 'deactivate') {
-        // Simulación de desactivación
-        result = {
-          processed: selectedAssignments.length,
-          success: selectedAssignments.length
-        };
       }
       
       const actionLabels = {
-        'resend': 'Invitaciones reenviadas',
         'extend': 'Plazos extendidos',
-        'reminder': 'Recordatorios enviados',
-        'deactivate': 'Miembros desactivados'
+        'reminder': 'Recordatorios enviados'
       };
       
       setActionResult({
@@ -161,6 +196,87 @@ const BulkActionsManager = () => {
       
     } catch (err) {
       console.error(`[BulkActionsManager] Error executing ${type}:`, err);
+      setActionResult({
+        success: false,
+        message: `❌ Error: ${err.message || 'No se pudo ejecutar la acción'}`
+      });
+    } finally {
+      setActionInProgress(false);
+    }
+  };
+  
+  // Ejecutar acción masiva para Miembros
+  const executeMemberAction = async (type) => {
+    if (selectedMembers.length === 0) {
+      setError('Debes seleccionar al menos un miembro');
+      return;
+    }
+    
+    setActionType(type);
+    setActionInProgress(true);
+    setActionResult(null);
+    setError(null);
+    
+    try {
+      let result;
+      
+      if (type === 'resend') {
+        // Invitar miembros seleccionados
+        result = await bulkActionService.resendInvitations(
+          currentOrgId, 
+          selectedMembers,
+          customMessage
+        );
+      } else if (type === 'deactivate') {
+        // Desactivar miembros seleccionados y escribir deactivatedAt
+        let successCount = 0;
+        const now = new Date();
+        
+        for (const memberId of selectedMembers) {
+          try {
+            const memberRef = doc(db, 'members', memberId);
+            await updateDoc(memberRef, {
+              isActive: false,
+              deactivatedAt: serverTimestamp(),
+              deactivatedAtDate: now.toISOString(),
+              updatedAt: serverTimestamp()
+            });
+            successCount++;
+            console.log(`[BulkActionsManager] Deactivated member ${memberId} at ${now.toISOString()}`);
+          } catch (err) {
+            console.error(`[BulkActionsManager] Error deactivating member ${memberId}:`, err);
+          }
+        }
+        
+        result = {
+          processed: selectedMembers.length,
+          success: successCount
+        };
+      }
+      
+      const actionLabels = {
+        'resend': 'Invitaciones enviadas',
+        'deactivate': 'Miembros desactivados'
+      };
+      
+      setActionResult({
+        success: true,
+        message: `✅ ${actionLabels[type]}: ${result?.success || result?.processed || selectedMembers.length} de ${selectedMembers.length}`
+      });
+      
+      // Limpiar selección y recargar datos
+      setSelectedMembers([]);
+      // Recargar miembros después de cualquier acción para mostrar datos actualizados
+      setTimeout(() => {
+        loadMembers();
+        // También recargar asignaciones si estamos en esa vista, ya que pueden haber cambiado
+        if (activeView === 'assignments') {
+          loadAssignments();
+        }
+      }, 1000);
+      
+    } catch (err) {
+      console.error(`[BulkActionsManager] Error executing member action ${type}:`, err);
       setActionResult({
         success: false,
         message: `❌ Error: ${err.message || 'No se pudo ejecutar la acción'}`
@@ -221,6 +337,35 @@ const BulkActionsManager = () => {
         </p>
       </div>
       
+      {/* Toggle entre vistas */}
+      <div className="view-toggle-container">
+        <div className="view-toggle">
+          <button
+            className={`toggle-btn ${activeView === 'assignments' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveView('assignments');
+              setSelectedAssignments([]);
+              setSelectedMembers([]);
+            }}
+          >
+            Asignaciones
+          </button>
+          <button
+            className={`toggle-btn ${activeView === 'members' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveView('members');
+              setSelectedAssignments([]);
+              setSelectedMembers([]);
+            }}
+          >
+            Miembros
+          </button>
+        </div>
+      </div>
+      
+      {/* Vista de Asignaciones */}
+      {activeView === 'assignments' && (
+        <>
       {/* Estadísticas */}
       <div className="stats-grid">
         <div className="stat-card" title="Número total de evaluaciones asignadas en el sistema">
@@ -265,7 +410,7 @@ const BulkActionsManager = () => {
         </div>
       </div>
       
-      {/* Sección de acciones */}
+      {/* Sección de acciones - Solo para Asignaciones */}
       <div className="actions-section">
         <h2>Ejecutar acciones masivas</h2>
         <p className="section-description">
@@ -273,19 +418,6 @@ const BulkActionsManager = () => {
         </p>
         
         <div className="action-buttons">
-          <button 
-            className="btn-action btn-primary"
-            onClick={() => executeBulkAction('resend')}
-            disabled={selectedAssignments.length === 0 || actionInProgress}
-            title="Envía nuevamente el correo de invitación a los evaluadores seleccionados"
-          >
-            📧 Invitar miembros
-            <span className="btn-tooltip">
-              Reenvía el correo de invitación a los evaluadores seleccionados.
-              Útil para recordatorios o cuando no recibieron el correo original.
-            </span>
-          </button>
-          
           <button 
             className="btn-action btn-info"
             onClick={() => executeBulkAction('reminder')}
@@ -310,19 +442,6 @@ const BulkActionsManager = () => {
             <span className="btn-tooltip">
               Extiende el plazo de respuesta por {extensionDays} días adicionales.
               Ideal para evaluaciones expiradas o próximas a vencer.
-            </span>
-          </button>
-          
-          <button 
-            className="btn-action btn-secondary"
-            onClick={() => executeBulkAction('deactivate')}
-            disabled={selectedAssignments.length === 0 || actionInProgress}
-            title="Desactiva las asignaciones seleccionadas"
-          >
-            ⛔ Desactivar miembros
-            <span className="btn-tooltip">
-              Cancela las evaluaciones seleccionadas y las marca como inactivas.
-              No se envían notificaciones. Útil para corregir asignaciones erróneas.
             </span>
           </button>
         </div>
@@ -382,14 +501,13 @@ const BulkActionsManager = () => {
               <th>Rol</th>
               <th>Área / Unidad</th>
               <th>Estado</th>
-              <th>Última invitación</th>
               <th>Último recordatorio</th>
             </tr>
           </thead>
           <tbody>
             {assignments.length === 0 ? (
               <tr>
-                <td colSpan="8" style={{textAlign: 'center', padding: '40px'}}>
+                <td colSpan="7" style={{textAlign: 'center', padding: '40px'}}>
                   No se encontraron asignaciones
                 </td>
               </tr>
@@ -409,36 +527,7 @@ const BulkActionsManager = () => {
                   <td>{assignment.area || '--'}</td>
                   <td>{renderStatus(assignment.status)}</td>
                   <td>
-                    {assignment.lastInvitationSent ? (() => {
-                      try {
-                        const date = assignment.lastInvitationSent?.toDate ? assignment.lastInvitationSent.toDate() : new Date(assignment.lastInvitationSent);
-                        return isNaN(date.getTime()) ? '--' : date.toLocaleString('es-CL', { 
-                          year: 'numeric', 
-                          month: 'short', 
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        });
-                      } catch {
-                        return '--';
-                      }
-                    })() : '--'}
-                  </td>
-                  <td>
-                    {assignment.lastReminderSent ? (() => {
-                      try {
-                        const date = assignment.lastReminderSent?.toDate ? assignment.lastReminderSent.toDate() : new Date(assignment.lastReminderSent);
-                        return isNaN(date.getTime()) ? '--' : date.toLocaleString('es-CL', { 
-                          year: 'numeric', 
-                          month: 'short', 
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        });
-                      } catch {
-                        return '--';
-                      }
-                    })() : '--'}
+                    {formatDateCompact(assignment.lastReminderSent || assignment.lastReminderSentDate)}
                   </td>
                 </tr>
               ))
@@ -446,6 +535,174 @@ const BulkActionsManager = () => {
           </tbody>
         </table>
       </div>
+      </>
+      )}
+      
+      {/* Vista de Miembros */}
+      {activeView === 'members' && (
+        <div className="members-view">
+          <div className="stats-grid">
+            <div className="stat-card">
+              <div className="stat-label">Total miembros</div>
+              <div className="stat-value">{members.length}</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">Activos</div>
+              <div className="stat-value">{members.filter(m => m.isActive !== false).length}</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">Inactivos</div>
+              <div className="stat-value">{members.filter(m => m.isActive === false).length}</div>
+            </div>
+          </div>
+          
+          {/* Sección de acciones para Miembros */}
+          <div className="actions-section">
+            <h2>Ejecutar acciones masivas</h2>
+            <p className="section-description">
+              Marca los checkboxes de la tabla para habilitar las acciones
+            </p>
+            
+            <div className="action-buttons">
+              <button 
+                className="btn-action btn-primary"
+                onClick={() => executeMemberAction('resend')}
+                disabled={selectedMembers.length === 0 || actionInProgress}
+                title="Envía invitaciones de bienvenida a los miembros seleccionados"
+              >
+                📧 Invitar miembros
+                <span className="btn-tooltip">
+                  Envía correos de invitación de bienvenida a los miembros seleccionados.
+                  Útil para nuevos miembros o cuando necesitan acceso a la plataforma.
+                </span>
+              </button>
+              
+              <button 
+                className="btn-action btn-secondary"
+                onClick={() => executeMemberAction('deactivate')}
+                disabled={selectedMembers.length === 0 || actionInProgress}
+                title="Desactiva los miembros seleccionados"
+              >
+                ⛔ Desactivar miembros
+                <span className="btn-tooltip">
+                  Desactiva los miembros seleccionados y les revoca el acceso.
+                  No se envían notificaciones. Útil para miembros que ya no pertenecen a la organización.
+                </span>
+              </button>
+            </div>
+            
+            {actionResult && (
+              <div className={`alert ${actionResult.success ? 'alert-success' : 'alert-error'}`}>
+                {actionResult.message}
+                <button className="alert-close" onClick={() => setActionResult(null)}>×</button>
+              </div>
+            )}
+            
+            {error && (
+              <div className="alert alert-error">
+                {error}
+                <button className="alert-close" onClick={() => setError(null)}>×</button>
+              </div>
+            )}
+          </div>
+          
+          <div className="table-container">
+            <table className="assignments-table">
+              <thead>
+                <tr>
+                  <th style={{width: '40px'}}>
+                    <input
+                      type="checkbox"
+                      checked={selectedMembers.length === members.length && members.length > 0}
+                      onChange={() => {
+                        if (selectedMembers.length === members.length) {
+                          setSelectedMembers([]);
+                        } else {
+                          setSelectedMembers(members.map(m => m.id));
+                        }
+                      }}
+                    />
+                  </th>
+                  <th>Nombre</th>
+                  <th>Correo</th>
+                  <th>Rol</th>
+                  <th>Área / Unidad</th>
+                  <th>Estado</th>
+                  <th>Última Invitación</th>
+                  <th>Veces Enviado</th>
+                  <th>Desactivación</th>
+                  <th>Última sesión</th>
+                </tr>
+              </thead>
+              <tbody>
+                {members.length === 0 ? (
+                  <tr>
+                    <td colSpan="10" style={{textAlign: 'center', padding: '40px'}}>
+                      No se encontraron miembros
+                    </td>
+                  </tr>
+                ) : (
+                  members.map((member) => {
+                    // Construir nombre completo
+                    const fullName = [
+                      member.name,
+                      member.lastNamePaternal || member.lastName,
+                      member.lastNameMaternal
+                    ].filter(Boolean).join(' ') || '--';
+                    
+                    return (
+                      <tr key={member.id}>
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={selectedMembers.includes(member.id)}
+                            onChange={() => {
+                              setSelectedMembers(prev => {
+                                if (prev.includes(member.id)) {
+                                  return prev.filter(id => id !== member.id);
+                                } else {
+                                  return [...prev, member.id];
+                                }
+                              });
+                            }}
+                          />
+                        </td>
+                        <td>{fullName}</td>
+                        <td>{member.email || member.workEmail || '--'}</td>
+                        <td>{member.role || member.memberRole || '--'}</td>
+                        <td>{member.area || member.unit || member.department || '--'}</td>
+                        <td>
+                          {member.isActive === false ? (
+                            <span className="status-badge status-expired">Inactivo</span>
+                          ) : (
+                            <span className="status-badge status-completed">Activo</span>
+                          )}
+                        </td>
+                        <td>{formatDateCompact(member.lastInvitationSent || member.lastInvitationSentDate)}</td>
+                        <td>
+                          <span style={{
+                            display: 'inline-block',
+                            backgroundColor: member.invitationCount > 0 ? '#e3f2fd' : '#f5f5f5',
+                            color: member.invitationCount > 0 ? '#1976d2' : '#757575',
+                            padding: '4px 8px',
+                            borderRadius: '12px',
+                            fontSize: '0.875rem',
+                            fontWeight: '500'
+                          }}>
+                            {member.invitationCount || 0}
+                          </span>
+                        </td>
+                        <td>{formatDateCompact(member.deactivatedAt || member.deactivatedAtDate)}</td>
+                        <td>{formatDateCompact(member.lastLoginAt || member.lastLoginAtDate)}</td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

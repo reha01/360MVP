@@ -22,9 +22,9 @@ import { TEST_CATALOG } from './lib/featureFlags';
 // Import Phase 2 components
 import MemberManager from './components/members/MemberManager';
 import BulkActionsManager from './components/bulk/BulkActionsManager';
+import AlertManager from './components/alerts/AlertManager';
 // Note: Using temporary placeholders for other components due to build issues
 const PolicyManager = () => <div style={{padding: '20px'}}><h1>Políticas Organizacionales</h1><p>Funcionalidad disponible próximamente</p></div>;
-const AlertManager = () => <div style={{padding: '20px'}}><h1>Gestión de Alertas</h1><p>Funcionalidad disponible próximamente</p></div>;
 const CampaignComparison = () => <div style={{padding: '20px'}}><h1>Comparación de Campañas</h1><p>Funcionalidad disponible próximamente</p></div>;
 const CampaignManager = () => <div style={{padding: '20px'}}><h1>Gestión de Campañas</h1><p>Funcionalidad disponible próximamente</p></div>;
 // Add other pages as needed
@@ -235,7 +235,7 @@ const App = () => {
                           <div style={{ marginTop: '20px' }}>
                             <h2>👥 Gestión de Miembros</h2>
                             <ul>
-                              <li><a href="/gestion/miembros">👤 Gestor de Miembros</a> - Administración individual de miembros (en desarrollo)</li>
+                              <li><a href="/gestion/miembros">👤 Miembros</a> - Administración individual de miembros</li>
                               <li><a href="/bulk-actions">📧 Acciones Masivas</a> - Invitaciones y acciones en lote</li>
                             </ul>
                           </div>

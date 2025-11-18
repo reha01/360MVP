@@ -60,8 +60,7 @@ const Header = () => {
             <span className="nav-link">Gestión ▾</span>
             <div className="nav-dropdown-menu">
               <Link to="/gestion/miembros" className="nav-dropdown-link">
-                👤 Gestor de Miembros
-                <span className="nav-badge">Nuevo</span>
+                👤 Miembros
               </Link>
               <Link to="/bulk-actions" className="nav-dropdown-link">📧 Acciones Masivas</Link>
               <Link to="/gestion/politicas" className="nav-dropdown-link">🛡️ Políticas</Link>

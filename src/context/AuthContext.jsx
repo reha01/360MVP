@@ -13,8 +13,45 @@ import {
   saveAuthToken, 
   clearAuthTokens 
 } from '../services/authPersistence';
+import { collection, query, where, getDocs, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 const AuthContext = createContext();
+
+// Función para actualizar lastLoginAt del miembro
+const updateMemberLastLogin = async (firebaseUser) => {
+  if (!firebaseUser || !firebaseUser.email) {
+    return;
+  }
+  
+  try {
+    // Buscar el miembro por email
+    const membersRef = collection(db, 'members');
+    const q = query(membersRef, where('email', '==', firebaseUser.email));
+    const snapshot = await getDocs(q);
+    
+    if (!snapshot.empty) {
+      const now = new Date();
+      // Actualizar todos los documentos encontrados (por si hay duplicados)
+      const updatePromises = snapshot.docs.map(async (memberDoc) => {
+        const memberRef = doc(db, 'members', memberDoc.id);
+        await updateDoc(memberRef, {
+          lastLoginAt: serverTimestamp(),
+          lastLoginAtDate: now.toISOString(),
+          updatedAt: serverTimestamp()
+        });
+        console.log(`[AuthContext] Updated lastLoginAt for member ${memberDoc.id} (${firebaseUser.email})`);
+      });
+      
+      await Promise.all(updatePromises);
+    } else {
+      console.log(`[AuthContext] No member found with email ${firebaseUser.email}, skipping lastLoginAt update`);
+    }
+  } catch (error) {
+    console.error('[AuthContext] Error updating member lastLoginAt:', error);
+    throw error;
+  }
+};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -82,6 +119,14 @@ export const AuthProvider = ({ children }) => {
       // Guardar token para persistencia mejorada
       if (firebaseUser) {
         await saveAuthToken(firebaseUser);
+        
+        // Actualizar lastLoginAt en el documento del miembro
+        try {
+          await updateMemberLastLogin(firebaseUser);
+        } catch (err) {
+          console.error('[AuthContext] Error updating member lastLoginAt:', err);
+          // No bloquear el login si falla la actualización
+        }
       } else {
         clearAuthTokens();
       }

@@ -5,6 +5,28 @@ import { useOrg } from '../../context/OrgContext';
 import { getOrgUsers } from '../../services/orgStructureServiceWrapper';
 import { collection, addDoc, doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
+import { getOrgRoles, validateRole, normalizeRole } from '../../services/roleService';
+import './MemberManager.css';
+
+// Función helper para formatear fechas: dd-mm-yy HH:mm (24 horas)
+const formatDateCompact = (dateValue) => {
+  if (!dateValue) return '--';
+  try {
+    const date = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
+    if (isNaN(date.getTime())) return '--';
+    
+    // Formato: dd-mm-yy HH:mm (24 horas)
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = String(date.getFullYear()).slice(-2); // Últimos 2 dígitos del año
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    
+    return `${day}-${month}-${year} ${hours}:${minutes}`;
+  } catch {
+    return '--';
+  }
+};
 
 // Import memberImportService functions individually to avoid issues
 import { 
@@ -77,12 +99,15 @@ const MemberManager = () => {
     lastNameMaternal: '',
     email: '',
     role: 'member',
+    cargo: '',
+    area: '',
     isActive: true
   });
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState(null);
   const [deletingMember, setDeletingMember] = useState(null);
-  const [deleteConfirming, setDeleteConfirming] = useState(false);
+  const [deleteConfirming] = useState(false);
+  const [orgRoles, setOrgRoles] = useState(['member', 'admin', 'owner', 'manager']);
 
   const loadMembers = useCallback(async () => {
     if (!activeOrgId) {
@@ -109,6 +134,20 @@ const MemberManager = () => {
   useEffect(() => {
     loadMembers();
   }, [loadMembers]);
+
+  // Cargar roles de la organización
+  useEffect(() => {
+    const loadOrgRoles = async () => {
+      if (!activeOrgId) return;
+      try {
+        const roles = await getOrgRoles(activeOrgId);
+        setOrgRoles(roles);
+      } catch (error) {
+        console.error('[MemberManager] Error loading org roles:', error);
+      }
+    };
+    loadOrgRoles();
+  }, [activeOrgId]);
 
   // Listen to import jobs
   useEffect(() => {
@@ -158,10 +197,19 @@ const MemberManager = () => {
         throw new Error('El archivo CSV debe tener al menos una fila de datos además del encabezado');
       }
 
+      // Buscar la línea que contiene los headers (puede haber instrucciones antes)
+      let headerLineIndex = 0;
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].toLowerCase().includes('email') && lines[i].toLowerCase().includes('nombre')) {
+          headerLineIndex = i;
+          break;
+        }
+      }
+      
       // Parse header and data
-      const headers = lines[0].split(';').map(h => h.trim().toLowerCase());
+      const headers = lines[headerLineIndex].split(';').map(h => h.trim().toLowerCase());
       const expectedHeaders = ['email', 'nombre', 'apellido paterno', 'rol'];
-      const optionalHeaders = ['apellido materno'];
+      const optionalHeaders = ['apellido materno', 'área', 'area', 'cargo'];
       
       // Validate headers
       const missingHeaders = expectedHeaders.filter(h => !headers.includes(h));
@@ -169,11 +217,14 @@ const MemberManager = () => {
         throw new Error(`Faltan columnas requeridas: ${missingHeaders.join(', ')}`);
       }
 
-      // Parse data rows
+      // Cargar roles válidos de la organización
+      const validRoles = await getOrgRoles(activeOrgId);
+
+      // Parse data rows (empezar después de la línea de headers)
       const members = [];
       const errors = [];
       
-      for (let i = 1; i < lines.length; i++) {
+      for (let i = headerLineIndex + 1; i < lines.length; i++) {
         const values = lines[i].split(';').map(v => v.trim());
         if (values.length < headers.length) continue;
 
@@ -188,9 +239,18 @@ const MemberManager = () => {
           continue;
         }
 
+        // Validar rol
+        const normalizedRole = normalizeRole(memberData.rol);
+        if (!normalizedRole || !validRoles.includes(normalizedRole)) {
+          errors.push(`Fila ${i + 1}: Rol inválido "${memberData.rol}". Roles válidos: ${validRoles.join(', ')}`);
+          continue;
+        }
+
         // Create member object
         const apellidoPaterno = memberData['apellido paterno'] || '';
         const apellidoMaterno = memberData['apellido materno'] || '';
+        const area = memberData['área'] || memberData['area'] || '';
+        const cargo = memberData['cargo'] || '';
         const fullLastName = [apellidoPaterno, apellidoMaterno].filter(Boolean).join(' ');
         const displayName = [memberData.nombre, fullLastName].filter(Boolean).join(' ') || memberData.email;
         
@@ -204,8 +264,10 @@ const MemberManager = () => {
           fullLastName: fullLastName,
           displayName,
           fullName: displayName,
-          role: memberData.rol || 'member',
-          memberRole: memberData.rol || 'member',
+          role: normalizedRole,
+          memberRole: normalizedRole,
+          cargo: cargo || null,
+          area: area || null,
           isActive: true,
           createdAt: serverTimestamp(),
           source: 'csv-import',
@@ -213,14 +275,20 @@ const MemberManager = () => {
         });
       }
 
-      if (members.length === 0) {
+      if (members.length === 0 && errors.length === 0) {
         throw new Error('No se encontraron miembros válidos en el archivo CSV');
       }
 
       console.log(`[MemberManager] Parsed ${members.length} members, ${errors.length} errors`);
       
       if (errors.length > 0) {
+        const errorMessage = `Errores encontrados:\n${errors.join('\n')}`;
         console.warn('[MemberManager] CSV parsing errors:', errors);
+        setError(errorMessage);
+        // Continuar con los miembros válidos si hay alguno
+        if (members.length === 0) {
+          throw new Error(errorMessage);
+        }
       }
 
       // Create members in Firestore
@@ -262,11 +330,21 @@ const MemberManager = () => {
     }
   };
 
-  const downloadTemplate = () => {
-    const template = `Email;Nombre;Apellido Paterno;Apellido Materno;Rol
-ejemplo@empresa.com;Juan;Pérez;González;member
-maria@empresa.com;María;García;López;admin
-carlos@empresa.com;Carlos;López;Martínez;member`;
+  const downloadTemplate = async () => {
+    // Obtener roles válidos para incluir en el template
+    const validRoles = await getOrgRoles(activeOrgId);
+    
+    // Crear template con UTF-8 BOM para que Excel reconozca los acentos
+    // Incluir una sección de instrucciones con los roles válidos
+    const template = `\uFEFF=== ROLES VÁLIDOS ===
+Los siguientes roles están disponibles para usar en la columna "Rol":
+${validRoles.map(r => `- ${r}`).join('\n')}
+
+=== DATOS DE MIEMBROS ===
+Email;Nombre;Apellido Paterno;Apellido Materno;Rol;Cargo;Área
+ejemplo@empresa.com;Juan;Pérez;González;${validRoles[0] || 'member'};Gerente de Ventas;Ventas
+maria@empresa.com;María;García;López;${validRoles[1] || 'admin'};Directora de Operaciones;
+carlos@empresa.com;Carlos;López;Martínez;${validRoles[0] || 'member'};Analista de Marketing;Marketing`;
     
     const blob = new Blob([template], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);
@@ -279,6 +357,70 @@ carlos@empresa.com;Carlos;López;Martínez;member`;
     window.URL.revokeObjectURL(url);
   };
 
+  const exportMembersToExcel = async () => {
+    try {
+      // Obtener roles válidos para incluir en el archivo
+      const validRoles = await getOrgRoles(activeOrgId);
+      
+      // Crear encabezados
+      const headers = ['Email', 'Nombre', 'Apellido Paterno', 'Apellido Materno', 'Rol', 'Cargo', 'Área', 'Estado'];
+      
+      // Crear filas de datos
+      const rows = members.map(member => {
+        const fullName = [
+          member.name,
+          member.lastNamePaternal || member.lastName,
+          member.lastNameMaternal
+        ].filter(Boolean).join(' ');
+        
+        return [
+          member.email || member.workEmail || '',
+          member.name || '',
+          member.lastNamePaternal || member.lastName || '',
+          member.lastNameMaternal || '',
+          member.role || member.memberRole || '',
+          member.cargo || '',
+          member.area || member.unit || member.department || '',
+          member.isActive === false ? 'Inactivo' : 'Activo'
+        ];
+      });
+      
+      // Crear contenido CSV con UTF-8 BOM para Excel
+      const csvContent = [
+        `=== ROLES VÁLIDOS ===`,
+        `Los siguientes roles están disponibles:`,
+        ...validRoles.map(r => `- ${r}`),
+        ``,
+        `=== MIEMBROS EXPORTADOS ===`,
+        `Fecha de exportación: ${new Date().toLocaleString('es-CL')}`,
+        `Total de miembros: ${members.length}`,
+        ``,
+        headers.join(';'),
+        ...rows.map(row => row.join(';'))
+      ].join('\n');
+      
+      // Crear blob con UTF-8 BOM
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      
+      // Nombre del archivo con fecha
+      const dateStr = new Date().toISOString().split('T')[0];
+      a.download = `Miembros_Exportados_${dateStr}.csv`;
+      
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      console.log(`[MemberManager] Exported ${members.length} members to Excel`);
+    } catch (error) {
+      console.error('[MemberManager] Error exporting members:', error);
+      setError(`Error al exportar miembros: ${error.message}`);
+    }
+  };
+
   // Edit member functions
   const handleEditMember = (member) => {
     setEditingMember(member);
@@ -288,6 +430,8 @@ carlos@empresa.com;Carlos;López;Martínez;member`;
       lastNameMaternal: member.lastNameMaternal || '',
       email: member.email || '',
       role: member.role || member.memberRole || 'member',
+      cargo: member.cargo || '',
+      area: member.area || member.unit || member.department || '',
       isActive: member.isActive !== false
     });
     setEditError(null);
@@ -301,6 +445,8 @@ carlos@empresa.com;Carlos;López;Martínez;member`;
       lastNameMaternal: '',
       email: '',
       role: 'member',
+      cargo: '',
+      area: '',
       isActive: true
     });
     setEditError(null);
@@ -340,6 +486,8 @@ carlos@empresa.com;Carlos;López;Martínez;member`;
         email,
         role: editForm.role,
         memberRole: editForm.role,
+        cargo: editForm.cargo || null,
+        area: editForm.area || null,
         isActive: editForm.isActive,
         updatedAt: serverTimestamp(),
         updatedBy: user?.email || user?.uid || 'member-manager',
@@ -361,6 +509,8 @@ carlos@empresa.com;Carlos;López;Martínez;member`;
                 email,
                 role: editForm.role,
                 memberRole: editForm.role,
+                cargo: editForm.cargo,
+                area: editForm.area,
                 isActive: editForm.isActive,
               }
             : member
@@ -440,75 +590,52 @@ carlos@empresa.com;Carlos;López;Martínez;member`;
     (Date.now() - latestJob.createdAt.toMillis()) < 60000; // Max 60 seconds
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
-      <h1 style={{ marginBottom: '24px', fontSize: '28px', fontWeight: 600 }}>
-        Gestor de Miembros
-      </h1>
+    <div className="member-manager-container">
+      {/* Header */}
+      <div className="member-manager-header">
+        <h1>Gestión de Miembros</h1>
+        <p className="description">
+          Administra los miembros de tu organización
+        </p>
+      </div>
 
       {error && (
-        <Alert variant="error" style={{ marginBottom: '16px' }}>
+        <div className="alert alert-error">
           {error}
-        </Alert>
+          <button className="alert-close" onClick={() => setError(null)}>×</button>
+        </div>
       )}
 
       {/* Stats Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
-        <div style={{ padding: '20px', borderRadius: '8px', border: '1px solid #e5e7eb', backgroundColor: '#fff' }}>
-          <div style={{ fontSize: '32px', fontWeight: 700, color: '#111827', lineHeight: 1.2 }}>
-            {stats.total}
-          </div>
-          <div style={{ fontSize: '14px', color: '#6b7280', marginTop: '4px' }}>
-            Total de miembros
-          </div>
+      <div className="stats-grid">
+        <div className="stat-card">
+          <div className="stat-label">Total miembros</div>
+          <div className="stat-value">{stats.total}</div>
         </div>
-        <div style={{ padding: '20px', borderRadius: '8px', border: '1px solid #e5e7eb', backgroundColor: '#fff' }}>
-          <div style={{ fontSize: '32px', fontWeight: 700, color: '#111827', lineHeight: 1.2 }}>
-            {stats.active}
-          </div>
-          <div style={{ fontSize: '14px', color: '#6b7280', marginTop: '4px' }}>
-            Activos
-          </div>
+        <div className="stat-card">
+          <div className="stat-label">Activos</div>
+          <div className="stat-value">{stats.active}</div>
         </div>
-        <div style={{ padding: '20px', borderRadius: '8px', border: '1px solid #e5e7eb', backgroundColor: '#fff' }}>
-          <div style={{ fontSize: '32px', fontWeight: 700, color: '#111827', lineHeight: 1.2 }}>
-            {stats.inactive}
-          </div>
-          <div style={{ fontSize: '14px', color: '#6b7280', marginTop: '4px' }}>
-            Inactivos
-          </div>
+        <div className="stat-card">
+          <div className="stat-label">Inactivos</div>
+          <div className="stat-value">{stats.inactive}</div>
         </div>
       </div>
 
       {/* Import Section */}
-      <div style={{ marginBottom: '24px', padding: '20px', borderRadius: '8px', border: '1px solid #e5e7eb', backgroundColor: '#fff' }}>
-        <h2 style={{ marginBottom: '16px', fontSize: '18px', fontWeight: 600 }}>
-          Importar Miembros
-        </h2>
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+      <div className="import-section">
+        <h2>Importar Miembros</h2>
+        <p className="section-description">
+          Descarga la plantilla CSV, complétala con los datos de tus miembros y súbela aquí
+        </p>
+        <div className="import-buttons">
           <button
             onClick={downloadTemplate}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '6px',
-              border: '1px solid #d1d5db',
-              backgroundColor: '#fff',
-              cursor: 'pointer',
-              fontSize: '14px',
-            }}
+            className="btn-import btn-outline"
           >
             📥 Descargar Plantilla
           </button>
-          <label
-            style={{
-              padding: '8px 16px',
-              borderRadius: '6px',
-              border: '1px solid #3b82f6',
-              backgroundColor: '#3b82f6',
-              color: '#fff',
-              cursor: 'pointer',
-              fontSize: '14px',
-            }}
-          >
+          <label className="btn-import btn-primary">
             {uploading ? 'Subiendo...' : '📤 Subir CSV'}
             <input
               type="file"
@@ -519,131 +646,100 @@ carlos@empresa.com;Carlos;López;Martínez;member`;
             />
           </label>
           {isImporting && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#6b7280' }}>
-              <Spinner size="small" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#6c757d' }}>
+              <div className="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px' }}></div>
               <span>Importando miembros...</span>
             </div>
           )}
         </div>
       </div>
 
+      {/* Export Section */}
+      {members.length > 0 && (
+        <div className="import-section" style={{ marginTop: '16px' }}>
+          <h2>Exportar Miembros</h2>
+          <p className="section-description">
+            Exporta todos los miembros actuales a un archivo Excel
+          </p>
+          <div className="import-buttons">
+            <button
+              onClick={() => exportMembersToExcel()}
+              className="btn-import btn-primary"
+            >
+              📊 Exportar a Excel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Members Table */}
-      <div style={{ padding: '20px', borderRadius: '8px', border: '1px solid #e5e7eb', backgroundColor: '#fff' }}>
-        <h2 style={{ marginBottom: '16px', fontSize: '18px', fontWeight: 600 }}>
-          Lista de Miembros
-        </h2>
+      <div className="table-container">
         {loading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
-            <Spinner />
+          <div className="loading-container">
+            <div className="spinner"></div>
+            <span>Cargando miembros...</span>
           </div>
         ) : members.length === 0 ? (
-          <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
+          <div style={{ padding: '40px', textAlign: 'center', color: '#6c757d' }}>
             No hay miembros registrados. Importa un archivo CSV para comenzar.
           </div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table className="members-table">
             <thead>
-              <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-                <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px', fontWeight: 600, color: '#374151' }}>
-                  Email
-                </th>
-                <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px', fontWeight: 600, color: '#374151' }}>
-                  Nombre
-                </th>
-                <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px', fontWeight: 600, color: '#374151' }}>
-                  Apellido Paterno
-                </th>
-                <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px', fontWeight: 600, color: '#374151' }}>
-                  Apellido Materno
-                </th>
-                <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px', fontWeight: 600, color: '#374151' }}>
-                  Rol
-                </th>
-                <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px', fontWeight: 600, color: '#374151' }}>
-                  Estado
-                </th>
-                <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px', fontWeight: 600, color: '#374151' }}>
-                  Acciones
-                </th>
+              <tr>
+                <th>Nombre</th>
+                <th>Correo</th>
+                <th>Rol</th>
+                <th>Cargo</th>
+                <th>Área / Unidad</th>
+                <th>Estado</th>
+                <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {members.map((member) => (
-                <tr key={member.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                  <td style={{ padding: '12px', fontSize: '14px', color: '#111827' }}>
-                    {member.email || member.workEmail || 'N/A'}
-                  </td>
-                  <td style={{ padding: '12px', fontSize: '14px', color: '#111827' }}>
-                    {member.name || 'N/A'}
-                  </td>
-                  <td style={{ padding: '12px', fontSize: '14px', color: '#111827' }}>
-                    {member.lastNamePaternal || member.lastName || 'N/A'}
-                  </td>
-                  <td style={{ padding: '12px', fontSize: '14px', color: '#111827' }}>
-                    {member.lastNameMaternal || '-'}
-                  </td>
-                  <td style={{ padding: '12px', fontSize: '14px', color: '#111827' }}>
-                    {member.role || member.memberRole || 'N/A'}
-                  </td>
-                  <td style={{ padding: '12px', fontSize: '14px' }}>
-                    {member.isActive === false ? (
-                      <span style={{ color: '#ef4444' }}>Inactivo</span>
-                    ) : (
-                      <span style={{ color: '#10b981' }}>Activo</span>
-                    )}
-                  </td>
-                  <td style={{ padding: '12px' }}>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button
-                        onClick={() => handleEditMember(member)}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '4px',
-                          border: '1px solid #d1d5db',
-                          backgroundColor: '#fff',
-                          color: '#374151',
-                          cursor: 'pointer',
-                          fontSize: '12px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                        }}
-                        onMouseOver={(e) => {
-                          e.target.style.backgroundColor = '#f9fafb';
-                        }}
-                        onMouseOut={(e) => {
-                          e.target.style.backgroundColor = '#fff';
-                        }}
-                      >
-                        ✏️ Editar
-                      </button>
-                      <button
-                        onClick={() => handleDeleteMember(member)}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '4px',
-                          border: '1px solid #ef4444',
-                          backgroundColor: '#fff',
-                          color: '#ef4444',
-                          cursor: 'pointer',
-                          fontSize: '12px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                        }}
-                        onMouseOver={(e) => {
-                          e.target.style.backgroundColor = '#fef2f2';
-                        }}
-                        onMouseOut={(e) => {
-                          e.target.style.backgroundColor = '#fff';
-                        }}
-                      >
-                        🗑️ Eliminar
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {members.map((member) => {
+                // Construir nombre completo
+                const fullName = [
+                  member.name,
+                  member.lastNamePaternal || member.lastName,
+                  member.lastNameMaternal
+                ].filter(Boolean).join(' ') || '--';
+                
+                return (
+                  <tr key={member.id}>
+                    <td>{fullName}</td>
+                    <td>{member.email || member.workEmail || '--'}</td>
+                    <td>{member.role || member.memberRole || '--'}</td>
+                    <td>{member.cargo || '--'}</td>
+                    <td>{member.area || member.unit || member.department || '--'}</td>
+                    <td>
+                      {member.isActive === false ? (
+                        <span className="status-badge status-expired">Inactivo</span>
+                      ) : (
+                        <span className="status-badge status-completed">Activo</span>
+                      )}
+                    </td>
+                    <td>
+                      <div className="action-buttons-cell">
+                        <button
+                          onClick={() => handleEditMember(member)}
+                          className="btn-action-minimal btn-edit-minimal"
+                          title="Editar miembro"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          onClick={() => handleDeleteMember(member)}
+                          className="btn-action-minimal btn-delete-minimal"
+                          title="Eliminar miembro"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -651,192 +747,127 @@ carlos@empresa.com;Carlos;López;Martínez;member`;
 
       {/* Edit Modal */}
       {editingMember && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-        }}>
-          <div style={{
-            backgroundColor: '#fff',
-            borderRadius: '8px',
-            padding: '24px',
-            minWidth: '400px',
-            maxWidth: '500px',
-            maxHeight: '80vh',
-            overflow: 'auto',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-          }}>
-            <h3 style={{ margin: '0 0 20px 0', fontSize: '18px', fontWeight: 600 }}>
-              Editar Miembro
-            </h3>
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3 className="modal-header">Editar Miembro</h3>
 
             {editError && (
-              <Alert variant="error" style={{ marginBottom: '16px' }}>
+              <div className="alert alert-error">
                 {editError}
-              </Alert>
+                <button className="alert-close" onClick={() => setEditError(null)}>×</button>
+              </div>
             )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: 500 }}>
-                  Nombre
-                </label>
+            <div className="modal-form">
+              <div className="form-group">
+                <label className="form-label">Nombre</label>
                 <input
                   type="text"
+                  className="form-input"
                   value={editForm.name}
                   onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                  }}
                   placeholder="Nombre del miembro"
                 />
               </div>
 
-              <div>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: 500 }}>
-                  Apellido Paterno
-                </label>
+              <div className="form-group">
+                <label className="form-label">Apellido Paterno</label>
                 <input
                   type="text"
+                  className="form-input"
                   value={editForm.lastNamePaternal}
                   onChange={(e) => setEditForm(prev => ({ ...prev, lastNamePaternal: e.target.value }))}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                  }}
                   placeholder="Apellido paterno"
                 />
               </div>
 
-              <div>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: 500 }}>
-                  Apellido Materno
-                </label>
+              <div className="form-group">
+                <label className="form-label">Apellido Materno</label>
                 <input
                   type="text"
+                  className="form-input"
                   value={editForm.lastNameMaternal}
                   onChange={(e) => setEditForm(prev => ({ ...prev, lastNameMaternal: e.target.value }))}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                  }}
                   placeholder="Apellido materno (opcional)"
                 />
               </div>
 
-              <div>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: 500 }}>
-                  Email *
-                </label>
+              <div className="form-group">
+                <label className="form-label">Email *</label>
                 <input
                   type="email"
+                  className="form-input"
                   value={editForm.email}
                   onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                  }}
                   placeholder="email@empresa.com"
                   required
                 />
               </div>
 
-              <div>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: 500 }}>
-                  Rol
-                </label>
+              <div className="form-group">
+                <label className="form-label">Rol</label>
                 <select
+                  className="form-select"
                   value={editForm.role}
                   onChange={(e) => setEditForm(prev => ({ ...prev, role: e.target.value }))}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    backgroundColor: '#fff',
-                  }}
                 >
-                  <option value="member">Miembro</option>
-                  <option value="admin">Administrador</option>
-                  <option value="owner">Propietario</option>
-                  <option value="manager">Gerente</option>
+                  {orgRoles.map((role) => (
+                    <option key={role} value={role}>
+                      {role.charAt(0).toUpperCase() + role.slice(1)}
+                    </option>
+                  ))}
                 </select>
               </div>
 
-              <div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 500 }}>
+              <div className="form-group">
+                <label className="form-label">Cargo</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editForm.cargo}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, cargo: e.target.value }))}
+                  placeholder="Ej: Gerente de Ventas"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Área / Unidad</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editForm.area}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, area: e.target.value }))}
+                  placeholder="Ej: Ventas, Marketing"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-checkbox-group">
                   <input
                     type="checkbox"
+                    className="form-checkbox"
                     checked={editForm.isActive}
                     onChange={(e) => setEditForm(prev => ({ ...prev, isActive: e.target.checked }))}
-                    style={{ width: '16px', height: '16px' }}
                   />
                   Miembro activo
                 </label>
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '12px', marginTop: '24px', justifyContent: 'flex-end' }}>
+            <div className="modal-actions">
               <button
                 onClick={handleCloseEditModal}
                 disabled={editSaving}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '6px',
-                  border: '1px solid #d1d5db',
-                  backgroundColor: '#fff',
-                  color: '#374151',
-                  cursor: editSaving ? 'not-allowed' : 'pointer',
-                  fontSize: '14px',
-                  opacity: editSaving ? 0.6 : 1,
-                }}
+                className="btn-modal btn-modal-cancel"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSaveMember}
                 disabled={editSaving}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '6px',
-                  border: '1px solid #3b82f6',
-                  backgroundColor: '#3b82f6',
-                  color: '#fff',
-                  cursor: editSaving ? 'not-allowed' : 'pointer',
-                  fontSize: '14px',
-                  opacity: editSaving ? 0.6 : 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}
+                className="btn-modal btn-modal-primary"
               >
-                {editSaving && <Spinner size="small" />}
+                {editSaving && <div className="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px', display: 'inline-block', marginRight: '8px' }}></div>}
                 {editSaving ? 'Guardando...' : 'Guardar'}
               </button>
             </div>
@@ -846,26 +877,8 @@ carlos@empresa.com;Carlos;López;Martínez;member`;
 
       {/* Delete Confirmation Modal */}
       {deletingMember && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-        }}>
-          <div style={{
-            backgroundColor: '#fff',
-            borderRadius: '8px',
-            padding: '24px',
-            minWidth: '400px',
-            maxWidth: '500px',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-          }}>
+        <div className="modal-overlay">
+          <div className="modal-content">
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
               <div style={{ 
                 width: '48px', 
@@ -880,10 +893,10 @@ carlos@empresa.com;Carlos;López;Martínez;member`;
                 ⚠️
               </div>
               <div>
-                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: '#111827' }}>
+                <h3 className="modal-header" style={{ margin: 0 }}>
                   Confirmar eliminación
                 </h3>
-                <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#6b7280' }}>
+                <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#6c757d' }}>
                   Esta acción no se puede deshacer
                 </p>
               </div>
@@ -894,46 +907,25 @@ carlos@empresa.com;Carlos;López;Martínez;member`;
                 ¿Estás seguro de que deseas eliminar a{' '}
                 <strong>{deletingMember.displayName || deletingMember.email}</strong>?
               </p>
-              <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: '#6b7280' }}>
+              <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: '#6c757d' }}>
                 Email: {deletingMember.email}
               </p>
             </div>
 
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+            <div className="modal-actions">
               <button
                 onClick={handleCancelDelete}
                 disabled={deleteConfirming}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '6px',
-                  border: '1px solid #d1d5db',
-                  backgroundColor: '#fff',
-                  color: '#374151',
-                  cursor: deleteConfirming ? 'not-allowed' : 'pointer',
-                  fontSize: '14px',
-                  opacity: deleteConfirming ? 0.6 : 1,
-                }}
+                className="btn-modal btn-modal-cancel"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleConfirmDelete}
                 disabled={deleteConfirming}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '6px',
-                  border: '1px solid #ef4444',
-                  backgroundColor: '#ef4444',
-                  color: '#fff',
-                  cursor: deleteConfirming ? 'not-allowed' : 'pointer',
-                  fontSize: '14px',
-                  opacity: deleteConfirming ? 0.6 : 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}
+                className="btn-modal btn-modal-danger"
               >
-                {deleteConfirming && <Spinner size="small" />}
+                {deleteConfirming && <div className="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px', display: 'inline-block', marginRight: '8px' }}></div>}
                 {deleteConfirming ? 'Eliminando...' : '🗑️ Eliminar'}
               </button>
             </div>

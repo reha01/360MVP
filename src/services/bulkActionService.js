@@ -15,7 +15,8 @@ import {
   getDocs, 
   getDoc, 
   addDoc, 
-  updateDoc, 
+  updateDoc,
+  setDoc,
   deleteDoc, 
   query, 
   where, 
@@ -31,8 +32,18 @@ import evaluatorAssignmentService from './evaluatorAssignmentService';
 
 // Stubs temporales para servicios no implementados
 const observabilityService = {
-  logEvent: (...args) => console.log('[Observability]', ...args),
-  logError: (...args) => console.error('[Observability]', ...args)
+  logEvent: (...args) => {
+    // Si el último argumento es SEVERITY, ignorarlo en el stub
+    const argsWithoutSeverity = args.filter(arg => typeof arg !== 'object' || !arg.hasOwnProperty('WARNING'));
+    console.log('[Observability]', ...argsWithoutSeverity);
+  },
+  logError: (...args) => console.error('[Observability]', ...args),
+  SEVERITY: {
+    INFO: 'INFO',
+    WARNING: 'WARNING',
+    ERROR: 'ERROR',
+    CRITICAL: 'CRITICAL'
+  }
 };
 
 const rateLimitService = {
@@ -113,80 +124,126 @@ export const resendInvitations = async (orgId, assignmentIds, customMessage = ''
     
     console.log('[BulkAction] Audit record created:', auditRef.id);
     
-    // Simular procesamiento con resultados
-    const results = {
-      processed: assignmentIds.length,
-      success: assignmentIds.length - 2, // Simular 2 fallos
-      failed: 1,
-      dlq: 1,
-      auditId: auditRef.id
-    };
+    // Procesar realmente las invitaciones
+    let successCount = 0;
+    let failedCount = 0;
+    let dlqCount = 0;
+    const failedAssignments = [];
+    const dlqAssignments = [];
     
-    // Simular éxito para la mayoría de asignaciones
-    const successfulAssignments = assignmentIds.slice(0, results.success);
-    for (let i = 0; i < successfulAssignments.length; i++) {
-      const assignmentId = successfulAssignments[i];
-      // En producción, llamar a evaluatorAssignmentService.resendInvitation
-      console.log(`[BulkAction] Resent invitation for assignment ${assignmentId}`);
+    // Procesar cada asignación
+    for (let i = 0; i < assignmentIds.length; i++) {
+      const assignmentId = assignmentIds[i];
       
-      // ✅ Registrar progreso cada 10 asignaciones
-      if ((i + 1) % 10 === 0 || i === successfulAssignments.length - 1) {
-        observabilityService.logEvent('bulk.progress', {
-          orgId,
-          actionType: 'resend',
-          processed: i + 1,
-          total: assignmentIds.length,
-          auditId: auditRef.id
+      if (!assignmentId) {
+        console.error(`[BulkAction] Invalid assignmentId at index ${i}`);
+        failedCount++;
+        failedAssignments.push({ assignmentId: 'undefined', error: 'Invalid assignmentId' });
+        continue;
+      }
+      
+      try {
+        // Actualizar el miembro en Firestore con la fecha de última invitación
+        const memberRef = doc(db, 'members', assignmentId);
+        const memberDoc = await getDoc(memberRef);
+        
+        if (!memberDoc.exists()) {
+          throw new Error(`Member ${assignmentId} not found`);
+        }
+        
+        const memberData = memberDoc.data();
+        const now = new Date();
+        const currentInvitationCount = memberData.invitationCount || 0;
+        
+        // Actualizar el documento del miembro
+        await updateDoc(memberRef, {
+          lastInvitationSent: serverTimestamp(),
+          lastInvitationSentDate: now.toISOString(),
+          invitationCount: currentInvitationCount + 1,
+          updatedAt: serverTimestamp()
         });
+        
+        console.log(`[BulkAction] Updated member ${assignmentId} with lastInvitationSent: ${now.toISOString()}, invitationCount: ${currentInvitationCount + 1}`);
+        
+        // TODO: En producción, también enviar el email real aquí:
+        // await evaluatorAssignmentService.resendInvitation(orgId, assignmentId, customMessage);
+        
+        successCount++;
+        
+        // Registrar progreso cada 10 asignaciones
+        if ((i + 1) % 10 === 0 || i === assignmentIds.length - 1) {
+          observabilityService.logEvent('bulk.progress', {
+            orgId,
+            actionType: 'resend',
+            processed: i + 1,
+            total: assignmentIds.length,
+            auditId: auditRef.id
+          });
+        }
+      } catch (err) {
+        console.error(`[BulkAction] Failed to resend invitation for assignment ${assignmentId}:`, err);
+        
+        // Si es un error de rate limit, agregar a DLQ
+        if (err.message && err.message.includes('rate limit')) {
+          try {
+            await addDoc(collection(db, 'organizations', orgId, 'bulkActionDLQ'), {
+              orgId: orgId,
+              assignmentId: assignmentId,
+              actionType: 'resend',
+              error: err.message || 'Rate limit exceeded for email sending',
+              retryCount: 1,
+              maxRetries: RETRY_CONFIG.maxRetries,
+              initialRetry: serverTimestamp(),
+              lastRetry: serverTimestamp(),
+              nextRetry: new Date(Date.now() + RETRY_CONFIG.initialDelayMs),
+              data: {
+                customMessage: customMessage
+              }
+            });
+            
+            console.warn(`[BulkAction] Assignment ${assignmentId} added to DLQ`);
+            dlqCount++;
+            dlqAssignments.push({ assignmentId, error: err.message });
+            
+            observabilityService.logEvent('bulk.dlq_put', {
+              orgId,
+              actionType: 'resend',
+              assignmentId: assignmentId,
+              reason: err.message || 'Rate limit exceeded for email sending',
+              auditId: auditRef.id
+            }, observabilityService.SEVERITY.WARNING);
+          } catch (dlqError) {
+            console.error(`[BulkAction] Error adding to DLQ:`, dlqError);
+            failedCount++;
+            failedAssignments.push({ assignmentId, error: err.message });
+          }
+        } else {
+          failedCount++;
+          failedAssignments.push({ assignmentId, error: err.message });
+        }
       }
     }
     
     // Incrementar contador de emails enviados
-    await rateLimitService.incrementEmailCounter(orgId, results.success);
-    
-    // Simular fallo normal para una asignación
-    if (assignmentIds.length > results.success) {
-      const failedAssignmentId = assignmentIds[results.success];
-      console.error(`[BulkAction] Failed to resend invitation for assignment ${failedAssignmentId}`);
+    if (successCount > 0) {
+      await rateLimitService.incrementEmailCounter(orgId, successCount);
     }
     
-    // Simular item en DLQ
-    if (assignmentIds.length > results.success + 1) {
-      const dlqAssignmentId = assignmentIds[results.success + 1];
-      
-      // Crear entrada en DLQ
-      await addDoc(collection(db, 'organizations', orgId, 'bulkActionDLQ'), {
-        assignmentId: dlqAssignmentId,
-        actionType: 'resend',
-        error: 'Rate limit exceeded for email sending',
-        retryCount: 1,
-        maxRetries: RETRY_CONFIG.maxRetries,
-        initialRetry: serverTimestamp(),
-        lastRetry: serverTimestamp(),
-        nextRetry: new Date(Date.now() + RETRY_CONFIG.initialDelayMs),
-        data: {
-          customMessage: customMessage
-        }
-      });
-      
-      console.warn(`[BulkAction] Assignment ${dlqAssignmentId} added to DLQ`);
-      
-      // ✅ Registrar evento de DLQ
-      observabilityService.logEvent('bulk.dlq_put', {
-        orgId,
-        actionType: 'resend',
-        assignmentId: dlqAssignmentId,
-        reason: 'Rate limit exceeded for email sending',
-        auditId: auditRef.id
-      }, observabilityService.SEVERITY.WARNING);
-    }
+    const results = {
+      processed: assignmentIds.length,
+      success: successCount,
+      failed: failedCount,
+      dlq: dlqCount,
+      auditId: auditRef.id
+    };
     
-    // ✅ Simular fallo normal y registrar evento
-    if (results.failed > 0) {
+    // Registrar evento de fallos si hay
+    if (failedCount > 0) {
       observabilityService.logEvent('bulk.failed', {
         orgId,
         actionType: 'resend',
-        failedCount: results.failed,
+        failedCount: failedCount,
+        failedAssignments: failedAssignments,
         auditId: auditRef.id
       }, observabilityService.SEVERITY.WARNING);
     }
@@ -250,22 +307,68 @@ export const extendDeadlines = async (orgId, assignmentIds, extensionDays = 7) =
     const now = new Date();
     let successCount = 0;
     
-    // Guardar extensiones en localStorage para persistencia temporal
+    // Guardar extensiones en Firestore
+    const { getEvaluatorAssignment } = await import('./evaluatorAssignmentService');
+    
     for (const assignmentId of assignmentIds) {
       try {
-        // Guardar la extensión en localStorage
-        const extensionKey = `extension_${orgId}_${assignmentId}`;
-        const extensionData = {
-          extensionDays,
-          extendedAt: now.toISOString(),
-          newDeadline: new Date(now.getTime() + extensionDays * 24 * 60 * 60 * 1000).toISOString()
-        };
-        localStorage.setItem(extensionKey, JSON.stringify(extensionData));
+        // Obtener la asignación actual para calcular el nuevo deadline
+        const assignment = await getEvaluatorAssignment(orgId, assignmentId);
         
-        console.log(`[BulkAction] Extended deadline for assignment ${assignmentId} by ${extensionDays} days`);
+        if (!assignment) {
+          console.warn(`[BulkAction] Assignment ${assignmentId} not found, skipping`);
+          continue;
+        }
+        
+        const currentDeadline = assignment.deadline ? new Date(assignment.deadline) : new Date();
+        const newDeadline = new Date(currentDeadline.getTime() + extensionDays * 24 * 60 * 60 * 1000);
+        
+        // Guardar la extensión en Firestore
+        const extensionRef = doc(db, `organizations/${orgId}/deadlineExtensions`, assignmentId);
+        await setDoc(extensionRef, {
+          assignmentId,
+          orgId,
+          extensionDays,
+          originalDeadline: assignment.deadline || currentDeadline.toISOString(),
+          newDeadline: newDeadline.toISOString(),
+          extendedAt: serverTimestamp(),
+          extendedBy: 'current-user', // TODO: obtener usuario actual real
+          createdAt: serverTimestamp()
+        }, { merge: true });
+        
+        // También actualizar el documento de asignación directamente si existe
+        try {
+          const assignmentRef = doc(db, `organizations/${orgId}/evaluatorAssignments`, assignmentId);
+          await setDoc(assignmentRef, {
+            deadline: newDeadline.toISOString(),
+            deadlineExtended: true,
+            extensionDays,
+            lastExtensionAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          }, { merge: true });
+        } catch (updateErr) {
+          console.warn(`[BulkAction] Could not update assignment document directly:`, updateErr);
+          // Continuar aunque falle la actualización directa
+        }
+        
+        console.log(`[BulkAction] Extended deadline for assignment ${assignmentId} by ${extensionDays} days (saved to Firestore)`);
         successCount++;
       } catch (err) {
         console.error(`[BulkAction] Error extending deadline for ${assignmentId}:`, err);
+        // Fallback a localStorage si hay error (migración gradual)
+        try {
+          const extensionKey = `extension_${orgId}_${assignmentId}`;
+          const extensionData = {
+            extensionDays,
+            extendedAt: now.toISOString(),
+            newDeadline: new Date(now.getTime() + extensionDays * 24 * 60 * 60 * 1000).toISOString()
+          };
+          localStorage.setItem(extensionKey, JSON.stringify(extensionData));
+          console.log(`[BulkAction] Saved to localStorage as fallback for ${assignmentId}`);
+          successCount++;
+        } catch (localErr) {
+          console.error(`[BulkAction] Error saving to localStorage fallback:`, localErr);
+        }
       }
     }
     
@@ -505,19 +608,42 @@ export const sendReminders = async (orgId, assignmentIds, customMessage = '') =>
     
     const now = new Date();
     let successCount = 0;
+    const batch = writeBatch(db);
     
-    // Actualizar cada asignación con lastReminderSent
+    // Guardar recordatorios en Firestore
+    const remindersRef = collection(db, 'reminders');
+    
     for (const assignmentId of assignmentIds) {
       try {
-        // Intentar actualizar en Firestore si existe la asignación
-        // Por ahora, guardamos en localStorage para persistencia temporal
-        const reminderKey = `reminder_${orgId}_${assignmentId}`;
-        localStorage.setItem(reminderKey, now.toISOString());
+        // Crear o actualizar recordatorio en Firestore
+        // Usar assignmentId como parte del ID del documento para facilitar búsqueda
+        const reminderDocRef = doc(remindersRef, `${orgId}_${assignmentId}`);
+        
+        batch.set(reminderDocRef, {
+          orgId,
+          assignmentId,
+          lastReminderSent: serverTimestamp(),
+          lastReminderSentDate: now.toISOString(),
+          customMessage: customMessage || null,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        }, { merge: true });
         
         console.log(`[BulkAction] Sent reminder for assignment ${assignmentId} at ${now.toISOString()}`);
         successCount++;
       } catch (err) {
         console.error(`[BulkAction] Error updating reminder for ${assignmentId}:`, err);
+      }
+    }
+    
+    // Ejecutar batch write
+    if (successCount > 0) {
+      try {
+        await batch.commit();
+        console.log(`[BulkAction] Successfully saved ${successCount} reminders to Firestore`);
+      } catch (batchError) {
+        console.error('[BulkAction] Error committing reminder batch:', batchError);
+        throw batchError;
       }
     }
     
@@ -544,6 +670,108 @@ export const sendReminders = async (orgId, assignmentIds, customMessage = '') =>
   }
 };
 
+// ========== MIGRACIÓN DE DATOS ==========
+
+/**
+ * Migrar recordatorios de localStorage a Firestore
+ * Útil para migrar datos existentes después de actualizar el código
+ */
+export const migrateRemindersFromLocalStorage = async (orgId) => {
+  try {
+    console.log(`[BulkAction] Starting migration of reminders from localStorage for org: ${orgId}`);
+    
+    const remindersRef = collection(db, 'reminders');
+    const batch = writeBatch(db);
+    let migratedCount = 0;
+    let skippedCount = 0;
+    
+    // Buscar todas las claves de localStorage que empiecen con "reminder_"
+    const reminderKeys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(`reminder_${orgId}_`)) {
+        reminderKeys.push(key);
+      }
+    }
+    
+    console.log(`[BulkAction] Found ${reminderKeys.length} reminders in localStorage`);
+    
+    for (const key of reminderKeys) {
+      try {
+        // Extraer assignmentId de la clave: reminder_{orgId}_{assignmentId}
+        const parts = key.split('_');
+        if (parts.length < 3) continue;
+        
+        const assignmentId = parts.slice(2).join('_'); // Por si assignmentId tiene guiones bajos
+        const reminderDateStr = localStorage.getItem(key);
+        
+        if (!reminderDateStr) {
+          skippedCount++;
+          continue;
+        }
+        
+        const reminderDate = new Date(reminderDateStr);
+        if (isNaN(reminderDate.getTime())) {
+          console.warn(`[BulkAction] Invalid date for key ${key}, skipping`);
+          skippedCount++;
+          continue;
+        }
+        
+        // Verificar si ya existe en Firestore
+        const reminderDocRef = doc(remindersRef, `${orgId}_${assignmentId}`);
+        const existingDoc = await getDoc(reminderDocRef);
+        
+        if (existingDoc.exists()) {
+          console.log(`[BulkAction] Reminder for ${assignmentId} already exists in Firestore, skipping`);
+          skippedCount++;
+          continue;
+        }
+        
+        // Crear documento en Firestore
+        batch.set(reminderDocRef, {
+          orgId,
+          assignmentId,
+          lastReminderSent: serverTimestamp(),
+          lastReminderSentDate: reminderDate.toISOString(),
+          customMessage: null,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          migratedFrom: 'localStorage',
+          migratedAt: serverTimestamp()
+        });
+        
+        migratedCount++;
+        console.log(`[BulkAction] Migrated reminder for assignment ${assignmentId}`);
+      } catch (err) {
+        console.error(`[BulkAction] Error migrating reminder for key ${key}:`, err);
+        skippedCount++;
+      }
+    }
+    
+    // Ejecutar batch write si hay documentos para migrar
+    if (migratedCount > 0) {
+      await batch.commit();
+      console.log(`[BulkAction] Successfully migrated ${migratedCount} reminders to Firestore`);
+    }
+    
+    return {
+      success: true,
+      migrated: migratedCount,
+      skipped: skippedCount,
+      total: reminderKeys.length
+    };
+  } catch (error) {
+    console.error('[BulkAction] Error migrating reminders from localStorage:', error);
+    return {
+      success: false,
+      error: error.message,
+      migrated: 0,
+      skipped: 0,
+      total: 0
+    };
+  }
+};
+
 // ========== EXPORTS ==========
 
 export default {
@@ -555,6 +783,9 @@ export default {
   // Gestión de DLQ
   getDlqItems,
   retryDlqItem,
+  
+  // Migración
+  migrateRemindersFromLocalStorage,
   
   // Auditoría
   getAuditLog
