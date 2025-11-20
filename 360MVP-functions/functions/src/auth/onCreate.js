@@ -1,7 +1,7 @@
 // 360MVP-functions/functions/src/auth/onCreate.js
-const functions = require('firebase-functions');
+const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
-try { admin.initializeApp(); } catch (e) { console.error(e); }
+// Firebase Admin ya está inicializado en index.js, no inicializar de nuevo
 
 exports.onUserCreate = functions.auth.user().onCreate(async (user) => {
   const { uid, email, displayName } = user;

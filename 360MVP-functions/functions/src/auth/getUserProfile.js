@@ -1,7 +1,14 @@
 // 360MVP-functions/functions/src/auth/getUserProfile.js
-const functions = require('firebase-functions');
+const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
-try { admin.initializeApp(); } catch (e) { console.error(e); }
+// Firebase Admin ya está inicializado en index.js, usar la instancia existente
+if (admin.apps.length === 0) {
+  try {
+    admin.initializeApp();
+  } catch (e) {
+    console.error('[getUserProfile] Error initializing admin:', e);
+  }
+}
 
 exports.getUserProfile = functions.https.onCall(async (data, context) => {
   if (!context.auth) {

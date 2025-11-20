@@ -110,8 +110,8 @@ export const validateJobFamily = (jobFamily) => {
     errors.push(`DescripciÃ³n no puede exceder ${VALIDATION_RULES.MAX_DESCRIPTION_LENGTH} caracteres`);
   }
   
-  // Validar nivel
-  if (!Object.values(JOB_LEVELS).includes(jobFamily.level)) {
+  // Validar nivel (opcional, se asigna valor por defecto si no existe)
+  if (jobFamily.level !== undefined && !Object.values(JOB_LEVELS).includes(jobFamily.level)) {
     errors.push(`Nivel invÃ¡lido: ${jobFamily.level}`);
   }
   

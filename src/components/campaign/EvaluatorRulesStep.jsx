@@ -1,10 +1,9 @@
 /**
  * Paso 4: Reglas de Evaluadores
+ * SOLUCIÓN SIMPLIFICADA: Formulario simple sin componentes complejos
  */
 
-import React, { useState, useEffect } from 'react';
-import { Users, Shield, Clock, AlertCircle } from 'lucide-react';
-import { Button, Card, Input, Checkbox, Alert } from '../ui';
+import React, { useState, useRef, useEffect } from 'react';
 
 const EvaluatorRulesStep = ({ data, onChange }) => {
   const [rules, setRules] = useState({
@@ -22,27 +21,59 @@ const EvaluatorRulesStep = ({ data, onChange }) => {
     }
   });
   
-  // Notificar cambios al padre
+  // Flag para prevenir callbacks durante mount
+  const isReadyRef = useRef(false);
+  
   useEffect(() => {
-    onChange({
-      config: {
-        ...data.config,
-        requiredEvaluators: rules.requiredEvaluators,
-        anonymityThresholds: rules.anonymityThresholds
+    const timer = setTimeout(() => {
+      isReadyRef.current = true;
+    }, 300);
+    return () => clearTimeout(timer);
+  }, []);
+  
+  // Notificar cambios al padre (solo cuando está listo)
+  useEffect(() => {
+    if (!isReadyRef.current || !onChange) return;
+    
+    const timer = setTimeout(() => {
+      if (isReadyRef.current && onChange) {
+        onChange({
+          config: {
+            ...data.config,
+            requiredEvaluators: rules.requiredEvaluators,
+            anonymityThresholds: rules.anonymityThresholds
+          }
+        });
       }
-    });
-  }, [rules, onChange]);
+    }, 0);
+    
+    return () => clearTimeout(timer);
+  }, [rules, onChange, data.config]);
   
   const handleRuleChange = (field, value) => {
     if (field.startsWith('requiredEvaluators.')) {
       const ruleField = field.replace('requiredEvaluators.', '');
-      setRules(prev => ({
-        ...prev,
-        requiredEvaluators: {
-          ...prev.requiredEvaluators,
-          [ruleField]: value
-        }
-      }));
+      if (ruleField.includes('.')) {
+        const [parent, child] = ruleField.split('.');
+        setRules(prev => ({
+          ...prev,
+          requiredEvaluators: {
+            ...prev.requiredEvaluators,
+            [parent]: {
+              ...prev.requiredEvaluators[parent],
+              [child]: value
+            }
+          }
+        }));
+      } else {
+        setRules(prev => ({
+          ...prev,
+          requiredEvaluators: {
+            ...prev.requiredEvaluators,
+            [ruleField]: value
+          }
+        }));
+      }
     } else if (field.startsWith('anonymityThresholds.')) {
       const thresholdField = field.replace('anonymityThresholds.', '');
       setRules(prev => ({
@@ -55,263 +86,251 @@ const EvaluatorRulesStep = ({ data, onChange }) => {
     }
   };
   
-  const handleNestedRuleChange = (parentField, childField, value) => {
-    setRules(prev => ({
-      ...prev,
-      [parentField]: {
-        ...prev[parentField],
-        [childField]: {
-          ...prev[parentField][childField],
-          [childField]: value
-        }
-      }
-    }));
+  // Estilos inline simples
+  const cardStyle = {
+    backgroundColor: 'white',
+    borderRadius: '8px',
+    border: '1px solid #E5E7EB',
+    padding: '20px',
+    marginBottom: '16px'
+  };
+  
+  const inputStyle = {
+    width: '100%',
+    padding: '8px 12px',
+    border: '1px solid #D1D5DB',
+    borderRadius: '6px',
+    fontSize: '14px'
   };
   
   return (
-    <div className="space-y-6">
+    <div style={{ padding: '0' }}>
       {/* Reglas de Evaluadores Requeridos */}
-      <Card>
-        <div className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <Users className="w-5 h-5 mr-2" />
-            Evaluadores Requeridos
-          </h3>
-          
-          <div className="space-y-6">
-            {/* Autoevaluación */}
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div>
-                <div className="font-medium text-gray-900">Autoevaluación</div>
-                <div className="text-sm text-gray-600">
-                  El evaluado debe completar su propia evaluación
-                </div>
-              </div>
-              <Checkbox
+      <div style={cardStyle}>
+        <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '600' }}>
+          Evaluadores Requeridos
+        </h3>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Autoevaluación */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', border: '1px solid #E5E7EB', borderRadius: '6px' }}>
+            <div>
+              <div style={{ fontWeight: '500', color: '#111827', marginBottom: '4px' }}>Autoevaluación</div>
+              <div style={{ fontSize: '12px', color: '#6B7280' }}>El evaluado debe completar su propia evaluación</div>
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
                 checked={rules.requiredEvaluators.self}
-                onChange={(checked) => handleRuleChange('requiredEvaluators.self', checked)}
+                onChange={(e) => handleRuleChange('requiredEvaluators.self', e.target.checked)}
+                style={{ width: '16px', height: '16px' }}
               />
+            </label>
+          </div>
+          
+          {/* Manager */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', border: '1px solid #E5E7EB', borderRadius: '6px' }}>
+            <div>
+              <div style={{ fontWeight: '500', color: '#111827', marginBottom: '4px' }}>Manager Directo</div>
+              <div style={{ fontSize: '12px', color: '#6B7280' }}>El manager directo debe evaluar al empleado</div>
             </div>
-            
-            {/* Manager */}
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div>
-                <div className="font-medium text-gray-900">Manager Directo</div>
-                <div className="text-sm text-gray-600">
-                  El manager directo debe evaluar al empleado
-                </div>
-              </div>
-              <Checkbox
+            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
                 checked={rules.requiredEvaluators.manager}
-                onChange={(checked) => handleRuleChange('requiredEvaluators.manager', checked)}
+                onChange={(e) => handleRuleChange('requiredEvaluators.manager', e.target.checked)}
+                style={{ width: '16px', height: '16px' }}
               />
+            </label>
+          </div>
+          
+          {/* Pares */}
+          <div style={{ padding: '16px', border: '1px solid #E5E7EB', borderRadius: '6px' }}>
+            <div style={{ marginBottom: '12px' }}>
+              <div style={{ fontWeight: '500', color: '#111827', marginBottom: '4px' }}>Pares</div>
+              <div style={{ fontSize: '12px', color: '#6B7280' }}>Colegas del mismo nivel jerárquico</div>
             </div>
             
-            {/* Pares */}
-            <div className="p-4 border rounded-lg">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <div className="font-medium text-gray-900">Pares</div>
-                  <div className="text-sm text-gray-600">
-                    Colegas del mismo nivel jerárquico
-                  </div>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Mínimo
-                  </label>
-                  <Input
-                    type="number"
-                    min="0"
-                    max="10"
-                    value={rules.requiredEvaluators.peers.min}
-                    onChange={(e) => handleRuleChange('requiredEvaluators.peers.min', parseInt(e.target.value))}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Máximo
-                  </label>
-                  <Input
-                    type="number"
-                    min="0"
-                    max="10"
-                    value={rules.requiredEvaluators.peers.max}
-                    onChange={(e) => handleRuleChange('requiredEvaluators.peers.max', parseInt(e.target.value))}
-                  />
-                </div>
-              </div>
-            </div>
-            
-            {/* Subordinados */}
-            <div className="p-4 border rounded-lg">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <div className="font-medium text-gray-900">Subordinados</div>
-                  <div className="text-sm text-gray-600">
-                    Empleados que reportan directamente al evaluado
-                  </div>
-                </div>
-              </div>
-              
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Mínimo
-                </label>
-                <Input
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '4px' }}>Mínimo</label>
+                <input
                   type="number"
                   min="0"
-                  max="15"
-                  value={rules.requiredEvaluators.subordinates.min}
-                  onChange={(e) => handleRuleChange('requiredEvaluators.subordinates.min', parseInt(e.target.value))}
+                  max="10"
+                  value={rules.requiredEvaluators.peers.min}
+                  onChange={(e) => handleRuleChange('requiredEvaluators.peers.min', parseInt(e.target.value) || 0)}
+                  style={inputStyle}
                 />
               </div>
-            </div>
-            
-            {/* Externos */}
-            <div className="p-4 border rounded-lg">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <div className="font-medium text-gray-900">Evaluadores Externos</div>
-                  <div className="text-sm text-gray-600">
-                    Clientes, proveedores, socios externos
-                  </div>
-                </div>
-              </div>
-              
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Mínimo
-                </label>
-                <Input
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '4px' }}>Máximo</label>
+                <input
                   type="number"
                   min="0"
-                  max="5"
-                  value={rules.requiredEvaluators.external.min}
-                  onChange={(e) => handleRuleChange('requiredEvaluators.external.min', parseInt(e.target.value))}
+                  max="10"
+                  value={rules.requiredEvaluators.peers.max}
+                  onChange={(e) => handleRuleChange('requiredEvaluators.peers.max', parseInt(e.target.value) || 0)}
+                  style={inputStyle}
                 />
               </div>
             </div>
           </div>
+          
+          {/* Subordinados */}
+          <div style={{ padding: '16px', border: '1px solid #E5E7EB', borderRadius: '6px' }}>
+            <div style={{ marginBottom: '12px' }}>
+              <div style={{ fontWeight: '500', color: '#111827', marginBottom: '4px' }}>Subordinados</div>
+              <div style={{ fontSize: '12px', color: '#6B7280' }}>Empleados que reportan directamente al evaluado</div>
+            </div>
+            
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '4px' }}>Mínimo</label>
+              <input
+                type="number"
+                min="0"
+                max="15"
+                value={rules.requiredEvaluators.subordinates.min}
+                onChange={(e) => handleRuleChange('requiredEvaluators.subordinates.min', parseInt(e.target.value) || 0)}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+          
+          {/* Externos */}
+          <div style={{ padding: '16px', border: '1px solid #E5E7EB', borderRadius: '6px' }}>
+            <div style={{ marginBottom: '12px' }}>
+              <div style={{ fontWeight: '500', color: '#111827', marginBottom: '4px' }}>Evaluadores Externos</div>
+              <div style={{ fontSize: '12px', color: '#6B7280' }}>Clientes, proveedores, socios externos</div>
+            </div>
+            
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '4px' }}>Mínimo</label>
+              <input
+                type="number"
+                min="0"
+                max="5"
+                value={rules.requiredEvaluators.external.min}
+                onChange={(e) => handleRuleChange('requiredEvaluators.external.min', parseInt(e.target.value) || 0)}
+                style={inputStyle}
+              />
+            </div>
+          </div>
         </div>
-      </Card>
+      </div>
       
       {/* Umbrales de Anonimato */}
-      <Card>
-        <div className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <Shield className="w-5 h-5 mr-2" />
-            Umbrales de Anonimato
-          </h3>
-          
-          <div className="space-y-4">
-            <Alert type="info">
-              <Shield className="w-4 h-4" />
-              <Alert.Description>
-                Los umbrales de anonimato determinan cuántos evaluadores deben completar la evaluación
-                para que los resultados sean visibles. Esto protege la privacidad de los evaluadores.
-              </Alert.Description>
-            </Alert>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Pares */}
-              <div className="p-4 border rounded-lg">
-                <div className="font-medium text-gray-900 mb-2">Pares</div>
-                <div className="text-sm text-gray-600 mb-3">
-                  Mínimo de pares que deben completar
-                </div>
-                <Input
-                  type="number"
-                  min="1"
-                  max="10"
-                  value={rules.anonymityThresholds.peers}
-                  onChange={(e) => handleRuleChange('anonymityThresholds.peers', parseInt(e.target.value))}
-                />
-              </div>
-              
-              {/* Subordinados */}
-              <div className="p-4 border rounded-lg">
-                <div className="font-medium text-gray-900 mb-2">Subordinados</div>
-                <div className="text-sm text-gray-600 mb-3">
-                  Mínimo de subordinados que deben completar
-                </div>
-                <Input
-                  type="number"
-                  min="1"
-                  max="15"
-                  value={rules.anonymityThresholds.subordinates}
-                  onChange={(e) => handleRuleChange('anonymityThresholds.subordinates', parseInt(e.target.value))}
-                />
-              </div>
-              
-              {/* Externos */}
-              <div className="p-4 border rounded-lg">
-                <div className="font-medium text-gray-900 mb-2">Externos</div>
-                <div className="text-sm text-gray-600 mb-3">
-                  Mínimo de externos que deben completar
-                </div>
-                <Input
-                  type="number"
-                  min="1"
-                  max="5"
-                  value={rules.anonymityThresholds.external}
-                  onChange={(e) => handleRuleChange('anonymityThresholds.external', parseInt(e.target.value))}
-                />
-              </div>
-            </div>
+      <div style={cardStyle}>
+        <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '600' }}>
+          Umbrales de Anonimato
+        </h3>
+        
+        <div style={{ padding: '12px', backgroundColor: '#EFF6FF', borderRadius: '6px', border: '1px solid #BFDBFE', marginBottom: '16px' }}>
+          <div style={{ fontSize: '14px', color: '#1E40AF' }}>
+            Los umbrales de anonimato determinan cuántos evaluadores deben completar la evaluación para que los resultados sean visibles. Esto protege la privacidad de los evaluadores.
           </div>
         </div>
-      </Card>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+          {/* Pares */}
+          <div style={{ padding: '16px', border: '1px solid #E5E7EB', borderRadius: '6px' }}>
+            <div style={{ fontWeight: '500', color: '#111827', marginBottom: '8px' }}>Pares</div>
+            <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '12px' }}>Mínimo de pares que deben completar</div>
+            <input
+              type="number"
+              min="1"
+              max="10"
+              value={rules.anonymityThresholds.peers}
+              onChange={(e) => handleRuleChange('anonymityThresholds.peers', parseInt(e.target.value) || 1)}
+              style={inputStyle}
+            />
+          </div>
+          
+          {/* Subordinados */}
+          <div style={{ padding: '16px', border: '1px solid #E5E7EB', borderRadius: '6px' }}>
+            <div style={{ fontWeight: '500', color: '#111827', marginBottom: '8px' }}>Subordinados</div>
+            <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '12px' }}>Mínimo de subordinados que deben completar</div>
+            <input
+              type="number"
+              min="1"
+              max="15"
+              value={rules.anonymityThresholds.subordinates}
+              onChange={(e) => handleRuleChange('anonymityThresholds.subordinates', parseInt(e.target.value) || 1)}
+              style={inputStyle}
+            />
+          </div>
+          
+          {/* Externos */}
+          <div style={{ padding: '16px', border: '1px solid #E5E7EB', borderRadius: '6px' }}>
+            <div style={{ fontWeight: '500', color: '#111827', marginBottom: '8px' }}>Externos</div>
+            <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '12px' }}>Mínimo de externos que deben completar</div>
+            <input
+              type="number"
+              min="1"
+              max="5"
+              value={rules.anonymityThresholds.external}
+              onChange={(e) => handleRuleChange('anonymityThresholds.external', parseInt(e.target.value) || 1)}
+              style={inputStyle}
+            />
+          </div>
+        </div>
+      </div>
       
       {/* Resumen de Reglas */}
-      <Card>
-        <div className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <Clock className="w-5 h-5 mr-2" />
-            Resumen de Reglas
-          </h3>
+      <div style={cardStyle}>
+        <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '600' }}>
+          Resumen de Reglas
+        </h3>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', backgroundColor: '#F9FAFB', borderRadius: '6px' }}>
+            <span style={{ fontWeight: '500', color: '#111827' }}>Autoevaluación</span>
+            <span style={{ 
+              padding: '4px 8px', 
+              borderRadius: '4px', 
+              fontSize: '12px',
+              backgroundColor: rules.requiredEvaluators.self ? '#D1FAE5' : '#F3F4F6',
+              color: rules.requiredEvaluators.self ? '#065F46' : '#374151'
+            }}>
+              {rules.requiredEvaluators.self ? 'Requerida' : 'Opcional'}
+            </span>
+          </div>
           
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <span className="font-medium text-gray-900">Autoevaluación</span>
-              <span className={`px-2 py-1 rounded text-sm ${rules.requiredEvaluators.self ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                {rules.requiredEvaluators.self ? 'Requerida' : 'Opcional'}
-              </span>
-            </div>
-            
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <span className="font-medium text-gray-900">Manager Directo</span>
-              <span className={`px-2 py-1 rounded text-sm ${rules.requiredEvaluators.manager ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                {rules.requiredEvaluators.manager ? 'Requerido' : 'Opcional'}
-              </span>
-            </div>
-            
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <span className="font-medium text-gray-900">Pares</span>
-              <span className="px-2 py-1 rounded text-sm bg-blue-100 text-blue-800">
-                {rules.requiredEvaluators.peers.min}-{rules.requiredEvaluators.peers.max}
-              </span>
-            </div>
-            
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <span className="font-medium text-gray-900">Subordinados</span>
-              <span className="px-2 py-1 rounded text-sm bg-purple-100 text-purple-800">
-                {rules.requiredEvaluators.subordinates.min}+
-              </span>
-            </div>
-            
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <span className="font-medium text-gray-900">Externos</span>
-              <span className="px-2 py-1 rounded text-sm bg-orange-100 text-orange-800">
-                {rules.requiredEvaluators.external.min}+
-              </span>
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', backgroundColor: '#F9FAFB', borderRadius: '6px' }}>
+            <span style={{ fontWeight: '500', color: '#111827' }}>Manager Directo</span>
+            <span style={{ 
+              padding: '4px 8px', 
+              borderRadius: '4px', 
+              fontSize: '12px',
+              backgroundColor: rules.requiredEvaluators.manager ? '#D1FAE5' : '#F3F4F6',
+              color: rules.requiredEvaluators.manager ? '#065F46' : '#374151'
+            }}>
+              {rules.requiredEvaluators.manager ? 'Requerido' : 'Opcional'}
+            </span>
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', backgroundColor: '#F9FAFB', borderRadius: '6px' }}>
+            <span style={{ fontWeight: '500', color: '#111827' }}>Pares</span>
+            <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '12px', backgroundColor: '#DBEAFE', color: '#1E40AF' }}>
+              {rules.requiredEvaluators.peers.min}-{rules.requiredEvaluators.peers.max}
+            </span>
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', backgroundColor: '#F9FAFB', borderRadius: '6px' }}>
+            <span style={{ fontWeight: '500', color: '#111827' }}>Subordinados</span>
+            <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '12px', backgroundColor: '#F3E8FF', color: '#7C3AED' }}>
+              {rules.requiredEvaluators.subordinates.min}+
+            </span>
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', backgroundColor: '#F9FAFB', borderRadius: '6px' }}>
+            <span style={{ fontWeight: '500', color: '#111827' }}>Externos</span>
+            <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '12px', backgroundColor: '#FED7AA', color: '#9A3412' }}>
+              {rules.requiredEvaluators.external.min}+
+            </span>
           </div>
         </div>
-      </Card>
+      </div>
     </div>
   );
 };

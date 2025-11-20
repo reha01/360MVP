@@ -9,6 +9,7 @@ import React, { useState, useEffect } from 'react';
 import { useMultiTenant } from '../../hooks/useMultiTenant';
 import { useAuth } from '../../context/AuthContext';
 import jobFamilyService from '../../services/jobFamilyService';
+import { getOrgUsers } from '../../services/orgStructureServiceWrapper';
 import { JOB_LEVELS } from '../../models/JobFamily';
 import { getJobLevelLabel, getJobLevelColor } from '../../models/JobFamily';
 
@@ -52,9 +53,14 @@ const JobFamilyManager = () => {
   
   // Cargar datos iniciales
   useEffect(() => {
-    if (currentOrgId) {
+    if (!currentOrgId) return;
+    
+    // Usar setTimeout para evitar actualizaciones durante el render
+    const timer = setTimeout(() => {
       loadData();
-    }
+    }, 0);
+    
+    return () => clearTimeout(timer);
   }, [currentOrgId]);
   
   const loadData = async () => {
@@ -62,25 +68,53 @@ const JobFamilyManager = () => {
       setLoading(true);
       setError(null);
       
-      const [jobFamiliesData, usersData, statsData] = await Promise.all([
-        jobFamilyService.getOrgJobFamilies(currentOrgId),
-        jobFamilyService.getOrgUsers(currentOrgId),
-        jobFamilyService.getJobFamilyStats(currentOrgId)
+      // Usar Promise.allSettled para que una falla no rompa todo
+      const [jobFamiliesResult, usersResult, statsResult] = await Promise.allSettled([
+        jobFamilyService.getOrgJobFamilies(currentOrgId).catch(() => []),
+        getOrgUsers(currentOrgId).catch(() => []), // Usar getOrgUsers de orgStructureService
+        jobFamilyService.getJobFamilyStats(currentOrgId).catch(() => null)
       ]);
       
-      setJobFamilies(jobFamiliesData);
-      setUsers(usersData);
-      setStats(statsData);
+      // Extraer valores de los resultados
+      const jobFamiliesData = jobFamiliesResult.status === 'fulfilled' ? jobFamiliesResult.value : [];
+      const usersData = usersResult.status === 'fulfilled' ? usersResult.value : [];
+      const statsData = statsResult.status === 'fulfilled' ? statsResult.value : null;
       
-      console.log('[JobFamilyManager] Data loaded:', {
-        jobFamilies: jobFamiliesData.length,
-        users: usersData.length
-      });
+      // Deferir actualizaciones de estado para evitar React #130
+      setTimeout(() => {
+        setJobFamilies(jobFamiliesData || []);
+        setUsers(usersData || []);
+        setStats(statsData);
+        
+        console.log('[JobFamilyManager] Data loaded:', {
+          jobFamilies: jobFamiliesData.length,
+          users: usersData.length,
+          stats: statsData ? 'loaded' : 'null'
+        });
+        
+        // Si hay errores, mostrar warning pero no bloquear la UI
+        if (jobFamiliesResult.status === 'rejected') {
+          console.warn('[JobFamilyManager] Failed to load job families:', jobFamiliesResult.reason);
+        }
+        if (usersResult.status === 'rejected') {
+          console.warn('[JobFamilyManager] Failed to load users:', usersResult.reason);
+        }
+        if (statsResult.status === 'rejected') {
+          console.warn('[JobFamilyManager] Failed to load stats:', statsResult.reason);
+        }
+        
+        setLoading(false);
+      }, 0);
     } catch (err) {
-      console.error('[JobFamilyManager] Error loading data:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      console.error('[JobFamilyManager] Unexpected error loading data:', err);
+      // Establecer valores por defecto en lugar de mostrar error fatal
+      setTimeout(() => {
+        setJobFamilies([]);
+        setUsers([]);
+        setStats(null);
+        setError('Algunos datos no pudieron cargarse. Verifica la consola para más detalles.');
+        setLoading(false);
+      }, 0);
     }
   };
   

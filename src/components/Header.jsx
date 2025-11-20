@@ -59,6 +59,7 @@ const Header = () => {
           <div className="nav-dropdown">
             <span className="nav-link">Gestión ▾</span>
             <div className="nav-dropdown-menu">
+              <Link to="/gestion/organizacion" className="nav-dropdown-link">🏢 Organización</Link>
               <Link to="/gestion/miembros" className="nav-dropdown-link">
                 👤 Miembros
               </Link>

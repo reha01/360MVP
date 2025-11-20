@@ -10,6 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "csv-parser": "^3.2.0",
     "firebase-admin": "^11.0.0",
     "firebase-functions": "^4.0.0",
     "resend": "^2.0.0"

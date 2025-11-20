@@ -201,22 +201,22 @@ export const createEvaluation360SessionModel = (data) => {
 export const validateCampaign = (campaign) => {
   const errors = [];
   
-  // Validaciones bÃ¡sicas
-  if (!campaign.title || campaign.title.length < VALIDATION_RULES.MIN_TITLE_LENGTH) {
-    errors.push(`TÃ­tulo debe tener al menos ${VALIDATION_RULES.MIN_TITLE_LENGTH} caracteres`);
+  // Validaciones básicas
+  if (!campaign.title || campaign.title.trim().length < VALIDATION_RULES.MIN_TITLE_LENGTH) {
+    errors.push(`Título debe tener al menos ${VALIDATION_RULES.MIN_TITLE_LENGTH} caracteres`);
   }
   
   if (campaign.title && campaign.title.length > VALIDATION_RULES.MAX_TITLE_LENGTH) {
-    errors.push(`TÃ­tulo no puede exceder ${VALIDATION_RULES.MAX_TITLE_LENGTH} caracteres`);
+    errors.push(`Título no puede exceder ${VALIDATION_RULES.MAX_TITLE_LENGTH} caracteres`);
   }
   
   if (campaign.description && campaign.description.length > VALIDATION_RULES.MAX_DESCRIPTION_LENGTH) {
-    errors.push(`DescripciÃ³n no puede exceder ${VALIDATION_RULES.MAX_DESCRIPTION_LENGTH} caracteres`);
+    errors.push(`Descripción no puede exceder ${VALIDATION_RULES.MAX_DESCRIPTION_LENGTH} caracteres`);
   }
   
   // Validar tipo
   if (!Object.values(CAMPAIGN_TYPE).includes(campaign.type)) {
-    errors.push(`Tipo de campaÃ±a invÃ¡lido: ${campaign.type}`);
+    errors.push(`Tipo de campaña inválido: ${campaign.type}`);
   }
   
   // Validar fechas
@@ -230,11 +230,11 @@ export const validateCampaign = (campaign) => {
     
     const durationDays = (endDate - startDate) / (1000 * 60 * 60 * 24);
     if (durationDays < VALIDATION_RULES.MIN_DURATION_DAYS) {
-      errors.push(`La duraciÃ³n mÃ­nima es ${VALIDATION_RULES.MIN_DURATION_DAYS} dÃ­a(s)`);
+      errors.push(`La duración mínima es ${VALIDATION_RULES.MIN_DURATION_DAYS} día(s)`);
     }
     
     if (durationDays > VALIDATION_RULES.MAX_DURATION_DAYS) {
-      errors.push(`La duraciÃ³n mÃ¡xima es ${VALIDATION_RULES.MAX_DURATION_DAYS} dÃ­as`);
+      errors.push(`La duración máxima es ${VALIDATION_RULES.MAX_DURATION_DAYS} días`);
     }
   }
   
@@ -244,28 +244,35 @@ export const validateCampaign = (campaign) => {
     
     // Validar pares
     if (config.peers && config.peers.min > config.peers.max) {
-      errors.push('MÃ­nimo de pares no puede ser mayor al mÃ¡ximo');
+      errors.push('Mínimo de pares no puede ser mayor al máximo');
     }
     
     if (config.peers && config.peers.min < VALIDATION_RULES.MIN_EVALUATORS.peer) {
-      errors.push(`MÃ­nimo de pares debe ser al menos ${VALIDATION_RULES.MIN_EVALUATORS.peer}`);
+      errors.push(`Mínimo de pares debe ser al menos ${VALIDATION_RULES.MIN_EVALUATORS.peer}`);
     }
     
     // Validar subordinados
     if (config.subordinates && config.subordinates.min < 0) {
-      errors.push('MÃ­nimo de subordinados no puede ser negativo');
+      errors.push('Mínimo de subordinados no puede ser negativo');
     }
   }
   
   // Validar filtros de evaluados
   if (campaign.evaluateeFilters) {
-    const hasFilters = campaign.evaluateeFilters.jobFamilyIds.length > 0 ||
-                      campaign.evaluateeFilters.areaIds.length > 0 ||
-                      campaign.evaluateeFilters.userIds.length > 0;
+    const jobFamilyIds = campaign.evaluateeFilters.jobFamilyIds || [];
+    const areaIds = campaign.evaluateeFilters.areaIds || [];
+    const userIds = campaign.evaluateeFilters.userIds || [];
+    
+    const hasFilters = jobFamilyIds.length > 0 ||
+                      areaIds.length > 0 ||
+                      userIds.length > 0;
     
     if (!hasFilters) {
       errors.push('Debe seleccionar al menos un filtro de evaluados');
     }
+  } else {
+    // Si no hay evaluateeFilters definido, es un error
+    errors.push('Debe seleccionar al menos un filtro de evaluados');
   }
   
   return {
@@ -355,8 +362,8 @@ export const getCampaignTypeLabel = (type) => {
 export const canActivateCampaign = (campaign) => {
   const issues = [];
   
-  if (!campaign.title) {
-    issues.push('TÃ­tulo requerido');
+  if (!campaign.title || campaign.title.trim().length < VALIDATION_RULES.MIN_TITLE_LENGTH) {
+    issues.push('Título requerido');
   }
   
   if (!campaign.config.startDate || !campaign.config.endDate) {
@@ -441,5 +448,6 @@ export const generateEvaluatorConfigFromJobFamily = (jobFamily) => {
 };
 
 // ========== EXPORT DEFAULT ==========
-// Note: Campaign class is exported from campaign.model.js, not from this file
-// This file only exports utility functions and constants
+// Este archivo exporta funciones de utilidad, constantes y modelos funcionales
+// Para compatibilidad con código legacy, también se puede usar campaign.model.js
+// pero se recomienda usar este archivo como fuente única de verdad

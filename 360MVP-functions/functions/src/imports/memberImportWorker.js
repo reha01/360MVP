@@ -73,10 +73,8 @@ const buildDisplayName = (name, lastName, fallbackEmail) => {
 };
 
 const normalizeRole = (role) => {
-  if (!role || typeof role !== 'string') {
-    return 'employee';
-  }
-  return role.trim().toLowerCase();
+  // Siempre retornar 'member' por defecto, ignorando cualquier valor del CSV
+  return 'member';
 };
 
 const findExistingMemberDoc = async (membersCollection, email, emailLower, authUid, orgId) => {
@@ -117,12 +115,19 @@ const upsertMember = async ({
   name,
   lastName,
   role,
+  cargo = null,
+  jobFamilyId = null,
+  jobFamilyIds = [],
+  jobFamilyName = null,
+  areaId = null,
+  area = null,
   membersCollection,
   uploadedBy,
   uploaderEmail,
 }) => {
   const displayName = buildDisplayName(name, lastName, originalEmail);
-  const normalizedRole = normalizeRole(role);
+  // Siempre usar 'member' como rol, ignorando cualquier valor pasado
+  const normalizedRole = 'member';
   let userRecord = null;
   let isExistingUser = true;
 
@@ -173,8 +178,15 @@ const upsertMember = async ({
     lastName: lastName || null,
     displayName,
     fullName: displayName,
-    role: normalizedRole,
-    memberRole: normalizedRole,
+    role: normalizedRole, // Siempre 'member'
+    memberRole: normalizedRole, // Siempre 'member'
+    cargo: cargo || null, // Job Title (texto libre)
+    jobTitle: cargo || null, // Alias para compatibilidad
+    jobFamilyId: jobFamilyId || null, // Job Family ID
+    jobFamilyIds: jobFamilyIds.length > 0 ? jobFamilyIds : [], // Array para compatibilidad
+    jobFamilyName: jobFamilyName || null, // Nombre para referencia
+    areaId: areaId || null, // Area ID
+    area: area || null, // Nombre para compatibilidad
     authUid: userRecord.uid,
     orgId,
     organizationId: orgId,
@@ -272,10 +284,14 @@ const memberImportProcessor = functions
         const name = row.name || row.nombre || '';
         const lastName =
           row.lastname || row['last_name'] || row.apellido || row['apellido'] || '';
-        const role = row.role || row.rol || '';
+        const cargo = row.cargo || row.jobtitle || ''; // Job Title (texto libre)
+        const jobFamilyName = row.jobfamily || row['job family'] || '';
+        const areaName = row.area || row.área || '';
+        // Ignorar cualquier columna de rol del CSV - siempre será 'member'
+        // const role = row.role || row.rol || ''; // Ya no se usa
 
         const isEmptyRow =
-          !originalEmail && !name && !lastName && !role;
+          !originalEmail && !name && !lastName;
 
         if (isEmptyRow) {
           summary.total -= 1;
@@ -314,14 +330,83 @@ const memberImportProcessor = functions
 
         processedEmails.add(email);
 
-        if (!role) {
-          summary.failed += 1;
-          recordFailedRow({
-            row: rowNumber,
-            email: originalEmail,
-            reason: 'Rol requerido',
-          });
-          continue;
+        // Rol siempre será 'member' - no se valida ni se requiere del CSV
+        const defaultRole = 'member';
+
+        // Hacer match de Job Family por nombre
+        let jobFamilyId = null;
+        let jobFamilyIds = [];
+        let jobFamilyNameStored = null;
+        if (jobFamilyName) {
+          try {
+            const jobFamiliesRef = db.collection('organizations').doc(orgId).collection('jobFamilies');
+            const jobFamiliesSnapshot = await jobFamiliesRef.where('isActive', '==', true).get();
+            
+            const foundJobFamily = jobFamiliesSnapshot.docs.find(doc => {
+              const data = doc.data();
+              return data.name && data.name.trim().toLowerCase() === jobFamilyName.trim().toLowerCase();
+            });
+            
+            if (foundJobFamily) {
+              jobFamilyId = foundJobFamily.id;
+              jobFamilyIds = [foundJobFamily.id];
+              jobFamilyNameStored = foundJobFamily.data().name;
+            } else {
+              summary.failed += 1;
+              recordFailedRow({
+                row: rowNumber,
+                email: originalEmail,
+                reason: `Job Family "${jobFamilyName}" no encontrada. Verifica que exista en /gestion/job-families`,
+              });
+              continue;
+            }
+          } catch (error) {
+            functions.logger.warn('[MemberImport] Error matching job family', logContext(orgId, jobId, { error: error.message }));
+            summary.failed += 1;
+            recordFailedRow({
+              row: rowNumber,
+              email: originalEmail,
+              reason: `Error al buscar Job Family: ${error.message}`,
+            });
+            continue;
+          }
+        }
+
+        // Hacer match de Área por nombre
+        let areaId = null;
+        let areaDisplayName = null;
+        if (areaName) {
+          try {
+            const areasRef = db.collection('organizations').doc(orgId).collection('orgStructure');
+            const areasSnapshot = await areasRef.where('isActive', '==', true).get();
+            
+            const foundArea = areasSnapshot.docs.find(doc => {
+              const data = doc.data();
+              return data.name && data.name.trim().toLowerCase() === areaName.trim().toLowerCase();
+            });
+            
+            if (foundArea) {
+              areaId = foundArea.id;
+              areaDisplayName = foundArea.data().name;
+            } else {
+              summary.failed += 1;
+              recordFailedRow({
+                row: rowNumber,
+                email: originalEmail,
+                reason: `Área "${areaName}" no encontrada. Verifica que exista en /gestion/estructura`,
+              });
+              continue;
+            }
+          } catch (error) {
+            functions.logger.warn('[MemberImport] Error matching area', logContext(orgId, jobId, { error: error.message }));
+            summary.failed += 1;
+            recordFailedRow({
+              row: rowNumber,
+              email: originalEmail,
+              reason: `Error al buscar Área: ${error.message}`,
+            });
+            continue;
+          }
         }
 
         try {
@@ -332,7 +417,13 @@ const memberImportProcessor = functions
             originalEmail: originalEmail || email,
             name,
             lastName,
-            role,
+            role: defaultRole, // Siempre 'member'
+            cargo: cargo || null, // Job Title
+            jobFamilyId: jobFamilyId,
+            jobFamilyIds: jobFamilyIds,
+            jobFamilyName: jobFamilyNameStored,
+            areaId: areaId,
+            area: areaDisplayName,
             membersCollection,
             uploadedBy,
             uploaderEmail,
@@ -391,206 +482,3 @@ const memberImportProcessor = functions
 module.exports = {
   memberImportProcessor,
 };
-
-
-
-
-
-const csv = require('csv-parser');
-
-const db = admin.firestore();
-const FieldValue = admin.firestore.FieldValue;
-const auth = admin.auth();
-const storage = admin.storage();
-
-const runtimeConfig = typeof functions.config === 'function' ? functions.config() : {};
-const MEMBER_IMPORT_BUCKET =
-  (runtimeConfig.memberimport && runtimeConfig.memberimport.bucket) ||
-  process.env.MEMBER_IMPORT_BUCKET ||
-  'mvp-staging-3e1cd.firebasestorage.app';
-
-const MEMBER_IMPORT_SEGMENT = '/member_imports/';
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const MAX_FAILED_ROWS_RECORDED = 50;
-
-const markJob = async (orgId, jobId, data) => {
-  const jobRef = db.collection('organizations').doc(orgId).collection('importJobs').doc(jobId);
-  await jobRef.set(
-    {
-      updatedAt: FieldValue.serverTimestamp(),
-      ...data,
-    },
-    { merge: true }
-  );
-};
-
-const logContext = (orgId, jobId, extra = {}) => ({
-  orgId,
-  jobId,
-  ...extra,
-});
-
-const parseCsvFromStorage = async (bucket, filePath) => {
-  const rows = [];
-
-  await new Promise((resolve, reject) => {
-    bucket
-      .file(filePath)
-      .createReadStream()
-      .on('error', (error) => {
-        reject(error);
-      })
-      .pipe(
-        csv({
-          separator: ';', // Accept semicolon delimiter (common in Excel exports)
-          mapHeaders: ({ header }) =>
-            header ? header.trim().toLowerCase().replace(/\s+/g, '') : header,
-          skipLines: 0,
-          strict: false,
-        })
-      )
-      .on('data', (data) => {
-        const normalized = Object.entries(data).reduce((acc, [key, value]) => {
-          if (!key) return acc;
-          acc[key] = typeof value === 'string' ? value.trim() : value;
-          return acc;
-        }, {});
-        rows.push(normalized);
-      })
-      .on('end', resolve);
-  });
-
-  return rows;
-};
-
-const buildDisplayName = (name, lastName, fallbackEmail) => {
-  const fullName = [name, lastName].filter(Boolean).join(' ').trim();
-  return fullName || fallbackEmail;
-};
-
-const normalizeRole = (role) => {
-  if (!role || typeof role !== 'string') {
-    return 'employee';
-  }
-  return role.trim().toLowerCase();
-};
-
-const findExistingMemberDoc = async (membersCollection, email, emailLower, authUid, orgId) => {
-  if (authUid && orgId) {
-    const compositeId = `${orgId}:${authUid}`;
-    const directRef = membersCollection.doc(compositeId);
-    const directSnap = await directRef.get();
-    if (directSnap.exists) {
-      return directSnap;
-    }
-    
-    // Fallback: try authUid alone (legacy format)
-    const legacyRef = membersCollection.doc(authUid);
-    const legacySnap = await legacyRef.get();
-    if (legacySnap.exists) {
-      return legacySnap;
-    }
-  }
-
-  const byEmailSnap = await membersCollection.where('email', '==', email).limit(1).get();
-  if (!byEmailSnap.empty) {
-    return byEmailSnap.docs[0];
-  }
-
-  const byEmailLowerSnap = await membersCollection.where('emailLower', '==', emailLower).limit(1).get();
-  if (!byEmailLowerSnap.empty) {
-    return byEmailLowerSnap.docs[0];
-  }
-
-  return null;
-};
-
-const upsertMember = async ({
-  orgId,
-  jobId,
-  email,
-  originalEmail,
-  name,
-  lastName,
-  role,
-  membersCollection,
-  uploadedBy,
-  uploaderEmail,
-}) => {
-  const displayName = buildDisplayName(name, lastName, originalEmail);
-  const normalizedRole = normalizeRole(role);
-  let userRecord = null;
-  let isExistingUser = true;
-
-  try {
-    userRecord = await auth.getUserByEmail(email);
-  } catch (error) {
-    if (error.code === 'auth/user-not-found') {
-      isExistingUser = false;
-      userRecord = await auth.createUser({
-        email,
-        displayName,
-        emailVerified: false,
-      });
-    } else {
-      throw error;
-    }
-  }
-
-  // Update displayName if user already existed but has different name
-  if (isExistingUser && displayName && userRecord.displayName !== displayName) {
-    await auth.updateUser(userRecord.uid, { displayName });
-  }
-
-  // Find existing Firestore document
-  let memberSnap = await findExistingMemberDoc(
-    membersCollection,
-    originalEmail,
-    email,
-    userRecord.uid,
-    orgId
-  );
-
-  let memberRef;
-  const memberDocId = `${orgId}:${userRecord.uid}`;
-
-  if (memberSnap) {
-    memberRef = memberSnap.ref;
-  } else {
-    memberRef = membersCollection.doc(memberDocId);
-    memberSnap = null;
-  }
-
-  const now = FieldValue.serverTimestamp();
-  const payload = {
-    email: originalEmail,
-    emailLower: email,
-    name: name || null,
-    lastName: lastName || null,
-    displayName,
-    fullName: displayName,
-    role: normalizedRole,
-    memberRole: normalizedRole,
-    authUid: userRecord.uid,
-    orgId,
-    organizationId: orgId,
-    isActive: true,
-    importJobId: jobId,
-    updatedAt: now,
-    updatedBy: uploaderEmail || uploadedBy || 'member-import',
-    source: 'member-import',
-  };
-
-  if (!memberSnap) {
-    payload.createdAt = now;
-    payload.createdBy = uploaderEmail || uploadedBy || 'member-import';
-  }
-
-  await memberRef.set(payload, { merge: true });
-
-  return {
-    result: isExistingUser ? 'updated' : 'created',
-    memberId: memberRef.id,
-  };
-};
-

@@ -4,7 +4,7 @@
  * Envía invitaciones a evaluadores para evaluaciones 360°
  */
 
-const functions = require('firebase-functions');
+const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
 const email360Service = require('./360EmailService');
 

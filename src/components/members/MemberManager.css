@@ -112,6 +112,27 @@
   cursor: not-allowed;
 }
 
+.btn-action {
+  padding: 4px 10px !important;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px !important;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.btn-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .btn-primary {
   background-color: #0d6efd;
   color: white;
@@ -205,7 +226,7 @@
 }
 
 .members-table th {
-  padding: 12px 16px;
+  padding: 8px 12px;
   text-align: left;
   font-weight: 600;
   color: #495057;
@@ -215,7 +236,7 @@
 }
 
 .members-table td {
-  padding: 14px 16px;
+  padding: 8px 12px;
   border-bottom: 1px solid #dee2e6;
   color: #212529;
 }
@@ -461,6 +482,10 @@
   
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .member-manager-container > div[style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
   }
   
   .import-buttons {

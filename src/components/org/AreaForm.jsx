@@ -11,7 +11,7 @@ const AreaForm = ({ area, areas, onSubmit, onCancel }) => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    level: ORG_LEVELS.AREA,
+    level: ORG_LEVELS.AREA, // Valor por defecto, pero no se muestra en el formulario
     parentId: null,
     managerId: null,
     managerType: MANAGER_TYPES.FUNCTIONAL
@@ -165,171 +165,174 @@ const AreaForm = ({ area, areas, onSubmit, onCancel }) => {
   };
   
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} style={{ padding: '0', margin: '0' }}>
       {errors.submit && (
-        <Alert type="error">
-          <Alert.Description>{errors.submit}</Alert.Description>
-        </Alert>
-      )}
-      
-      {/* Nombre */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Nombre *
-        </label>
-        <Input
-          value={formData.name}
-          onChange={(e) => handleChange('name', e.target.value)}
-          placeholder="Ej: Ventas, Marketing, IT"
-          error={errors.name}
-          required
-        />
-        {errors.name && (
-          <p className="text-sm text-red-600 mt-1">{errors.name}</p>
-        )}
-      </div>
-      
-      {/* Descripción */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Descripción
-        </label>
-        <Textarea
-          value={formData.description}
-          onChange={(e) => handleChange('description', e.target.value)}
-          placeholder="Descripción opcional del área..."
-          rows={3}
-          error={errors.description}
-        />
-        {errors.description && (
-          <p className="text-sm text-red-600 mt-1">{errors.description}</p>
-        )}
-      </div>
-      
-      {/* Nivel */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Nivel *
-        </label>
-        <Select
-          value={formData.level}
-          onValueChange={(value) => handleChange('level', parseInt(value))}
-          error={errors.level}
-        >
-          <Select.Trigger>
-            <Select.Value placeholder="Seleccionar nivel" />
-          </Select.Trigger>
-          <Select.Content>
-            <Select.Item value={ORG_LEVELS.ORGANIZATION}>
-              {getLevelLabel(ORG_LEVELS.ORGANIZATION)}
-            </Select.Item>
-            <Select.Item value={ORG_LEVELS.AREA}>
-              {getLevelLabel(ORG_LEVELS.AREA)}
-            </Select.Item>
-            <Select.Item value={ORG_LEVELS.DEPARTMENT}>
-              {getLevelLabel(ORG_LEVELS.DEPARTMENT)}
-            </Select.Item>
-          </Select.Content>
-        </Select>
-        {errors.level && (
-          <p className="text-sm text-red-600 mt-1">{errors.level}</p>
-        )}
-      </div>
-      
-      {/* Área Padre */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Área Padre
-        </label>
-        <Select
-          value={formData.parentId || ''}
-          onValueChange={(value) => handleChange('parentId', value || null)}
-          error={errors.parentId}
-        >
-          <Select.Trigger>
-            <Select.Value placeholder="Seleccionar área padre (opcional)" />
-          </Select.Trigger>
-          <Select.Content>
-            <Select.Item value="">Sin área padre</Select.Item>
-            {getAvailableParents().map(parent => (
-              <Select.Item key={parent.id} value={parent.id}>
-                {parent.name} ({getLevelLabel(parent.level)})
-              </Select.Item>
-            ))}
-          </Select.Content>
-        </Select>
-        {errors.parentId && (
-          <p className="text-sm text-red-600 mt-1">{errors.parentId}</p>
-        )}
-      </div>
-      
-      {/* Manager */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Manager del Área
-        </label>
-        <Select
-          value={formData.managerId || ''}
-          onValueChange={(value) => handleChange('managerId', value || null)}
-        >
-          <Select.Trigger>
-            <Select.Value placeholder="Seleccionar manager (opcional)" />
-          </Select.Trigger>
-          <Select.Content>
-            <Select.Item value="">Sin manager asignado</Select.Item>
-            {getAvailableManagers().map(manager => (
-              <Select.Item key={manager.id} value={manager.id}>
-                {manager.name} ({manager.email})
-              </Select.Item>
-            ))}
-          </Select.Content>
-        </Select>
-      </div>
-      
-      {/* Tipo de Manager */}
-      {formData.managerId && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Tipo de Manager
-          </label>
-          <Select
-            value={formData.managerType}
-            onValueChange={(value) => handleChange('managerType', value)}
-          >
-            <Select.Trigger>
-              <Select.Value placeholder="Seleccionar tipo" />
-            </Select.Trigger>
-            <Select.Content>
-              <Select.Item value={MANAGER_TYPES.FUNCTIONAL}>
-                {getManagerTypeLabel(MANAGER_TYPES.FUNCTIONAL)}
-              </Select.Item>
-              <Select.Item value={MANAGER_TYPES.PROJECT}>
-                {getManagerTypeLabel(MANAGER_TYPES.PROJECT)}
-              </Select.Item>
-              <Select.Item value={MANAGER_TYPES.MATRIX}>
-                {getManagerTypeLabel(MANAGER_TYPES.MATRIX)}
-              </Select.Item>
-            </Select.Content>
-          </Select>
+        <div className="alert alert-error" style={{ marginBottom: '16px' }}>
+          <div>{errors.submit}</div>
         </div>
       )}
       
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {/* Nombre */}
+        <div>
+          <label style={{ 
+            display: 'block', 
+            fontSize: '13px', 
+            fontWeight: '500', 
+            color: '#495057', 
+            marginBottom: '8px' 
+          }}>
+            Nombre <span style={{ color: '#dc2626' }}>*</span>
+          </label>
+          <input
+            type="text"
+            value={formData.name}
+            onChange={(e) => handleChange('name', e.target.value)}
+            placeholder="Ej: Ventas, Marketing, IT"
+            required
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              border: errors.name ? '1px solid #dc2626' : '1px solid #ced4da',
+              borderRadius: '4px',
+              fontSize: '14px',
+              outline: 'none',
+              transition: 'border-color 0.2s',
+              fontFamily: 'inherit'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = '#0d6efd';
+              e.target.style.boxShadow = '0 0 0 3px rgba(13, 110, 253, 0.1)';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = errors.name ? '#dc2626' : '#ced4da';
+              e.target.style.boxShadow = 'none';
+            }}
+          />
+          {errors.name && (
+            <p style={{ fontSize: '12px', color: '#dc2626', marginTop: '4px', marginBottom: 0 }}>
+              {errors.name}
+            </p>
+          )}
+        </div>
+        
+        {/* Descripción */}
+        <div>
+          <label style={{ 
+            display: 'block', 
+            fontSize: '13px', 
+            fontWeight: '500', 
+            color: '#495057', 
+            marginBottom: '8px' 
+          }}>
+            Descripción <span style={{ fontSize: '12px', color: '#6c757d', fontWeight: 'normal' }}>(Opcional)</span>
+          </label>
+          <textarea
+            value={formData.description}
+            onChange={(e) => handleChange('description', e.target.value)}
+            placeholder="Descripción opcional del área..."
+            rows={4}
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              border: errors.description ? '1px solid #dc2626' : '1px solid #ced4da',
+              borderRadius: '4px',
+              fontSize: '14px',
+              outline: 'none',
+              transition: 'border-color 0.2s',
+              fontFamily: 'inherit',
+              resize: 'vertical',
+              minHeight: '80px'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = '#0d6efd';
+              e.target.style.boxShadow = '0 0 0 3px rgba(13, 110, 253, 0.1)';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = errors.description ? '#dc2626' : '#ced4da';
+              e.target.style.boxShadow = 'none';
+            }}
+          />
+          {errors.description && (
+            <p style={{ fontSize: '12px', color: '#dc2626', marginTop: '4px', marginBottom: 0 }}>
+              {errors.description}
+            </p>
+          )}
+        </div>
+      </div>
+      
       {/* Botones */}
-      <div className="flex justify-end space-x-2 pt-4">
-        <Button
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'flex-end', 
+        gap: '12px', 
+        marginTop: '24px',
+        paddingTop: '20px',
+        borderTop: '1px solid #dee2e6'
+      }}>
+        <button
           type="button"
-          variant="outline"
           onClick={onCancel}
           disabled={loading}
+          style={{
+            padding: '10px 20px',
+            border: '1px solid #dee2e6',
+            borderRadius: '4px',
+            fontSize: '14px',
+            fontWeight: '500',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            backgroundColor: 'white',
+            color: '#212529',
+            transition: 'all 0.2s',
+            fontFamily: 'inherit'
+          }}
+          onMouseEnter={(e) => {
+            if (!loading) {
+              e.target.style.backgroundColor = '#f8f9fa';
+              e.target.style.borderColor = '#adb5bd';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!loading) {
+              e.target.style.backgroundColor = 'white';
+              e.target.style.borderColor = '#dee2e6';
+            }
+          }}
         >
           Cancelar
-        </Button>
-        <Button
+        </button>
+        <button
           type="submit"
           disabled={loading}
+          style={{
+            padding: '10px 20px',
+            border: 'none',
+            borderRadius: '4px',
+            fontSize: '14px',
+            fontWeight: '500',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            backgroundColor: loading ? '#6c757d' : '#0d6efd',
+            color: 'white',
+            transition: 'all 0.2s',
+            fontFamily: 'inherit'
+          }}
+          onMouseEnter={(e) => {
+            if (!loading) {
+              e.target.style.backgroundColor = '#0b5ed7';
+              e.target.style.transform = 'translateY(-1px)';
+              e.target.style.boxShadow = '0 4px 8px rgba(13, 110, 253, 0.3)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!loading) {
+              e.target.style.backgroundColor = '#0d6efd';
+              e.target.style.transform = 'translateY(0)';
+              e.target.style.boxShadow = 'none';
+            }
+          }}
         >
           {loading ? 'Guardando...' : (area ? 'Actualizar' : 'Crear')}
-        </Button>
+        </button>
       </div>
     </form>
   );

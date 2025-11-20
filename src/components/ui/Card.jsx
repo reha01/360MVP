@@ -60,18 +60,20 @@ const Card = ({
     borderColor: '#D1D5DB'
   } : {};
 
+  // NO usar onMouseEnter/onMouseLeave que manipulan el DOM directamente
+  // Esto puede causar re-renders durante el mount inicial
+  const finalStyles = {
+    ...baseStyles,
+    ...(hover ? {
+      // Usar CSS hover en lugar de eventos JS
+      cursor: 'pointer'
+    } : {})
+  };
+
   return (
     <div
       className={`ui-card ${className}`}
-      style={baseStyles}
-      onMouseEnter={(e) => {
-        if (hover) {
-          Object.assign(e.target.style, { ...baseStyles, ...hoverStyles });
-        }
-      }}
-      onMouseLeave={(e) => {
-        Object.assign(e.target.style, baseStyles);
-      }}
+      style={finalStyles}
       {...props}
     >
       {children}

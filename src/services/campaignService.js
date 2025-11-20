@@ -11,6 +11,7 @@ import {
   getDocs, 
   getDoc, 
   addDoc, 
+  setDoc,
   updateDoc, 
   deleteDoc, 
   query, 
@@ -63,7 +64,7 @@ export const getOrgCampaigns = async (orgId) => {
 };
 
 /**
- * Obtener campaÃ±as con filtros y paginaciÃ³n (para dashboard)
+ * Obtener campañas con filtros y paginación (para dashboard)
  */
 export const getCampaigns = async (orgId, options = {}) => {
   try {
@@ -71,122 +72,85 @@ export const getCampaigns = async (orgId, options = {}) => {
       throw new Error('Organization ID is required');
     }
 
-    // Mock data para desarrollo
-    const mockCampaigns = [
-      {
-        id: 'campaign-1',
-        name: 'EvaluaciÃ³n Q1 2024',
-        description: 'EvaluaciÃ³n trimestral de liderazgo',
-        status: 'active',
-        startDate: '2024-01-15',
-        endDate: '2024-02-15',
-        evaluationCount: 45,
-        testId: 'leadership-v1',
-        testVersion: '1.0.0',
-        createdAt: new Date('2024-01-01')
-      },
-      {
-        id: 'campaign-2',
-        name: 'EvaluaciÃ³n Q2 2024',
-        description: 'EvaluaciÃ³n de competencias tÃ©cnicas',
-        status: 'completed',
-        startDate: '2024-04-01',
-        endDate: '2024-05-01',
-        evaluationCount: 67,
-        testId: 'technical-v2',
-        testVersion: '2.0.0',
-        createdAt: new Date('2024-03-15')
-      },
-      {
-        id: 'campaign-3',
-        name: 'EvaluaciÃ³n Anual 2024',
-        description: 'EvaluaciÃ³n integral anual',
-        status: 'active',
-        startDate: '2024-10-01',
-        endDate: '2024-11-30',
-        evaluationCount: 120,
-        testId: 'leadership-v1',
-        testVersion: '1.0.0',
-        createdAt: new Date('2024-09-20')
-      },
-      {
-        id: 'campaign-4',
-        name: 'EvaluaciÃ³n Ventas Q3',
-        description: 'EvaluaciÃ³n del equipo de ventas',
-        status: 'draft',
-        startDate: '2024-07-01',
-        endDate: '2024-07-31',
-        evaluationCount: 0,
-        testId: 'sales-v1',
-        testVersion: '1.0.0',
-        createdAt: new Date('2024-06-15')
-      },
-      {
-        id: 'campaign-5',
-        name: 'DST Test Campaign',
-        description: 'CampaÃ±a que cruza cambio de hora',
-        status: 'active',
-        startDate: '2024-08-15',
-        endDate: '2024-10-15',
-        evaluationCount: 89,
-        testId: 'leadership-v1',
-        testVersion: '1.0.0',
-        crossesDST: true,
-        createdAt: new Date('2024-08-01')
-      }
-    ];
+    // Conectar con Firestore real
+    const campaignsRef = collection(db, 'organizations', orgId, 'campaigns');
+    let q = query(campaignsRef);
 
     // Aplicar filtros
-    let filteredCampaigns = [...mockCampaigns];
-    
-    if (options.search) {
-      filteredCampaigns = filteredCampaigns.filter(c => 
-        c.name.toLowerCase().includes(options.search.toLowerCase()) ||
-        c.description.toLowerCase().includes(options.search.toLowerCase())
-      );
-    }
-    
     if (options.status && options.status !== 'all') {
-      filteredCampaigns = filteredCampaigns.filter(c => c.status === options.status);
+      q = query(q, where('status', '==', options.status));
     }
-    
-    if (options.jobFamily && options.jobFamily !== 'all') {
-      // Mapear job family basado en testId
-      const jobFamilyMap = {
-        'leadership': ['leadership-v1', 'leadership-v2'],
-        'technical': ['technical-v1', 'technical-v2'],
-        'sales': ['sales-v1', 'sales-v2']
-      };
-      const testIds = jobFamilyMap[options.jobFamily] || [];
-      filteredCampaigns = filteredCampaigns.filter(c => testIds.includes(c.testId));
+
+    if (options.type && options.type !== 'all') {
+      q = query(q, where('type', '==', options.type));
     }
+
+    // Ordenar por fecha de creación
+    q = query(q, orderBy('createdAt', 'desc'));
     
-    if (options.dateFrom) {
-      filteredCampaigns = filteredCampaigns.filter(c => 
-        new Date(c.startDate) >= new Date(options.dateFrom)
-      );
-    }
-    
-    if (options.dateTo) {
-      filteredCampaigns = filteredCampaigns.filter(c => 
-        new Date(c.endDate) <= new Date(options.dateTo)
-      );
-    }
-    
-    // PaginaciÃ³n
+    // Nota: Los filtros de fecha se aplican en memoria después de obtener los datos
+    // porque requieren índices compuestos en Firestore para campos anidados (config.startDate)
+
+    // Paginación
     const page = options.page || 1;
     const pageSize = options.pageSize || 20;
     const startIndex = (page - 1) * pageSize;
-    const endIndex = startIndex + pageSize;
     
-    const paginatedCampaigns = filteredCampaigns.slice(startIndex, endIndex);
-    const hasMore = endIndex < filteredCampaigns.length;
+    // Obtener datos con límite
+    q = query(q, limit(pageSize * page)); // Obtener hasta la página actual
+    const snapshot = await getDocs(q);
+    
+    let campaigns = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    // Filtrar por búsqueda de texto en memoria (si se proporciona)
+    if (options.search) {
+      const searchLower = options.search.toLowerCase();
+      campaigns = campaigns.filter(c => 
+        (c.title || '').toLowerCase().includes(searchLower) ||
+        (c.description || '').toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Filtrar por fecha en memoria (si se proporciona)
+    if (options.dateFrom) {
+      campaigns = campaigns.filter(c => {
+        const startDate = c.config?.startDate || c.startDate;
+        return startDate && new Date(startDate) >= new Date(options.dateFrom);
+      });
+    }
+
+    if (options.dateTo) {
+      campaigns = campaigns.filter(c => {
+        const endDate = c.config?.endDate || c.endDate;
+        return endDate && new Date(endDate) <= new Date(options.dateTo);
+      });
+    }
+
+    // Filtrar por Job Family (si se proporciona)
+    if (options.jobFamily && options.jobFamily !== 'all') {
+      campaigns = campaigns.filter(c => {
+        // Verificar si algún test asignado corresponde a la Job Family
+        const testAssignments = c.testAssignments || {};
+        return Object.values(testAssignments).some(assignment => {
+          // Aquí se podría verificar contra Job Family mappings
+          // Por ahora, filtramos por testId si coincide
+          return assignment.testId && assignment.testId.includes(options.jobFamily);
+        });
+      });
+    }
+
+    // Aplicar paginación en memoria
+    const paginatedCampaigns = campaigns.slice(startIndex, startIndex + pageSize);
+    const hasMore = campaigns.length > startIndex + pageSize;
     
     console.log(`[Campaign] Returning ${paginatedCampaigns.length} campaigns for org ${orgId} (page ${page})`);
     
     return {
       campaigns: paginatedCampaigns,
-      total: filteredCampaigns.length,
+      total: campaigns.length,
       page,
       pageSize,
       hasMore
@@ -202,7 +166,7 @@ export const getCampaigns = async (orgId, options = {}) => {
  */
 export const getCampaign = async (orgId, campaignId) => {
   try {
-    const campaignRef = doc(db, 'orgs', orgId, 'campaigns', campaignId);
+    const campaignRef = doc(db, 'organizations', orgId, 'campaigns', campaignId);
     const snapshot = await getDoc(campaignRef);
     
     if (!snapshot.exists()) {
@@ -239,8 +203,8 @@ export const createCampaign = async (orgId, campaignData, userId) => {
     });
     
     // Crear en Firestore
-    const campaignRef = doc(db, 'orgs', orgId, 'campaigns', newCampaign.campaignId);
-    await updateDoc(campaignRef, {
+    const campaignRef = doc(db, 'organizations', orgId, 'campaigns', newCampaign.campaignId);
+    await setDoc(campaignRef, {
       ...newCampaign,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
@@ -277,7 +241,7 @@ export const updateCampaign = async (orgId, campaignId, updates, userId) => {
     };
     
     // Actualizar en Firestore
-    const campaignRef = doc(db, 'orgs', orgId, 'campaigns', campaignId);
+    const campaignRef = doc(db, 'organizations', orgId, 'campaigns', campaignId);
     await updateDoc(campaignRef, updatedCampaign);
     
     console.log(`[Campaign] Updated campaign: ${updatedCampaign.title} (${campaignId})`);
@@ -319,7 +283,7 @@ export const activateCampaign = async (orgId, campaignId, userId) => {
     };
     
     // Guardar en Firestore
-    const campaignRef = doc(db, 'orgs', orgId, 'campaigns', campaignId);
+    const campaignRef = doc(db, 'organizations', orgId, 'campaigns', campaignId);
     await updateDoc(campaignRef, updatedCampaign);
     
     console.log(`[Campaign] Activated campaign: ${campaign.title} (${campaignId}) with ${sessions.length} sessions`);
@@ -352,7 +316,7 @@ export const closeCampaign = async (orgId, campaignId, userId) => {
     };
     
     // Guardar en Firestore
-    const campaignRef = doc(db, 'orgs', orgId, 'campaigns', campaignId);
+    const campaignRef = doc(db, 'organizations', orgId, 'campaigns', campaignId);
     await updateDoc(campaignRef, updatedCampaign);
     
     console.log(`[Campaign] Closed campaign: ${campaign.title} (${campaignId})`);
@@ -366,7 +330,7 @@ export const closeCampaign = async (orgId, campaignId, userId) => {
 // ========== EVALUATION360SESSION MANAGEMENT ==========
 
 /**
- * Obtener sesiones de evaluaciÃ³n 360Â° de una campaÃ±a
+ * Obtener sesiones de evaluación 360° de una campaña
  */
 export const getCampaignSessions = async (orgId, campaignId) => {
   try {
@@ -387,6 +351,28 @@ export const getCampaignSessions = async (orgId, campaignId) => {
     return sessions;
   } catch (error) {
     console.error('[Campaign] Error loading campaign sessions:', error);
+    throw error;
+  }
+};
+
+/**
+ * Obtener sesión 360° específica por ID
+ */
+export const getCampaignSession = async (orgId, session360Id) => {
+  try {
+    const sessionRef = doc(db, 'organizations', orgId, 'evaluation360Sessions', session360Id);
+    const snapshot = await getDoc(sessionRef);
+    
+    if (!snapshot.exists()) {
+      throw new Error(`Evaluation360Session ${session360Id} not found`);
+    }
+    
+    return {
+      id: snapshot.id,
+      ...snapshot.data()
+    };
+  } catch (error) {
+    console.error('[Campaign] Error loading campaign session:', error);
     throw error;
   }
 };
@@ -443,7 +429,7 @@ export const generateEvaluation360Sessions = async (orgId, campaignId, campaign)
       });
       
       // Agregar a batch
-      const sessionRef = doc(db, 'orgs', orgId, 'evaluation360Sessions', session.session360Id);
+      const sessionRef = doc(db, 'organizations', orgId, 'evaluation360Sessions', session.session360Id);
       batch.set(sessionRef, {
         ...session,
         createdAt: serverTimestamp(),
@@ -654,6 +640,7 @@ export default {
   activateCampaign,
   closeCampaign,
   getCampaignSessions,
+  getCampaignSession,
   generateEvaluation360Sessions,
   getUsersByFilters,
   getDefaultTestForUser,

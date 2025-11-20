@@ -19,6 +19,9 @@ const reportFunctions = require('./src/reports/generateReport');
 // Aggregation functions
 const process360Aggregations = require('./src/aggregation/process360Aggregations');
 
+// Member import function
+const { memberImportProcessor } = require('./src/imports/memberImportWorker');
+
 exports.onUserCreate = authFunctions.onUserCreate;
 exports.getUserProfile = profileFunctions.getUserProfile;
 
@@ -37,3 +40,6 @@ exports.listReports = reportFunctions.listReports;
 
 // Aggregation exports
 exports.process360Aggregations = process360Aggregations.process360Aggregations;
+
+// Member import export
+exports.memberImportProcessor = memberImportProcessor;

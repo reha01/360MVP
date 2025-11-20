@@ -26,9 +26,9 @@ import {
   Tabs, 
   Alert, 
   Spinner,
-  Modal,
   Badge
 } from '../ui';
+import Modal from '../ui/Modal';
 
 const OrgStructureManager = () => {
   const { currentOrgId } = useMultiTenant();
@@ -52,9 +52,14 @@ const OrgStructureManager = () => {
   
   // Cargar datos iniciales
   useEffect(() => {
-    if (currentOrgId) {
+    if (!currentOrgId) return;
+    
+    // Usar setTimeout para evitar actualizaciones durante el render
+    const timer = setTimeout(() => {
       loadOrgData();
-    }
+    }, 0);
+    
+    return () => clearTimeout(timer);
   }, [currentOrgId]);
   
   const loadOrgData = async () => {
@@ -62,25 +67,53 @@ const OrgStructureManager = () => {
       setLoading(true);
       setError(null);
       
-      const [areasData, usersData, treeData] = await Promise.all([
-        orgStructureService.getOrgAreas(currentOrgId),
-        orgStructureService.getOrgUsers(currentOrgId),
-        orgStructureService.getOrgTree(currentOrgId)
+      // Usar Promise.allSettled para que una falla no rompa todo
+      const [areasResult, usersResult, treeResult] = await Promise.allSettled([
+        orgStructureService.getOrgAreas(currentOrgId).catch(() => []),
+        orgStructureService.getOrgUsers(currentOrgId).catch(() => []),
+        orgStructureService.getOrgTree(currentOrgId).catch(() => null)
       ]);
       
-      setAreas(areasData);
-      setUsers(usersData);
-      setOrgTree(treeData);
+      // Extraer valores de los resultados
+      const areasData = areasResult.status === 'fulfilled' ? areasResult.value : [];
+      const usersData = usersResult.status === 'fulfilled' ? usersResult.value : [];
+      const treeData = treeResult.status === 'fulfilled' ? treeResult.value : null;
       
-      console.log('[OrgStructureManager] Data loaded:', {
-        areas: areasData.length,
-        users: usersData.length
-      });
+      // Deferir actualizaciones de estado para evitar React #130
+      setTimeout(() => {
+        setAreas(areasData || []);
+        setUsers(usersData || []);
+        setOrgTree(treeData);
+        
+        console.log('[OrgStructureManager] Data loaded:', {
+          areas: areasData.length,
+          users: usersData.length,
+          tree: treeData ? 'built' : 'null'
+        });
+        
+        // Si hay errores, mostrar warning pero no bloquear la UI
+        if (areasResult.status === 'rejected') {
+          console.warn('[OrgStructureManager] Failed to load areas:', areasResult.reason);
+        }
+        if (usersResult.status === 'rejected') {
+          console.warn('[OrgStructureManager] Failed to load users:', usersResult.reason);
+        }
+        if (treeResult.status === 'rejected') {
+          console.warn('[OrgStructureManager] Failed to build tree:', treeResult.reason);
+        }
+        
+        setLoading(false);
+      }, 0);
     } catch (err) {
-      console.error('[OrgStructureManager] Error loading data:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      console.error('[OrgStructureManager] Unexpected error loading data:', err);
+      // Establecer valores por defecto en lugar de mostrar error fatal
+      setTimeout(() => {
+        setAreas([]);
+        setUsers([]);
+        setOrgTree(null);
+        setError('Algunos datos no pudieron cargarse. Verifica la consola para más detalles.');
+        setLoading(false);
+      }, 0);
     }
   };
   

@@ -2,7 +2,7 @@
  * Componente principal para gestión de campañas 360°
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useMultiTenant } from '../../hooks/useMultiTenant';
 import { useAuth } from '../../context/AuthContext';
 import campaignService from '../../services/campaignService';
@@ -13,16 +13,8 @@ import { getCampaignStatusLabel, getCampaignStatusColor } from '../../models/Cam
 import CampaignWizard from './CampaignWizard';
 import CampaignCard from './CampaignCard';
 
-// UI Components
-import { 
-  Button, 
-  Card, 
-  Tabs, 
-  Alert, 
-  Spinner,
-  Badge,
-  Input
-} from '../ui';
+// Estilos
+import './CampaignManager.css';
 
 const CampaignManager = () => {
   const { currentOrgId } = useMultiTenant();
@@ -39,14 +31,8 @@ const CampaignManager = () => {
   const [showCampaignWizard, setShowCampaignWizard] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Cargar datos iniciales
-  useEffect(() => {
-    if (currentOrgId) {
-      loadData();
-    }
-  }, [currentOrgId]);
-  
-  const loadData = async () => {
+  // Memoizar loadData para evitar recreaciones
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -68,7 +54,14 @@ const CampaignManager = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentOrgId]);
+  
+  // Cargar datos iniciales
+  useEffect(() => {
+    if (currentOrgId) {
+      loadData();
+    }
+  }, [currentOrgId, loadData]);
   
   // Handlers
   const handleCreateCampaign = async (campaignData) => {
@@ -100,243 +93,237 @@ const CampaignManager = () => {
   };
   
   // Filtrar campañas por búsqueda
-  const filteredCampaigns = campaigns.filter(campaign =>
-    campaign.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    campaign.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredCampaigns = campaigns.filter(campaign => {
+    if (!searchTerm) return true;
+    const searchLower = searchTerm.toLowerCase();
+    const title = (campaign.title || campaign.name || '').toLowerCase();
+    const description = (campaign.description || '').toLowerCase();
+    return title.includes(searchLower) || description.includes(searchLower);
+  });
   
   // Agrupar por estado
   const campaignsByStatus = Object.values(CAMPAIGN_STATUS).reduce((acc, status) => {
-    acc[status] = filteredCampaigns.filter(campaign => campaign.status === status);
+    acc[status] = filteredCampaigns.filter(campaign => (campaign.status || 'draft') === status);
     return acc;
   }, {});
   
+  // Renderizar badge de estado
+  const renderStatusBadge = (status) => {
+    const statusClass = {
+      'draft': 'status-draft',
+      'active': 'status-active',
+      'closed': 'status-closed'
+    }[status] || 'status-default';
+    
+    return (
+      <span className={`status-badge ${statusClass}`}>
+        {getCampaignStatusLabel(status)}
+      </span>
+    );
+  };
+  
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <Spinner size="lg" />
-        <span className="ml-2">Cargando campañas...</span>
+      <div className="loading-container">
+        <div className="spinner"></div>
+        <span>Cargando campañas...</span>
       </div>
-    );
-  }
-  
-  if (error) {
-    return (
-      <Alert type="error" className="mb-4">
-        <Alert.Title>Error</Alert.Title>
-        <Alert.Description>{error}</Alert.Description>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => setError(null)}
-          className="mt-2"
-        >
-          Cerrar
-        </Button>
-      </Alert>
     );
   }
   
   return (
-    <div className="space-y-6">
+    <div className="campaign-manager-container">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="campaign-manager-header">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Campañas 360°
-          </h1>
-          <p className="text-gray-600 mt-1">
+          <h1>Campañas 360°</h1>
+          <p className="description">
             Gestiona campañas de evaluación 360° para tu organización
           </p>
         </div>
         
-        <Button
+        <button
+          className="btn-primary"
           onClick={() => setShowCampaignWizard(true)}
         >
-          Nueva Campaña
-        </Button>
+          ➕ Nueva Campaña
+        </button>
       </div>
       
-      {/* Stats */}
-      {overview && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <div className="p-4">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                    <span className="text-blue-600 font-semibold text-sm">
-                      {overview.total}
-                    </span>
-                  </div>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Total Campañas</p>
-                  <p className="text-lg font-semibold text-gray-900">
-                    {overview.total} campañas
-                  </p>
-                </div>
-              </div>
-            </div>
-          </Card>
-          
-          <Card>
-            <div className="p-4">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                    <span className="text-green-600 font-semibold text-sm">
-                      {overview.byStatus.active || 0}
-                    </span>
-                  </div>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Activas</p>
-                  <p className="text-lg font-semibold text-gray-900">
-                    {overview.byStatus.active || 0} campañas
-                  </p>
-                </div>
-              </div>
-            </div>
-          </Card>
-          
-          <Card>
-            <div className="p-4">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                    <span className="text-purple-600 font-semibold text-sm">
-                      {overview.totalEvaluatees}
-                    </span>
-                  </div>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Evaluados</p>
-                  <p className="text-lg font-semibold text-gray-900">
-                    {overview.totalEvaluatees} personas
-                  </p>
-                </div>
-              </div>
-            </div>
-          </Card>
-          
-          <Card>
-            <div className="p-4">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-                    <span className="text-orange-600 font-semibold text-sm">
-                      {overview.averageCompletionRate}%
-                    </span>
-                  </div>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Completitud</p>
-                  <p className="text-lg font-semibold text-gray-900">
-                    {overview.averageCompletionRate}% promedio
-                  </p>
-                </div>
-              </div>
-            </div>
-          </Card>
+      {/* Alertas */}
+      {error && (
+        <div className="alert alert-error">
+          {error}
+          <button className="alert-close" onClick={() => setError(null)}>×</button>
         </div>
       )}
       
-      {/* Search */}
-      <div className="flex justify-between items-center">
-        <div className="flex-1 max-w-md">
-          <Input
-            placeholder="Buscar campañas..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-      </div>
-      
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <Tabs.List>
-          <Tabs.Trigger value="all">Todas</Tabs.Trigger>
-          <Tabs.Trigger value="draft">Borradores</Tabs.Trigger>
-          <Tabs.Trigger value="active">Activas</Tabs.Trigger>
-          <Tabs.Trigger value="closed">Cerradas</Tabs.Trigger>
-        </Tabs.List>
-        
-        <Tabs.Content value="all" className="mt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredCampaigns.map(campaign => (
-              <CampaignCard
-                key={campaign.id}
-                campaign={campaign}
-                onActivate={handleActivateCampaign}
-                onClose={handleCloseCampaign}
-              />
-            ))}
+      {/* Estadísticas */}
+      {overview && (
+        <div className="stats-grid">
+          <div className="stat-card" title="Número total de campañas creadas en el sistema">
+            <div className="stat-label">Total campañas</div>
+            <div className="stat-value">{overview.total}</div>
+            <div className="stat-tooltip">
+              Total de campañas creadas en tu organización.
+              <br />💡 Incluye borradores, activas y cerradas
+            </div>
           </div>
           
-          {filteredCampaigns.length === 0 && (
-            <Card>
-              <div className="p-8 text-center">
-                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-gray-400 text-xl">📊</span>
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  No hay campañas
-                </h3>
-                <p className="text-gray-600 mb-4">
-                  Comienza creando tu primera campaña de evaluación 360°
-                </p>
-                <Button
-                  onClick={() => setShowCampaignWizard(true)}
-                >
-                  Crear Campaña
-                </Button>
-              </div>
-            </Card>
-          )}
-        </Tabs.Content>
-        
-        {Object.values(CAMPAIGN_STATUS).map(status => (
-          <Tabs.Content key={status} value={status} className="mt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {campaignsByStatus[status].map(campaign => (
-                <CampaignCard
-                  key={campaign.id}
-                  campaign={campaign}
-                  onActivate={handleActivateCampaign}
-                  onClose={handleCloseCampaign}
-                />
-              ))}
+          <div className="stat-card" title="Campañas actualmente activas y en ejecución">
+            <div className="stat-label">Activas</div>
+            <div className="stat-value">{overview.byStatus.active || 0}</div>
+            <div className="stat-tooltip">
+              Campañas actualmente activas y en ejecución.
+              <br />💡 Los evaluadores pueden completar evaluaciones
             </div>
-            
-            {campaignsByStatus[status].length === 0 && (
-              <Card>
-                <div className="p-8 text-center">
-                  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-gray-400 text-xl">📊</span>
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    No hay campañas {getCampaignStatusLabel(status).toLowerCase()}
+          </div>
+          
+          <div className="stat-card" title="Total de personas evaluadas en todas las campañas">
+            <div className="stat-label">Evaluados</div>
+            <div className="stat-value">{overview.totalEvaluatees}</div>
+            <div className="stat-tooltip">
+              Total de personas evaluadas en todas las campañas.
+              <br />💡 Personas que han recibido evaluaciones 360°
+            </div>
+          </div>
+          
+          <div className="stat-card" title="Porcentaje promedio de completitud de evaluaciones">
+            <div className="stat-label">Completitud</div>
+            <div className="stat-value">{overview.averageCompletionRate}%</div>
+            <div className="stat-tooltip">
+              Porcentaje promedio de completitud de evaluaciones.
+              <br />💡 Mide el progreso general de las campañas activas
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Búsqueda y filtros */}
+      <div className="search-section">
+        <label>Buscar campañas</label>
+        <input
+          type="text"
+          placeholder="Ej: Evaluación Q1 2024"
+          className="search-input"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        
+        <select 
+          className="filter-select"
+          value={activeTab}
+          onChange={(e) => setActiveTab(e.target.value)}
+        >
+          <option value="all">Todas</option>
+          <option value="draft">Borradores</option>
+          <option value="active">Activas</option>
+          <option value="closed">Cerradas</option>
+        </select>
+      </div>
+      
+      {/* Contenido de tabs */}
+      <div className="tabs-container">
+        <div className="tabs-list">
+          <button
+            className={`tabs-trigger ${activeTab === 'all' ? 'active' : ''}`}
+            onClick={() => setActiveTab('all')}
+          >
+            Todas
+          </button>
+          <button
+            className={`tabs-trigger ${activeTab === 'draft' ? 'active' : ''}`}
+            onClick={() => setActiveTab('draft')}
+          >
+            Borradores
+          </button>
+          <button
+            className={`tabs-trigger ${activeTab === 'active' ? 'active' : ''}`}
+            onClick={() => setActiveTab('active')}
+          >
+            Activas
+          </button>
+          <button
+            className={`tabs-trigger ${activeTab === 'closed' ? 'active' : ''}`}
+            onClick={() => setActiveTab('closed')}
+          >
+            Cerradas
+          </button>
+        </div>
+        
+        <div className="tabs-content">
+          {/* Tab: Todas */}
+          {activeTab === 'all' && (
+            <>
+              {filteredCampaigns.length > 0 ? (
+                <div className="campaigns-grid">
+                  {filteredCampaigns.map(campaign => (
+                    <CampaignCard
+                      key={campaign.id}
+                      campaign={campaign}
+                      onActivate={handleActivateCampaign}
+                      onClose={handleCloseCampaign}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-state">
+                  <div className="empty-state-icon">📊</div>
+                  <h3 className="empty-state-title">No hay campañas</h3>
+                  <p className="empty-state-description">
+                    Comienza creando tu primera campaña de evaluación 360°
+                  </p>
+                  <button
+                    className="btn-primary"
+                    onClick={() => setShowCampaignWizard(true)}
+                  >
+                    Crear Campaña
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+          
+          {/* Tab: Por estado */}
+          {activeTab !== 'all' && (
+            <>
+              {campaignsByStatus[activeTab]?.length > 0 ? (
+                <div className="campaigns-grid">
+                  {campaignsByStatus[activeTab].map(campaign => (
+                    <CampaignCard
+                      key={campaign.id}
+                      campaign={campaign}
+                      onActivate={handleActivateCampaign}
+                      onClose={handleCloseCampaign}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-state">
+                  <div className="empty-state-icon">📊</div>
+                  <h3 className="empty-state-title">
+                    No hay campañas {getCampaignStatusLabel(activeTab).toLowerCase()}
                   </h3>
-                  <p className="text-gray-600 mb-4">
-                    {status === CAMPAIGN_STATUS.DRAFT 
+                  <p className="empty-state-description">
+                    {activeTab === CAMPAIGN_STATUS.DRAFT 
                       ? 'Crea una nueva campaña para comenzar'
-                      : `No hay campañas en estado ${getCampaignStatusLabel(status).toLowerCase()}`
+                      : `No hay campañas en estado ${getCampaignStatusLabel(activeTab).toLowerCase()}`
                     }
                   </p>
-                  {status === CAMPAIGN_STATUS.DRAFT && (
-                    <Button
+                  {activeTab === CAMPAIGN_STATUS.DRAFT && (
+                    <button
+                      className="btn-primary"
                       onClick={() => setShowCampaignWizard(true)}
                     >
                       Crear Campaña
-                    </Button>
+                    </button>
                   )}
                 </div>
-              </Card>
-            )}
-          </Tabs.Content>
-        ))}
-      </Tabs>
+              )}
+            </>
+          )}
+        </div>
+      </div>
       
       {/* Campaign Wizard */}
       {showCampaignWizard && (

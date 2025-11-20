@@ -5,7 +5,7 @@
  * las evaluaciones de una sesión 360°
  */
 
-const functions = require('firebase-functions');
+const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
 
 exports.process360Aggregations = functions.firestore

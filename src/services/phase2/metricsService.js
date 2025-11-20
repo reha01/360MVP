@@ -12,7 +12,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { getActiveOrgId } from '../firestore';
-import campaignService from './campaignService';
+import campaignService from '../campaignService';
 import { AssignmentStatus } from '../../models/assignment.model';
 
 class MetricsService {
@@ -80,7 +80,10 @@ class MetricsService {
    */
   async getCampaignMetrics(dateRange = {}) {
     try {
-      const campaigns = await campaignService.getCampaigns();
+      const orgId = getActiveOrgId();
+      if (!orgId) throw new Error('No active organization');
+      const result = await campaignService.getCampaigns(orgId, {});
+      const campaigns = result.campaigns || [];
       
       const metrics = {
         total: campaigns.length,
@@ -371,7 +374,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { getActiveOrgId } from '../firestore';
-import campaignService from './campaignService';
+import campaignService from '../campaignService';
 import { AssignmentStatus } from '../../models/assignment.model';
 
 class MetricsService {
@@ -439,7 +442,10 @@ class MetricsService {
    */
   async getCampaignMetrics(dateRange = {}) {
     try {
-      const campaigns = await campaignService.getCampaigns();
+      const orgId = getActiveOrgId();
+      if (!orgId) throw new Error('No active organization');
+      const result = await campaignService.getCampaigns(orgId, {});
+      const campaigns = result.campaigns || [];
       
       const metrics = {
         total: campaigns.length,

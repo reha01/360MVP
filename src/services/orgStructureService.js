@@ -41,24 +41,60 @@ import {
 export const getOrgAreas = async (orgId) => {
   try {
     const areasRef = collection(db, 'organizations', orgId, 'orgStructure');
-    const q = query(
-      areasRef,
-      where('isActive', '==', true),
-      orderBy('level', 'asc'),
-      orderBy('name', 'asc')
-    );
     
-    const snapshot = await getDocs(q);
-    const areas = snapshot.docs.map(doc => ({
+    // Intentar consulta con índice compuesto primero
+    let q;
+    let snapshot;
+    
+    try {
+      q = query(
+        areasRef,
+        where('isActive', '==', true),
+        orderBy('level', 'asc'),
+        orderBy('name', 'asc')
+      );
+      snapshot = await getDocs(q);
+    } catch (indexError) {
+      // Si falla por índice faltante, intentar consulta más simple
+      console.warn('[OrgStructure] Index query failed, trying simpler query:', indexError);
+      try {
+        // Intentar solo con isActive y ordenar por name
+        q = query(
+          areasRef,
+          where('isActive', '==', true),
+          orderBy('name', 'asc')
+        );
+        snapshot = await getDocs(q);
+      } catch (simpleError) {
+        // Si aún falla, obtener todos y filtrar/ordenar en memoria
+        console.warn('[OrgStructure] Simple query failed, loading all and filtering in memory:', simpleError);
+        q = query(areasRef);
+        snapshot = await getDocs(q);
+      }
+    }
+    
+    let areas = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
+    
+    // Filtrar y ordenar en memoria si no se pudo hacer en Firestore
+    areas = areas.filter(area => area.isActive !== false);
+    areas.sort((a, b) => {
+      // Ordenar por level primero, luego por name
+      if (a.level !== b.level) {
+        return (a.level || 0) - (b.level || 0);
+      }
+      return (a.name || '').localeCompare(b.name || '');
+    });
     
     console.log(`[OrgStructure] Loaded ${areas.length} areas for org ${orgId}`);
     return areas;
   } catch (error) {
     console.error('[OrgStructure] Error loading areas:', error);
-    throw new Error(`Error loading organizational structure: ${error.message}`);
+    // Retornar array vacío en lugar de lanzar error para que la UI no se rompa
+    console.warn('[OrgStructure] Returning empty array due to error');
+    return [];
   }
 };
 
@@ -67,7 +103,7 @@ export const getOrgAreas = async (orgId) => {
  */
 export const getArea = async (orgId, areaId) => {
   try {
-    const areaRef = doc(db, 'orgs', orgId, 'orgStructure', areaId);
+    const areaRef = doc(db, 'organizations', orgId, 'orgStructure', areaId);
     const snapshot = await getDoc(areaRef);
     
     if (!snapshot.exists()) {
@@ -121,16 +157,19 @@ export const createArea = async (orgId, areaData, userId) => {
       newArea.path = [newArea.areaId];
     }
     
-    // Crear en Firestore
-    const areaRef = doc(db, 'orgs', orgId, 'orgStructure', newArea.areaId);
-    await updateDoc(areaRef, {
+    // Crear en Firestore usando la ruta correcta y addDoc
+    const areasRef = collection(db, 'organizations', orgId, 'orgStructure');
+    const docRef = await addDoc(areasRef, {
       ...newArea,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
     
-    console.log(`[OrgStructure] Created area: ${newArea.name} (${newArea.areaId})`);
-    return newArea;
+    console.log(`[OrgStructure] Created area: ${newArea.name} (${docRef.id})`);
+    return {
+      ...newArea,
+      id: docRef.id
+    };
   } catch (error) {
     console.error('[OrgStructure] Error creating area:', error);
     throw error;
@@ -171,7 +210,7 @@ export const updateArea = async (orgId, areaId, updates, userId) => {
     }
     
     // Actualizar en Firestore
-    const areaRef = doc(db, 'orgs', orgId, 'orgStructure', areaId);
+    const areaRef = doc(db, 'organizations', orgId, 'orgStructure', areaId);
     await updateDoc(areaRef, updatedArea);
     
     console.log(`[OrgStructure] Updated area: ${updatedArea.name} (${areaId})`);
@@ -200,7 +239,7 @@ export const deleteArea = async (orgId, areaId, userId) => {
     }
     
     // Soft delete
-    const areaRef = doc(db, 'orgs', orgId, 'orgStructure', areaId);
+    const areaRef = doc(db, 'organizations', orgId, 'orgStructure', areaId);
     await updateDoc(areaRef, {
       isActive: false,
       updatedBy: userId,
@@ -221,21 +260,56 @@ export const deleteArea = async (orgId, areaId, userId) => {
 export const getChildAreas = async (orgId, parentId) => {
   try {
     const areasRef = collection(db, 'organizations', orgId, 'orgStructure');
-    const q = query(
-      areasRef,
-      where('parentId', '==', parentId),
-      where('isActive', '==', true),
-      orderBy('name', 'asc')
-    );
     
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
+    // Intentar consulta con índice compuesto primero
+    let q;
+    let snapshot;
+    
+    try {
+      q = query(
+        areasRef,
+        where('parentId', '==', parentId),
+        where('isActive', '==', true),
+        orderBy('name', 'asc')
+      );
+      snapshot = await getDocs(q);
+    } catch (indexError) {
+      // Si falla por índice faltante, intentar consulta más simple
+      console.warn('[OrgStructure] Index query failed for child areas, trying simpler query:', indexError);
+      try {
+        // Intentar solo con parentId y isActive, sin orderBy
+        q = query(
+          areasRef,
+          where('parentId', '==', parentId),
+          where('isActive', '==', true)
+        );
+        snapshot = await getDocs(q);
+      } catch (simpleError) {
+        // Si aún falla, obtener todas las áreas y filtrar en memoria
+        console.warn('[OrgStructure] Simple query failed for child areas, loading all and filtering in memory:', simpleError);
+        q = query(areasRef);
+        snapshot = await getDocs(q);
+      }
+    }
+    
+    let childAreas = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
+    
+    // Filtrar en memoria si no se pudo filtrar en Firestore
+    childAreas = childAreas.filter(area => 
+      area.parentId === parentId && area.isActive !== false
+    );
+    
+    // Ordenar por nombre si no se pudo ordenar en Firestore
+    childAreas.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    
+    return childAreas;
   } catch (error) {
     console.error('[OrgStructure] Error loading child areas:', error);
-    throw error;
+    // Retornar array vacío en lugar de lanzar error para que la UI no se rompa
+    return [];
   }
 };
 
@@ -247,17 +321,32 @@ export const getChildAreas = async (orgId, parentId) => {
 export const getOrgUsers = async (orgId) => {
   try {
     const membersRef = collection(db, 'organizations', orgId, 'members');
-    const q = query(
-      membersRef,
-      where('isActive', '==', true),
-      orderBy('displayName', 'asc')
-    );
     
-    const snapshot = await getDocs(q);
-    const users = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    // Intentar con filtro isActive primero, si falla (por índice o campo faltante), obtener todos
+    let q;
+    let snapshot;
+    
+    try {
+      q = query(
+        membersRef,
+        where('isActive', '==', true),
+        orderBy('displayName', 'asc')
+      );
+      snapshot = await getDocs(q);
+    } catch (indexError) {
+      // Si falla por índice o campo faltante, obtener todos y filtrar en memoria
+      console.warn('[OrgStructure] isActive filter failed, loading all users:', indexError);
+      q = query(membersRef, orderBy('displayName', 'asc'));
+      snapshot = await getDocs(q);
+    }
+    
+    const users = snapshot.docs
+      .map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      // Filtrar en memoria si no se pudo filtrar en Firestore
+      .filter(user => user.isActive !== false); // Incluir si isActive es true o undefined
     
     console.log(`[OrgStructure] Loaded ${users.length} users for org ${orgId}`);
     return users;
@@ -273,20 +362,40 @@ export const getOrgUsers = async (orgId) => {
 export const getUsersByArea = async (orgId, areaId) => {
   try {
     const membersRef = collection(db, 'organizations', orgId, 'members');
-    const q = query(
-      membersRef,
-      where('areaId', '==', areaId),
-      where('isActive', '==', true)
-    );
     
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
+    // Intentar consulta con filtros primero
+    let q;
+    let snapshot;
+    
+    try {
+      q = query(
+        membersRef,
+        where('areaId', '==', areaId),
+        where('isActive', '==', true)
+      );
+      snapshot = await getDocs(q);
+    } catch (indexError) {
+      // Si falla por índice faltante, obtener todos y filtrar en memoria
+      console.warn('[OrgStructure] Index query failed for users by area, loading all and filtering in memory:', indexError);
+      q = query(membersRef);
+      snapshot = await getDocs(q);
+    }
+    
+    let users = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
+    
+    // Filtrar en memoria si no se pudo filtrar en Firestore
+    users = users.filter(user => 
+      user.areaId === areaId && user.isActive !== false
+    );
+    
+    return users;
   } catch (error) {
     console.error('[OrgStructure] Error loading users by area:', error);
-    throw error;
+    // Retornar array vacío en lugar de lanzar error para que la UI no se rompa
+    return [];
   }
 };
 
@@ -322,8 +431,8 @@ export const updateUserStructure = async (orgId, userId, updates, updatedBy) => 
       }
     }
     
-    // Actualizar en Firestore
-    const userRef = doc(db, 'orgs', orgId, 'members', userId);
+    // Actualizar en Firestore - Los miembros están en la colección raíz 'members' con campo orgId
+    const userRef = doc(db, 'members', userId);
     await updateDoc(userRef, updatedUser);
     
     console.log(`[OrgStructure] Updated user structure: ${userId}`);
@@ -373,7 +482,7 @@ export const importStructureFromCSV = async (orgId, csvData, userId) => {
         });
         
         // Agregar a batch
-        const areaRef = doc(db, 'orgs', orgId, 'orgStructure', area.areaId);
+        const areaRef = doc(db, 'organizations', orgId, 'orgStructure', area.areaId);
         batch.set(areaRef, {
           ...area,
           createdAt: serverTimestamp(),
@@ -410,10 +519,14 @@ export const importStructureFromCSV = async (orgId, csvData, userId) => {
 export const getOrgTree = async (orgId) => {
   try {
     const areas = await getOrgAreas(orgId);
+    if (!areas || areas.length === 0) {
+      return null;
+    }
     return buildOrgTree(areas);
   } catch (error) {
     console.error('[OrgStructure] Error building org tree:', error);
-    throw error;
+    // Retornar null en lugar de lanzar error para que la UI no se rompa
+    return null;
   }
 };
 

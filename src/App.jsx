@@ -23,10 +23,11 @@ import { TEST_CATALOG } from './lib/featureFlags';
 import MemberManager from './components/members/MemberManager';
 import BulkActionsManager from './components/bulk/BulkActionsManager';
 import AlertManager from './components/alerts/AlertManager';
+import CampaignManager from './components/campaign/CampaignManager';
+import OrganizationManager from './components/organization/OrganizationManager';
 // Note: Using temporary placeholders for other components due to build issues
 const PolicyManager = () => <div style={{padding: '20px'}}><h1>Políticas Organizacionales</h1><p>Funcionalidad disponible próximamente</p></div>;
 const CampaignComparison = () => <div style={{padding: '20px'}}><h1>Comparación de Campañas</h1><p>Funcionalidad disponible próximamente</p></div>;
-const CampaignManager = () => <div style={{padding: '20px'}}><h1>Gestión de Campañas</h1><p>Funcionalidad disponible próximamente</p></div>;
 // Add other pages as needed
 
 // Workspace-protected route wrapper (requires auth + workspace)
@@ -163,6 +164,15 @@ const App = () => {
                     element={
                       <WorkspaceProtectedRoute>
                         <CampaignManager />
+                      </WorkspaceProtectedRoute>
+                    } 
+                  />
+                  
+                  <Route 
+                    path="/gestion/organizacion" 
+                    element={
+                      <WorkspaceProtectedRoute allowedRoles={['owner', 'admin']}>
+                        <OrganizationManager />
                       </WorkspaceProtectedRoute>
                     } 
                   />

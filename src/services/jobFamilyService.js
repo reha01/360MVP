@@ -22,6 +22,7 @@ import {
   serverTimestamp 
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { getOrgUsers } from './orgStructureServiceWrapper';
 import { 
   createJobFamilyModel, 
   createTestMappingModel,
@@ -40,24 +41,61 @@ import {
 export const getOrgJobFamilies = async (orgId) => {
   try {
     const jobFamiliesRef = collection(db, 'organizations', orgId, 'jobFamilies');
-    const q = query(
-      jobFamiliesRef,
-      where('isActive', '==', true),
-      orderBy('level', 'asc'),
-      orderBy('name', 'asc')
-    );
     
-    const snapshot = await getDocs(q);
-    const jobFamilies = snapshot.docs.map(doc => ({
+    // Intentar consulta con índice compuesto primero
+    let q;
+    let snapshot;
+    
+    try {
+      q = query(
+        jobFamiliesRef,
+        where('isActive', '==', true),
+        orderBy('level', 'asc'),
+        orderBy('name', 'asc')
+      );
+      snapshot = await getDocs(q);
+    } catch (indexError) {
+      // Si falla por índice faltante, intentar consulta más simple
+      console.warn('[JobFamily] Index query failed, trying simpler query:', indexError);
+      try {
+        // Intentar solo con isActive y ordenar por name
+        q = query(
+          jobFamiliesRef,
+          where('isActive', '==', true),
+          orderBy('name', 'asc')
+        );
+        snapshot = await getDocs(q);
+      } catch (simpleError) {
+        // Si aún falla, obtener todos y filtrar/ordenar en memoria
+        console.warn('[JobFamily] Simple query failed, loading all and filtering in memory:', simpleError);
+        q = query(jobFamiliesRef);
+        snapshot = await getDocs(q);
+      }
+    }
+    
+    let jobFamilies = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
+    
+    // Filtrar y ordenar en memoria si no se pudo hacer en Firestore
+    // Solo incluir Job Families que estén explícitamente activas (isActive === true)
+    jobFamilies = jobFamilies.filter(family => family.isActive === true);
+    jobFamilies.sort((a, b) => {
+      // Ordenar por level primero, luego por name
+      if (a.level !== b.level) {
+        return (a.level || 0) - (b.level || 0);
+      }
+      return (a.name || '').localeCompare(b.name || '');
+    });
     
     console.log(`[JobFamily] Loaded ${jobFamilies.length} job families for org ${orgId}`);
     return jobFamilies;
   } catch (error) {
     console.error('[JobFamily] Error loading job families:', error);
-    throw new Error(`Error loading job families: ${error.message}`);
+    // Retornar array vacío en lugar de lanzar error para que la UI no se rompa
+    console.warn('[JobFamily] Returning empty array due to error');
+    return [];
   }
 };
 
@@ -66,7 +104,7 @@ export const getOrgJobFamilies = async (orgId) => {
  */
 export const getJobFamily = async (orgId, familyId) => {
   try {
-    const jobFamilyRef = doc(db, 'orgs', orgId, 'jobFamilies', familyId);
+    const jobFamilyRef = doc(db, 'organizations', orgId, 'jobFamilies', familyId);
     const snapshot = await getDoc(jobFamilyRef);
     
     if (!snapshot.exists()) {
@@ -113,16 +151,21 @@ export const createJobFamily = async (orgId, jobFamilyData, userId) => {
       updatedBy: userId
     });
     
-    // Crear en Firestore
-    const jobFamilyRef = doc(db, 'orgs', orgId, 'jobFamilies', newJobFamily.familyId);
-    await updateDoc(jobFamilyRef, {
+    // Crear en Firestore usando addDoc para generar ID automático
+    const jobFamiliesRef = collection(db, 'organizations', orgId, 'jobFamilies');
+    const docRef = await addDoc(jobFamiliesRef, {
       ...newJobFamily,
+      isActive: true, // Asegurar que isActive esté explícitamente en true
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
     
-    console.log(`[JobFamily] Created job family: ${newJobFamily.name} (${newJobFamily.familyId})`);
-    return newJobFamily;
+    console.log(`[JobFamily] Created job family: ${newJobFamily.name} (${docRef.id})`);
+    return {
+      ...newJobFamily,
+      id: docRef.id,
+      familyId: docRef.id
+    };
   } catch (error) {
     console.error('[JobFamily] Error creating job family:', error);
     throw error;
@@ -166,7 +209,7 @@ export const updateJobFamily = async (orgId, familyId, updates, userId) => {
     };
     
     // Actualizar en Firestore
-    const jobFamilyRef = doc(db, 'orgs', orgId, 'jobFamilies', familyId);
+    const jobFamilyRef = doc(db, 'organizations', orgId, 'jobFamilies', familyId);
     await updateDoc(jobFamilyRef, updatedJobFamily);
     
     console.log(`[JobFamily] Updated job family: ${updatedJobFamily.name} (${familyId})`);
@@ -189,7 +232,7 @@ export const deleteJobFamily = async (orgId, familyId, userId) => {
     }
     
     // Soft delete
-    const jobFamilyRef = doc(db, 'orgs', orgId, 'jobFamilies', familyId);
+    const jobFamilyRef = doc(db, 'organizations', orgId, 'jobFamilies', familyId);
     await updateDoc(jobFamilyRef, {
       isActive: false,
       updatedBy: userId,
@@ -248,7 +291,7 @@ export const addRecommendedTest = async (orgId, familyId, testMapping, userId) =
     };
     
     // Guardar en Firestore
-    const jobFamilyRef = doc(db, 'orgs', orgId, 'jobFamilies', familyId);
+    const jobFamilyRef = doc(db, 'organizations', orgId, 'jobFamilies', familyId);
     await updateDoc(jobFamilyRef, updatedJobFamily);
     
     console.log(`[JobFamily] Added recommended test: ${testMapping.testId} to ${familyId}`);
@@ -284,7 +327,7 @@ export const removeRecommendedTest = async (orgId, familyId, testId, userId) => 
     };
     
     // Guardar en Firestore
-    const jobFamilyRef = doc(db, 'orgs', orgId, 'jobFamilies', familyId);
+    const jobFamilyRef = doc(db, 'organizations', orgId, 'jobFamilies', familyId);
     await updateDoc(jobFamilyRef, updatedJobFamily);
     
     console.log(`[JobFamily] Removed recommended test: ${testId} from ${familyId}`);
@@ -325,7 +368,7 @@ export const addAllowedTest = async (orgId, familyId, testId, userId) => {
     };
     
     // Guardar en Firestore
-    const jobFamilyRef = doc(db, 'orgs', orgId, 'jobFamilies', familyId);
+    const jobFamilyRef = doc(db, 'organizations', orgId, 'jobFamilies', familyId);
     await updateDoc(jobFamilyRef, updatedJobFamily);
     
     console.log(`[JobFamily] Added allowed test: ${testId} to ${familyId}`);
@@ -370,7 +413,7 @@ export const addExcludedTest = async (orgId, familyId, testId, userId) => {
     };
     
     // Guardar en Firestore
-    const jobFamilyRef = doc(db, 'orgs', orgId, 'jobFamilies', familyId);
+    const jobFamilyRef = doc(db, 'organizations', orgId, 'jobFamilies', familyId);
     await updateDoc(jobFamilyRef, updatedJobFamily);
     
     console.log(`[JobFamily] Added excluded test: ${testId} to ${familyId}`);
@@ -415,7 +458,7 @@ export const getUsersByJobFamily = async (orgId, familyId) => {
 export const assignJobFamilyToUser = async (orgId, userId, familyId, assignedBy) => {
   try {
     // Obtener usuario actual
-    const userRef = doc(db, 'orgs', orgId, 'members', userId);
+    const userRef = doc(db, 'organizations', orgId, 'members', userId);
     const userSnapshot = await getDoc(userRef);
     
     if (!userSnapshot.exists()) {
@@ -438,7 +481,7 @@ export const assignJobFamilyToUser = async (orgId, userId, familyId, assignedBy)
     });
     
     // Actualizar contador de miembros en Job Family
-    const jobFamilyRef = doc(db, 'orgs', orgId, 'jobFamilies', familyId);
+    const jobFamilyRef = doc(db, 'organizations', orgId, 'jobFamilies', familyId);
     await updateDoc(jobFamilyRef, {
       memberCount: (user.memberCount || 0) + 1,
       updatedBy: userId,
@@ -459,7 +502,7 @@ export const assignJobFamilyToUser = async (orgId, userId, familyId, assignedBy)
 export const removeJobFamilyFromUser = async (orgId, userId, familyId, updatedBy) => {
   try {
     // Obtener usuario actual
-    const userRef = doc(db, 'orgs', orgId, 'members', userId);
+    const userRef = doc(db, 'organizations', orgId, 'members', userId);
     const userSnapshot = await getDoc(userRef);
     
     if (!userSnapshot.exists()) {
@@ -482,7 +525,7 @@ export const removeJobFamilyFromUser = async (orgId, userId, familyId, updatedBy
     });
     
     // Actualizar contador de miembros en Job Family
-    const jobFamilyRef = doc(db, 'orgs', orgId, 'jobFamilies', familyId);
+    const jobFamilyRef = doc(db, 'organizations', orgId, 'jobFamilies', familyId);
     await updateDoc(jobFamilyRef, {
       memberCount: Math.max((user.memberCount || 0) - 1, 0),
       updatedBy,

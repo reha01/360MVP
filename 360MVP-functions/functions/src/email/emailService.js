@@ -6,7 +6,22 @@ const path = require('path');
 
 class EmailService {
   constructor() {
-    this.resend = new Resend(process.env.RESEND_API_KEY);
+    // Validar API key de Resend antes de crear instancia
+    const resendApiKey = process.env.RESEND_API_KEY;
+    if (!resendApiKey || resendApiKey.trim() === '') {
+      console.warn('[EmailService] RESEND_API_KEY no configurada. El envío de correos estará deshabilitado.');
+      this.resend = null;
+      this.emailEnabled = false;
+    } else {
+      try {
+        this.resend = new Resend(resendApiKey);
+        this.emailEnabled = true;
+      } catch (error) {
+        console.warn('[EmailService] Error inicializando Resend:', error.message);
+        this.resend = null;
+        this.emailEnabled = false;
+      }
+    }
     this.db = admin.firestore();
   }
 
@@ -53,6 +68,16 @@ class EmailService {
     };
 
     const html = this.loadTemplate('invite', variables);
+
+    // Si el servicio de email está deshabilitado, retornar sin enviar
+    if (!this.emailEnabled || !this.resend) {
+      console.warn('[EmailService] Email deshabilitado - no se envió invitación a', toEmail);
+      return {
+        success: false,
+        error: 'Email service not configured',
+        status: 'disabled'
+      };
+    }
 
     try {
       const result = await this.resend.emails.send({
@@ -108,6 +133,16 @@ class EmailService {
 
     const html = this.loadTemplate('reminder', variables);
 
+    // Si el servicio de email está deshabilitado, retornar sin enviar
+    if (!this.emailEnabled || !this.resend) {
+      console.warn('[EmailService] Email deshabilitado - no se envió recordatorio a', toEmail);
+      return {
+        success: false,
+        error: 'Email service not configured',
+        status: 'disabled'
+      };
+    }
+
     try {
       const result = await this.resend.emails.send({
         from: process.env.EMAIL_FROM || 'noreply@360mvp.com',
@@ -161,6 +196,16 @@ class EmailService {
     };
 
     const html = this.loadTemplate('thanks', variables);
+
+    // Si el servicio de email está deshabilitado, retornar sin enviar
+    if (!this.emailEnabled || !this.resend) {
+      console.warn('[EmailService] Email deshabilitado - no se envió agradecimiento a', toEmail);
+      return {
+        success: false,
+        error: 'Email service not configured',
+        status: 'disabled'
+      };
+    }
 
     try {
       const result = await this.resend.emails.send({

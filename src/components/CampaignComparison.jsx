@@ -1,7 +1,7 @@
 ﻿import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useOrg } from '../context/OrgContext';
 import { useRuntimeFeatureFlags } from '../hooks/useRuntimeFeatureFlags';
-import campaignService from '../services/phase2/campaignService';
+import campaignService from '../services/campaignService';
 import { Card, CardHeader, CardTitle, CardContent, Spinner, Alert, Button } from './ui';
 import { formatDate, formatDateRange, toDate } from '../utils/dateFormat';
 
@@ -80,7 +80,8 @@ const useCampaignOptions = (activeOrgId) => {
       setError(null);
 
       try {
-        const list = await campaignService.getCampaigns({ orgId: activeOrgId });
+        const result = await campaignService.getCampaigns(activeOrgId, {});
+        const list = result.campaigns || [];
         if (!cancelled) {
           setCampaigns(list);
         }
@@ -106,8 +107,8 @@ const useCampaignOptions = (activeOrgId) => {
   const options = useMemo(
     () =>
       campaigns.map((campaign) => ({
-        label: campaign.name,
-        value: campaign.id,
+        label: campaign.title || campaign.name || campaign.id,
+        value: campaign.id || campaign.campaignId,
         data: campaign,
       })),
     [campaigns]
@@ -140,15 +141,14 @@ const CampaignComparison = () => {
       setMetricsError(null);
 
       try {
-        const detailed = await campaignService.getCampaignById
-          ? await campaignService.getCampaignById(campaignId, activeOrgId)
-          : null;
-
-        let metricsPayload = detailed?.metrics;
+        const detailed = await campaignService.getCampaign(activeOrgId, campaignId);
+        let metricsPayload = detailed?.stats || detailed?.metrics;
 
         if (!metricsPayload) {
-          const list = await campaignService.getCampaigns({ orgId: activeOrgId });
-          metricsPayload = list.find((campaign) => campaign.id === campaignId)?.metrics;
+          const result = await campaignService.getCampaigns(activeOrgId, {});
+          const list = result.campaigns || [];
+          const campaign = list.find((c) => c.id === campaignId);
+          metricsPayload = campaign?.stats || campaign?.metrics;
         }
 
         setMetrics((prev) => ({
@@ -182,11 +182,11 @@ const CampaignComparison = () => {
   }, [selection.right, fetchMetrics]);
 
   const leftCampaign = useMemo(
-    () => campaigns.find((campaign) => campaign.id === selection.left) || null,
+    () => campaigns.find((campaign) => (campaign.id || campaign.campaignId) === selection.left) || null,
     [campaigns, selection.left]
   );
   const rightCampaign = useMemo(
-    () => campaigns.find((campaign) => campaign.id === selection.right) || null,
+    () => campaigns.find((campaign) => (campaign.id || campaign.campaignId) === selection.right) || null,
     [campaigns, selection.right]
   );
 
@@ -355,8 +355,8 @@ const CampaignComparison = () => {
                 <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
                   <tr>
                     <th className="px-4 py-3">MÃ©trica</th>
-                    <th className="px-4 py-3">{leftCampaign ? leftCampaign.name : 'CampaÃ±a A'}</th>
-                    <th className="px-4 py-3">{rightCampaign ? rightCampaign.name : 'CampaÃ±a B'}</th>
+                    <th className="px-4 py-3">{leftCampaign ? (leftCampaign.title || leftCampaign.name) : 'Campaña A'}</th>
+                    <th className="px-4 py-3">{rightCampaign ? (rightCampaign.title || rightCampaign.name) : 'Campaña B'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
@@ -368,19 +368,27 @@ const CampaignComparison = () => {
                   <tr>
                     <td className="px-4 py-3 font-medium text-slate-700">Periodo</td>
                     <td className="px-4 py-3 text-slate-600">
-                      {formatDateRange(leftCampaign?.startDate, leftCampaign?.endDate, { withTime: true })}
+                      {formatDateRange(
+                        leftCampaign?.config?.startDate || leftCampaign?.startDate, 
+                        leftCampaign?.config?.endDate || leftCampaign?.endDate, 
+                        { withTime: true }
+                      )}
                     </td>
                     <td className="px-4 py-3 text-slate-600">
-                      {formatDateRange(rightCampaign?.startDate, rightCampaign?.endDate, { withTime: true })}
+                      {formatDateRange(
+                        rightCampaign?.config?.startDate || rightCampaign?.startDate, 
+                        rightCampaign?.config?.endDate || rightCampaign?.endDate, 
+                        { withTime: true }
+                      )}
                     </td>
                   </tr>
                   <tr>
                     <td className="px-4 py-3 font-medium text-slate-700">Participantes</td>
                     <td className="px-4 py-3 text-slate-600">
-                      {leftCampaign?.metrics?.totalAssignments ?? 'â€”'}
+                      {leftCampaign?.stats?.totalEvaluatees || leftCampaign?.metrics?.totalAssignments ?? '—'}
                     </td>
                     <td className="px-4 py-3 text-slate-600">
-                      {rightCampaign?.metrics?.totalAssignments ?? 'â€”'}
+                      {rightCampaign?.stats?.totalEvaluatees || rightCampaign?.metrics?.totalAssignments ?? '—'}
                     </td>
                   </tr>
                   {combinedMetricsKeys.map((key) => (

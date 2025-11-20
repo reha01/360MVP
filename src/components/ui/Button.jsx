@@ -108,44 +108,14 @@ const Button = ({
     boxShadow: '0 0 0 3px rgba(10, 132, 255, 0.1)'
   };
 
+  // NO manipular el DOM directamente - usar CSS puro para evitar re-renders durante mount
   // Only pass type and disabled to button elements
   const componentProps = {
     ...props,
     ...(Component === 'button' && { type, disabled: disabled || loading }),
     onClick,
     className: `ui-button ${className}`,
-    style: baseStyles,
-    onFocus: (e) => {
-      Object.assign(e.target.style, focusStyles);
-    },
-    onBlur: (e) => {
-      e.target.style.boxShadow = '';
-    },
-    onMouseEnter: (e) => {
-      if (!disabled && !loading) {
-        const hoverStyle = getVariantStyles()['&:hover'];
-        if (hoverStyle) {
-          Object.assign(e.target.style, hoverStyle);
-        }
-        e.target.style.transform = 'var(--hover-lift-subtle, translateY(-1px))';
-        e.target.style.boxShadow = 'var(--shadow-hover, 0 8px 25px rgba(0, 0, 0, 0.1))';
-      }
-    },
-    onMouseLeave: (e) => {
-      Object.assign(e.target.style, baseStyles);
-      e.target.style.transform = 'translateY(0)';
-      e.target.style.boxShadow = '';
-    },
-    onMouseDown: (e) => {
-      if (!disabled && !loading) {
-        e.target.style.transform = 'scale(0.98)';
-      }
-    },
-    onMouseUp: (e) => {
-      if (!disabled && !loading) {
-        e.target.style.transform = 'var(--hover-lift-subtle, translateY(-1px))';
-      }
-    }
+    style: baseStyles
   };
 
   return (

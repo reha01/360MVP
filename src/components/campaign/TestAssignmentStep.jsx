@@ -1,30 +1,50 @@
 /**
  * Paso 3: Asignación de Tests
+ * SOLUCIÓN SIMPLIFICADA: Formulario simple sin componentes complejos
  */
 
-import React, { useState, useEffect } from 'react';
-import { TestTube, CheckCircle, AlertCircle, AutoAssign } from 'lucide-react';
-import { Button, Card, Badge, Select, Alert } from '../ui';
-import { generateTestSuggestions } from '../../models/JobFamily';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 
 const TestAssignmentStep = ({ 
   data, 
-  filteredUsers, 
-  jobFamilies, 
-  availableTests, 
+  filteredUsers = [], 
+  jobFamilies = [], 
+  availableTests = [], 
   onChange 
 }) => {
   const [testAssignments, setTestAssignments] = useState(data.testAssignments || {});
-  const [autoAssignMode, setAutoAssignMode] = useState(true);
   
-  // Notificar cambios al padre
+  // Flag para prevenir callbacks durante mount
+  const isReadyRef = useRef(false);
+  
   useEffect(() => {
-    onChange({
-      testAssignments
-    });
+    const timer = setTimeout(() => {
+      isReadyRef.current = true;
+    }, 300);
+    return () => clearTimeout(timer);
+  }, []);
+  
+  // Validar si hay tests disponibles (usando useMemo para evitar recálculos)
+  const hasAvailableTests = useMemo(() => {
+    return availableTests && Array.isArray(availableTests) && availableTests.length > 0;
+  }, [availableTests]);
+  
+  // Notificar cambios al padre (solo cuando está listo)
+  useEffect(() => {
+    if (!isReadyRef.current || !onChange) return;
+    
+    const timer = setTimeout(() => {
+      if (isReadyRef.current && onChange) {
+        onChange({ testAssignments });
+      }
+    }, 0);
+    
+    return () => clearTimeout(timer);
   }, [testAssignments, onChange]);
   
   const handleTestAssignment = (userId, testId) => {
+    if (!testId) return;
+    
     setTestAssignments(prev => ({
       ...prev,
       [userId]: {
@@ -40,21 +60,18 @@ const TestAssignmentStep = ({
     
     filteredUsers.forEach(user => {
       if (user.jobFamilyIds && user.jobFamilyIds.length > 0) {
-        // Buscar Job Family del usuario
         const userJobFamily = jobFamilies.find(family => 
           user.jobFamilyIds.includes(family.id)
         );
         
-        if (userJobFamily && userJobFamily.testMappings.recommended.length > 0) {
-          // Usar test recomendado
+        if (userJobFamily && userJobFamily.testMappings?.recommended?.length > 0) {
           const recommendedTest = userJobFamily.testMappings.recommended[0];
           newAssignments[user.id] = {
             testId: recommendedTest.testId,
             version: recommendedTest.testVersion || '1.0',
             reason: `Recomendado por Job Family: ${userJobFamily.name}`
           };
-        } else if (userJobFamily && userJobFamily.testMappings.allowed.length > 0) {
-          // Usar test permitido
+        } else if (userJobFamily && userJobFamily.testMappings?.allowed?.length > 0) {
           const allowedTest = userJobFamily.testMappings.allowed[0];
           newAssignments[user.id] = {
             testId: allowedTest,
@@ -96,215 +113,280 @@ const TestAssignmentStep = ({
       return availableTests;
     }
     
-    // Buscar Job Family del usuario
     const userJobFamily = jobFamilies.find(family => 
       user.jobFamilyIds.includes(family.id)
     );
     
-    if (!userJobFamily) {
+    if (!userJobFamily || !userJobFamily.testMappings) {
       return availableTests;
     }
     
-    // Filtrar tests permitidos
     const allowedTestIds = [
-      ...userJobFamily.testMappings.recommended.map(t => t.testId),
-      ...userJobFamily.testMappings.allowed
+      ...(userJobFamily.testMappings.recommended || []).map(t => t.testId),
+      ...(userJobFamily.testMappings.allowed || [])
     ];
     
     return availableTests.filter(test => allowedTestIds.includes(test.id));
   };
   
-  const getAssignmentStats = () => {
-    const total = filteredUsers.length;
-    const assigned = Object.keys(testAssignments).length;
-    const withJobFamily = filteredUsers.filter(user => 
+  const stats = {
+    total: filteredUsers.length,
+    assigned: Object.keys(testAssignments).length,
+    withJobFamily: filteredUsers.filter(user => 
       user.jobFamilyIds && user.jobFamilyIds.length > 0
-    ).length;
-    
-    return { total, assigned, withJobFamily };
+    ).length
   };
   
-  const stats = getAssignmentStats();
+  // Estilos inline simples
+  const cardStyle = {
+    backgroundColor: 'white',
+    borderRadius: '8px',
+    border: '1px solid #E5E7EB',
+    padding: '20px',
+    marginBottom: '16px'
+  };
+  
+  const buttonStyle = {
+    padding: '8px 16px',
+    backgroundColor: '#3B82F6',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    marginRight: '8px'
+  };
+  
+  const buttonOutlineStyle = {
+    ...buttonStyle,
+    backgroundColor: 'white',
+    color: '#3B82F6',
+    border: '1px solid #3B82F6'
+  };
+  
+  const selectStyle = {
+    width: '100%',
+    padding: '8px 12px',
+    border: '1px solid #D1D5DB',
+    borderRadius: '6px',
+    fontSize: '14px',
+    backgroundColor: 'white'
+  };
+  
   
   return (
-    <div className="space-y-6">
-      {/* Auto Asignación */}
-      <Card>
-        <div className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <AutoAssign className="w-5 h-5 mr-2" />
-            Asignación Automática
+    <div style={{ padding: '0' }}>
+      {/* Mensaje si no hay tests disponibles */}
+      {!hasAvailableTests && (
+        <div style={{
+          ...cardStyle,
+          backgroundColor: '#FEF3C7',
+          border: '1px solid #FCD34D',
+          marginBottom: '16px'
+        }}>
+          <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: '600', color: '#92400E' }}>
+            ⚠️ No hay evaluaciones disponibles para su organización
           </h3>
+          <p style={{ color: '#92400E', margin: '0', fontSize: '14px' }}>
+            No se han asignado tests a su organización. Por favor, contacte al administrador del sistema 
+            para que asigne las evaluaciones necesarias antes de crear una campaña.
+          </p>
+        </div>
+      )}
+      
+      {/* Auto Asignación */}
+      <div style={cardStyle}>
+        <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '600' }}>
+          Asignación Automática
+        </h3>
+        
+        <p style={{ color: '#6B7280', marginBottom: '16px', fontSize: '14px' }}>
+          El sistema puede asignar automáticamente tests basándose en las Job Families de los usuarios.
+        </p>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '16px' }}>
+          <div style={{ textAlign: 'center', padding: '16px', backgroundColor: '#EFF6FF', borderRadius: '6px' }}>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#3B82F6' }}>{stats.total}</div>
+            <div style={{ fontSize: '12px', color: '#6B7280' }}>Total Usuarios</div>
+          </div>
           
-          <div className="space-y-4">
-            <p className="text-gray-600">
-              El sistema puede asignar automáticamente tests basándose en las Job Families de los usuarios.
-            </p>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <div className="text-2xl font-bold text-blue-600">{stats.total}</div>
-                <div className="text-sm text-blue-800">Total Usuarios</div>
-              </div>
-              
-              <div className="text-center p-4 bg-green-50 rounded-lg">
-                <div className="text-2xl font-bold text-green-600">{stats.withJobFamily}</div>
-                <div className="text-sm text-green-800">Con Job Family</div>
-              </div>
-              
-              <div className="text-center p-4 bg-purple-50 rounded-lg">
-                <div className="text-2xl font-bold text-purple-600">{stats.assigned}</div>
-                <div className="text-sm text-purple-800">Tests Asignados</div>
-              </div>
-            </div>
-            
-            <div className="flex space-x-2">
-              <Button
-                onClick={handleAutoAssign}
-                className="flex items-center"
-              >
-                <AutoAssign className="w-4 h-4 mr-2" />
-                Auto Asignar por Job Family
-              </Button>
-              
-              <Button
-                variant="outline"
-                onClick={handleClearAssignments}
-              >
-                Limpiar Asignaciones
-              </Button>
-            </div>
+          <div style={{ textAlign: 'center', padding: '16px', backgroundColor: '#F0FDF4', borderRadius: '6px' }}>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#10B981' }}>{stats.withJobFamily}</div>
+            <div style={{ fontSize: '12px', color: '#6B7280' }}>Con Job Family</div>
+          </div>
+          
+          <div style={{ textAlign: 'center', padding: '16px', backgroundColor: '#F5F3FF', borderRadius: '6px' }}>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#8B5CF6' }}>{stats.assigned}</div>
+            <div style={{ fontSize: '12px', color: '#6B7280' }}>Tests Asignados</div>
           </div>
         </div>
-      </Card>
+        
+        <div>
+          <button 
+            onClick={handleAutoAssign} 
+            style={buttonStyle}
+            disabled={!hasAvailableTests}
+          >
+            Auto Asignar por Job Family
+          </button>
+          <button 
+            onClick={handleClearAssignments} 
+            style={buttonOutlineStyle}
+            disabled={!hasAvailableTests}
+          >
+            Limpiar Asignaciones
+          </button>
+        </div>
+      </div>
       
       {/* Lista de Usuarios y Tests */}
-      <Card>
-        <div className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <TestTube className="w-5 h-5 mr-2" />
-            Asignación de Tests por Usuario
-          </h3>
-          
-          {filteredUsers.length > 0 ? (
-            <div className="space-y-4 max-h-96 overflow-y-auto">
-              {filteredUsers.map(user => {
-                const assignedTest = getAssignedTestForUser(user);
-                const availableTestsForUser = getAvailableTestsForUser(user);
-                
-                return (
-                  <div key={user.id} className="border rounded-lg p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900">{user.displayName}</div>
-                        <div className="text-sm text-gray-600">
-                          {user.email} • {user.jobTitle}
-                        </div>
-                        
-                        {user.jobFamilyIds && user.jobFamilyIds.length > 0 && (
-                          <div className="flex items-center space-x-1 mt-2">
-                            <span className="text-xs text-gray-500">Job Families:</span>
-                            {user.jobFamilyIds.map(familyId => (
-                              <Badge key={familyId} variant="secondary" className="text-xs">
-                                {getJobFamilyName(familyId)}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                        
-                        {assignedTest && (
-                          <div className="mt-2 p-2 bg-green-50 rounded">
-                            <div className="flex items-center space-x-2">
-                              <CheckCircle className="w-4 h-4 text-green-600" />
-                              <span className="text-sm font-medium text-green-800">
-                                {getTestName(assignedTest.testId)} (v{assignedTest.version})
-                              </span>
-                            </div>
-                            <div className="text-xs text-green-600 mt-1">
-                              {assignedTest.reason}
-                            </div>
-                          </div>
-                        )}
+      <div style={cardStyle}>
+        <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '600' }}>
+          Asignación de Tests por Usuario
+        </h3>
+        
+        {filteredUsers.length > 0 ? (
+          <div style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid #E5E7EB', borderRadius: '6px', padding: '8px' }}>
+            {filteredUsers.map(user => {
+              const assignedTest = getAssignedTestForUser(user);
+              const availableTestsForUser = getAvailableTestsForUser(user);
+              
+              return (
+                <div key={user.id} style={{ border: '1px solid #E5E7EB', borderRadius: '6px', padding: '16px', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', gap: '16px' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: '500', color: '#111827', marginBottom: '4px' }}>{user.displayName}</div>
+                      <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '8px' }}>
+                        {user.email} • {user.jobTitle}
                       </div>
                       
-                      <div className="ml-4">
-                        <Select
+                      {user.jobFamilyIds && user.jobFamilyIds.length > 0 && (
+                        <div style={{ marginTop: '8px', marginBottom: '8px' }}>
+                          <span style={{ fontSize: '12px', color: '#6B7280' }}>Job Families: </span>
+                          {user.jobFamilyIds.map(familyId => (
+                            <span key={familyId} style={{ 
+                              display: 'inline-block',
+                              padding: '2px 8px',
+                              backgroundColor: '#F3F4F6',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              color: '#374151',
+                              marginRight: '4px'
+                            }}>
+                              {getJobFamilyName(familyId)}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {assignedTest && (
+                        <div style={{ marginTop: '8px', padding: '8px', backgroundColor: '#F0FDF4', borderRadius: '4px' }}>
+                          <div style={{ fontSize: '14px', fontWeight: '500', color: '#10B981' }}>
+                            {getTestName(assignedTest.testId)} (v{assignedTest.version})
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#059669', marginTop: '4px' }}>
+                            {assignedTest.reason}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div style={{ minWidth: '250px' }}>
+                      {hasAvailableTests ? (
+                        <select
                           value={assignedTest?.testId || ''}
-                          onValueChange={(value) => handleTestAssignment(user.id, value)}
+                          onChange={(e) => handleTestAssignment(user.id, e.target.value)}
+                          style={selectStyle}
                         >
-                          <Select.Trigger className="w-64">
-                            <Select.Value placeholder="Seleccionar test" />
-                          </Select.Trigger>
-                          <Select.Content>
-                            {availableTestsForUser.length > 0 ? (
-                              availableTestsForUser.map(test => (
-                                <Select.Item key={test.id} value={test.id}>
-                                  {test.name} (v{test.version})
-                                </Select.Item>
-                              ))
-                            ) : (
-                              <Select.Item value="" disabled>
-                                No hay tests disponibles
-                              </Select.Item>
-                            )}
-                          </Select.Content>
-                        </Select>
-                      </div>
+                          <option value="">Seleccionar test</option>
+                          {availableTestsForUser.length > 0 ? (
+                            availableTestsForUser.map(test => (
+                              <option key={test.id} value={test.id}>
+                                {test.name} (v{test.version})
+                              </option>
+                            ))
+                          ) : (
+                            <option value="" disabled>No hay tests disponibles para esta Job Family</option>
+                          )}
+                        </select>
+                      ) : (
+                        <div style={{
+                          padding: '8px 12px',
+                          backgroundColor: '#FEF3C7',
+                          border: '1px solid #FCD34D',
+                          borderRadius: '6px',
+                          fontSize: '14px',
+                          color: '#92400E',
+                          textAlign: 'center'
+                        }}>
+                          No hay tests disponibles
+                        </div>
+                      )}
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div style={{ padding: '16px', backgroundColor: '#EFF6FF', borderRadius: '6px', border: '1px solid #BFDBFE' }}>
+            <div style={{ fontSize: '14px', color: '#1E40AF' }}>
+              No hay usuarios seleccionados. Ve al paso anterior para seleccionar evaluados.
             </div>
-          ) : (
-            <Alert type="info">
-              <AlertCircle className="w-4 h-4" />
-              <Alert.Description>
-                No hay usuarios seleccionados. Ve al paso anterior para seleccionar evaluados.
-              </Alert.Description>
-            </Alert>
-          )}
-        </div>
-      </Card>
+          </div>
+        )}
+      </div>
       
       {/* Resumen de Asignaciones */}
-      <Card>
-        <div className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Resumen de Asignaciones
-          </h3>
-          
-          <div className="space-y-2">
+      <div style={cardStyle}>
+        <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '600' }}>
+          Resumen de Asignaciones
+        </h3>
+        
+        {Object.keys(testAssignments).length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {Object.entries(testAssignments).map(([userId, assignment]) => {
               const user = filteredUsers.find(u => u.id === userId);
               if (!user) return null;
               
               return (
-                <div key={userId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div key={userId} style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between',
+                  padding: '12px', 
+                  backgroundColor: '#F9FAFB', 
+                  borderRadius: '6px',
+                  border: '1px solid #E5E7EB'
+                }}>
                   <div>
-                    <span className="font-medium text-gray-900">{user.displayName}</span>
-                    <span className="text-gray-600 ml-2">→</span>
-                    <span className="text-blue-600 ml-2">
+                    <span style={{ fontWeight: '500', color: '#111827' }}>{user.displayName}</span>
+                    <span style={{ color: '#6B7280', margin: '0 8px' }}>→</span>
+                    <span style={{ color: '#3B82F6' }}>
                       {getTestName(assignment.testId)} (v{assignment.version})
                     </span>
                   </div>
-                  <Badge variant="success" className="text-xs">
+                  <span style={{ 
+                    padding: '2px 8px',
+                    backgroundColor: '#D1FAE5',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    color: '#065F46'
+                  }}>
                     {assignment.reason}
-                  </Badge>
+                  </span>
                 </div>
               );
             })}
           </div>
-          
-          {Object.keys(testAssignments).length === 0 && (
-            <Alert type="warning">
-              <AlertCircle className="w-4 h-4" />
-              <Alert.Description>
-                No hay tests asignados. Usa la asignación automática o asigna tests manualmente.
-              </Alert.Description>
-            </Alert>
-          )}
-        </div>
-      </Card>
+        ) : (
+          <div style={{ padding: '16px', backgroundColor: '#FEF3C7', borderRadius: '6px', border: '1px solid #FCD34D' }}>
+            <div style={{ fontSize: '14px', color: '#92400E' }}>
+              No hay tests asignados. Usa la asignación automática o asigna tests manualmente.
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
