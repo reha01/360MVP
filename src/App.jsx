@@ -9,6 +9,7 @@ import Header from './components/Header';
 import WorkspaceGuard from './components/WorkspaceGuard';
 import WorkspaceSelector from './components/WorkspaceSelector';
 import AuthProtectedRoute from './components/ProtectedRoute';
+import SuperAdminGuard from './components/SuperAdminGuard';
 import DebugBannerWrapper from './components/debug/DebugBannerWrapper';
 
 // Import your existing pages
@@ -25,6 +26,7 @@ import BulkActionsManager from './components/bulk/BulkActionsManager';
 import AlertManager from './components/alerts/AlertManager';
 import CampaignManager from './components/campaign/CampaignManager';
 import OrganizationManager from './components/organization/OrganizationManager';
+import OrgManager from './pages/super-admin/OrgManager';
 // Note: Using temporary placeholders for other components due to build issues
 const PolicyManager = () => <div style={{padding: '20px'}}><h1>Políticas Organizacionales</h1><p>Funcionalidad disponible próximamente</p></div>;
 const CampaignComparison = () => <div style={{padding: '20px'}}><h1>Comparación de Campañas</h1><p>Funcionalidad disponible próximamente</p></div>;
@@ -225,32 +227,40 @@ const App = () => {
                     } 
                   />
                   
-                  {/* Super Admin route */}
+                  {/* Super Admin routes */}
                   <Route 
                     path="/super-admin" 
                     element={
-                      <WorkspaceProtectedRoute allowedRoles={['owner', 'admin']}>
-                        <div className="super-admin-panel" style={{ padding: '20px' }}>
-                          <h1>🎯 Panel de Super Administrador - Fase 2</h1>
-                          
-                          <div style={{ marginTop: '20px' }}>
-                            <h2>📊 Gestión de Evaluaciones 360°</h2>
-                            <ul>
-                              <li><a href="/gestion/campanas">📅 Gestión de Campañas</a> - Crear y administrar campañas de evaluación</li>
-                              <li><a href="/comparacion-campanas">📈 Comparación de Campañas</a> - Análisis comparativo entre campañas</li>
-                              <li><a href="/admin/tests">📝 Gestión de Tests</a> - Administrar plantillas de evaluación</li>
-                            </ul>
-                          </div>
-                          
-                          <div style={{ marginTop: '20px' }}>
-                            <h2>👥 Gestión de Miembros</h2>
-                            <ul>
-                              <li><a href="/gestion/miembros">👤 Miembros</a> - Administración individual de miembros</li>
-                              <li><a href="/bulk-actions">📧 Acciones Masivas</a> - Invitaciones y acciones en lote</li>
-                            </ul>
-                          </div>
-                          
-                          <div style={{ marginTop: '20px' }}>
+                      <AuthProtectedRoute>
+                        <SuperAdminGuard>
+                          <div className="super-admin-panel" style={{ padding: '20px' }}>
+                            <h1>🎯 Panel de Super Administrador - Fase 2</h1>
+                            
+                            <div style={{ marginTop: '20px' }}>
+                              <h2>📊 Gestión de Evaluaciones 360°</h2>
+                              <ul>
+                                <li><a href="/gestion/campanas">📅 Gestión de Campañas</a> - Crear y administrar campañas de evaluación</li>
+                                <li><a href="/comparacion-campanas">📈 Comparación de Campañas</a> - Análisis comparativo entre campañas</li>
+                                <li><a href="/admin/tests">📝 Gestión de Tests</a> - Administrar plantillas de evaluación</li>
+                              </ul>
+                            </div>
+                            
+                            <div style={{ marginTop: '20px' }}>
+                              <h2>👥 Gestión de Miembros</h2>
+                              <ul>
+                                <li><a href="/gestion/miembros">👤 Miembros</a> - Administración individual de miembros</li>
+                                <li><a href="/bulk-actions">📧 Acciones Masivas</a> - Invitaciones y acciones en lote</li>
+                              </ul>
+                            </div>
+                            
+                            <div style={{ marginTop: '20px' }}>
+                              <h2>🏢 Gestión de Organizaciones</h2>
+                              <ul>
+                                <li><a href="/super-admin/organizations">🏢 Organizaciones</a> - Crear y gestionar organizaciones (tenants)</li>
+                              </ul>
+                            </div>
+                            
+                            <div style={{ marginTop: '20px' }}>
                             <h2>⚙️ Configuración y Control</h2>
                             <ul>
                               <li><a href="/gestion/politicas">🛡️ Políticas Organizacionales</a> - Configurar umbrales de anonimato y retención</li>
@@ -267,7 +277,19 @@ const App = () => {
                             <p><strong>Sprint 7</strong>: 🚧 Member Management (parcialmente implementado)</p>
                           </div>
                         </div>
-                      </WorkspaceProtectedRoute>
+                      </SuperAdminGuard>
+                    </AuthProtectedRoute>
+                    } 
+                  />
+                  
+                  <Route 
+                    path="/super-admin/organizations" 
+                    element={
+                      <AuthProtectedRoute>
+                        <SuperAdminGuard>
+                          <OrgManager />
+                        </SuperAdminGuard>
+                      </AuthProtectedRoute>
                     } 
                   />
                   

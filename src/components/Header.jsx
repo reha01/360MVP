@@ -77,6 +77,7 @@ const Header = () => {
               <span className="nav-link admin-link">Super Admin ▾</span>
               <div className="nav-dropdown-menu">
                 <Link to="/super-admin" className="nav-dropdown-link">🎯 Panel Principal</Link>
+                <Link to="/super-admin/organizations" className="nav-dropdown-link">🏢 Organizaciones</Link>
                 <Link to="/admin/tests" className="nav-dropdown-link">📝 Gestión de Tests</Link>
               </div>
             </div>

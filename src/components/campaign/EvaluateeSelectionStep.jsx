@@ -1,39 +1,75 @@
 /**
  * Paso 2: Selección de Evaluados
- * SOLUCIÓN SIMPLIFICADA: Formulario simple sin componentes complejos
+ * CARGA DIRECTA de datos para evitar problemas de sincronización
  */
 
-import React, { useState, useRef, useEffect } from 'react';
-import { Users, Filter, Search, CheckCircle } from 'lucide-react';
-import { getJobLevelLabel, getJobLevelColor } from '../../models/JobFamily';
+import React, { useState, useEffect } from 'react';
+import { useMultiTenant } from '../../hooks/useMultiTenant';
+import jobFamilyService from '../../services/jobFamilyService';
+import orgStructureService from '../../services/orgStructureService';
 
 const EvaluateeSelectionStep = ({ 
   filters: controlledFilters = { jobFamilyIds: [], areaIds: [], userIds: [] },
   onFilterChange,
-  jobFamilies = [], 
-  areas = [], 
-  users = [], 
+  jobFamilies: propJobFamilies = [], 
+  areas: propAreas = [], 
+  users: propUsers = [], 
   filteredUsers = [], 
 }) => {
-  // Estado local simple
+  const { currentOrgId } = useMultiTenant();
+  
+  // Estado local para datos cargados directamente
+  const [localJobFamilies, setLocalJobFamilies] = useState([]);
+  const [localAreas, setLocalAreas] = useState([]);
+  const [localUsers, setLocalUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUsers, setSelectedUsers] = useState(new Set());
   
-  // Flag para prevenir callbacks durante mount
-  const isReadyRef = useRef(false);
+  // Usar datos de props si existen, sino cargar directamente
+  const jobFamilies = propJobFamilies.length > 0 ? propJobFamilies : localJobFamilies;
+  const areas = propAreas.length > 0 ? propAreas : localAreas;
+  const users = propUsers.length > 0 ? propUsers : localUsers;
   
+  // Cargar datos directamente si no vienen en props
   useEffect(() => {
-    // Esperar antes de permitir callbacks
-    const timer = setTimeout(() => {
-      isReadyRef.current = true;
-    }, 300);
-    return () => clearTimeout(timer);
-  }, []);
-  
-  // Handlers simples
-  const handleFilterChange = (filterType, value, checked) => {
-    if (!isReadyRef.current) return;
+    const loadData = async () => {
+      if (!currentOrgId) {
+        console.log('[Step2] No orgId');
+        setLoading(false);
+        return;
+      }
+      
+      console.log('[Step2] Loading data for org:', currentOrgId);
+      
+      try {
+        const [jfData, areasData, usersData] = await Promise.all([
+          jobFamilyService.getOrgJobFamilies(currentOrgId).catch(() => []),
+          orgStructureService.getOrgAreas(currentOrgId).catch(() => []),
+          orgStructureService.getOrgUsers(currentOrgId).catch(() => [])
+        ]);
+        
+        console.log('[Step2] Loaded:', {jf: jfData.length, areas: areasData.length, users: usersData.length});
+        
+        setLocalJobFamilies(jfData);
+        setLocalAreas(areasData);
+        setLocalUsers(usersData);
+      } catch (err) {
+        console.error('[Step2] Error loading:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
     
+    // Solo cargar si props están vacías
+    if (propJobFamilies.length === 0 && propAreas.length === 0) {
+      loadData();
+    } else {
+      setLoading(false);
+    }
+  }, [currentOrgId, propJobFamilies.length, propAreas.length]);
+  
+  const handleFilterChange = (filterType, value, checked) => {
     const newFilters = {
       ...controlledFilters,
       [filterType]: checked 
@@ -41,11 +77,9 @@ const EvaluateeSelectionStep = ({
         : (controlledFilters[filterType] || []).filter(id => id !== value)
     };
     
-    setTimeout(() => {
-      if (onFilterChange && isReadyRef.current) {
-        onFilterChange(newFilters);
-      }
-    }, 0);
+    if (onFilterChange) {
+      onFilterChange(newFilters);
+    }
   };
   
   const handleUserToggle = (userId) => {
@@ -61,22 +95,16 @@ const EvaluateeSelectionStep = ({
   };
   
   const handleApplySelection = () => {
-    if (!isReadyRef.current) return;
-    
     const newFilters = {
       ...controlledFilters,
       userIds: Array.from(selectedUsers)
     };
     
-    setTimeout(() => {
-      if (onFilterChange && isReadyRef.current) {
-        onFilterChange(newFilters);
-      }
-    }, 0);
+    if (onFilterChange) {
+      onFilterChange(newFilters);
+    }
   };
   
-  // Filtrado simple para búsqueda manual
-  // Usar 'users' (todos los usuarios disponibles) en lugar de 'filteredUsers' (que solo muestra usuarios que cumplen filtros)
   const displayUsers = (users || []).filter(user =>
     !searchTerm || 
     user.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -84,7 +112,6 @@ const EvaluateeSelectionStep = ({
     user.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
   
-  // Estilos inline simples
   const cardStyle = {
     backgroundColor: 'white',
     borderRadius: '8px',
@@ -111,9 +138,13 @@ const EvaluateeSelectionStep = ({
     fontSize: '14px'
   };
   
+  if (loading) {
+    return <div style={{padding: '40px', textAlign: 'center'}}>Cargando datos...</div>;
+  }
+  
   return (
     <div style={{ padding: '0' }}>
-      {/* Job Families - Formulario simple */}
+      {/* Job Families */}
       <div style={cardStyle}>
         <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '600' }}>
           Filtrar por Job Family
@@ -137,7 +168,7 @@ const EvaluateeSelectionStep = ({
         )}
       </div>
       
-      {/* Áreas - Formulario simple */}
+      {/* Áreas */}
       <div style={cardStyle}>
         <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '600' }}>
           Filtrar por Área/Departamento
@@ -161,13 +192,12 @@ const EvaluateeSelectionStep = ({
         )}
       </div>
       
-      {/* Selección de usuarios - Formulario simple */}
+      {/* Selección de usuarios */}
       <div style={cardStyle}>
         <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '600' }}>
           Selección Manual de Usuarios
         </h3>
         
-        {/* Búsqueda simple */}
         <div style={{ marginBottom: '16px' }}>
           <input
             type="text"
@@ -178,7 +208,6 @@ const EvaluateeSelectionStep = ({
           />
         </div>
         
-        {/* Lista de usuarios simple */}
         {displayUsers.length > 0 ? (
           <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid #E5E7EB', borderRadius: '6px', padding: '8px' }}>
             {displayUsers.map(user => (
@@ -190,7 +219,7 @@ const EvaluateeSelectionStep = ({
                   style={{ width: '16px', height: '16px' }}
                 />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '14px', fontWeight: '500' }}>{user.displayName || 'Sin nombre'}</div>
+                  <div style={{ fontSize: '14px', fontWeight: '500' }}>{user.displayName || user.name || 'Sin nombre'}</div>
                   <div style={{ fontSize: '12px', color: '#6B7280' }}>{user.email}</div>
                 </div>
               </label>
@@ -202,7 +231,6 @@ const EvaluateeSelectionStep = ({
           </p>
         )}
         
-        {/* Botón aplicar */}
         {selectedUsers.size > 0 && (
           <div style={{ marginTop: '16px', textAlign: 'right' }}>
             <button onClick={handleApplySelection} style={buttonStyle}>
@@ -212,7 +240,7 @@ const EvaluateeSelectionStep = ({
         )}
       </div>
       
-      {/* Resumen simple */}
+      {/* Resumen */}
       <div style={cardStyle}>
         <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '600' }}>
           Resumen
@@ -220,7 +248,7 @@ const EvaluateeSelectionStep = ({
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
           <div style={{ textAlign: 'center', padding: '12px', backgroundColor: '#EFF6FF', borderRadius: '6px' }}>
             <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#3B82F6' }}>
-              {filteredUsers.length}
+              {filteredUsers.length || users.length}
             </div>
             <div style={{ fontSize: '12px', color: '#6B7280' }}>Usuarios</div>
           </div>

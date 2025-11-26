@@ -3,10 +3,46 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Calendar, Clock, Globe, Users } from 'lucide-react';
+import { Calendar, Clock, Globe, Users, User, UserPlus, Network } from 'lucide-react';
 import { Button, Input, Select, Textarea, Card, Alert } from '../ui';
 import { CAMPAIGN_TYPE, getCampaignTypeLabel } from '../../models/Campaign';
 import './CampaignInfoStep.css';
+
+// Componente interno para selección visual de tipo
+const CampaignTypeCard = ({ type, selected, onSelect, icon: Icon, title, description }) => (
+  <div 
+    onClick={() => onSelect(type)}
+    style={{
+      border: `2px solid ${selected ? '#3B82F6' : '#E5E7EB'}`,
+      backgroundColor: selected ? '#EFF6FF' : 'white',
+      borderRadius: '12px',
+      padding: '16px',
+      cursor: 'pointer',
+      transition: 'all 0.2s ease',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '12px',
+      alignItems: 'flex-start',
+      minHeight: '140px'
+    }}
+  >
+    <div style={{ 
+      backgroundColor: selected ? '#BFDBFE' : '#F3F4F6', 
+      padding: '10px', 
+      borderRadius: '50%' 
+    }}>
+      <Icon size={24} color={selected ? '#2563EB' : '#6B7280'} />
+    </div>
+    <div>
+      <h4 style={{ margin: '0 0 4px 0', fontWeight: '600', fontSize: '16px', color: selected ? '#1E40AF' : '#1F2937' }}>
+        {title}
+      </h4>
+      <p style={{ margin: 0, fontSize: '13px', color: '#4B5563', lineHeight: '1.4' }}>
+        {description}
+      </p>
+    </div>
+  </div>
+);
 
 const CampaignInfoStep = React.memo(({ data, onChange }) => {
   const [formData, setFormData] = useState({
@@ -36,7 +72,6 @@ const CampaignInfoStep = React.memo(({ data, onChange }) => {
   
   // Prevenir actualizaciones durante el mount inicial
   useEffect(() => {
-    // Esperar 2 ciclos de render antes de permitir actualizaciones
     const timer = setTimeout(() => {
       isInitialMountRef.current = false;
     }, 200);
@@ -45,7 +80,6 @@ const CampaignInfoStep = React.memo(({ data, onChange }) => {
   }, []);
   
   useEffect(() => {
-    // Saltar actualizaciones durante el mount inicial
     if (isInitialMountRef.current || skipNextUpdateRef.current) {
       skipNextUpdateRef.current = false;
       return;
@@ -58,7 +92,6 @@ const CampaignInfoStep = React.memo(({ data, onChange }) => {
     if (onChangeRef.current && formDataStr !== prevFormDataRef.current) {
       prevFormDataRef.current = formDataStr;
       
-      // Usar doble defer para asegurar que el render terminó completamente
       Promise.resolve().then(() => {
         if (!isMounted) return;
         
@@ -69,7 +102,7 @@ const CampaignInfoStep = React.memo(({ data, onChange }) => {
             if (isMounted && onChangeRef.current && !isInitialMountRef.current) {
               onChangeRef.current(formData);
             }
-          }, 150); // Delay más largo para asegurar que el render terminó
+          }, 150);
         });
       });
     }
@@ -99,7 +132,6 @@ const CampaignInfoStep = React.memo(({ data, onChange }) => {
       }));
     }
     
-    // Limpiar error del campo
     if (errors[field]) {
       setErrors(prev => ({
         ...prev,
@@ -161,6 +193,43 @@ const CampaignInfoStep = React.memo(({ data, onChange }) => {
   
   return (
     <div>
+      {/* Selección de Tipo de Campaña (Lo primero que ve el usuario) */}
+      <div className="step-section">
+        <div className="step-section-header">
+          <Network className="step-section-icon" />
+          <h3 className="step-section-title">¿Qué tipo de campaña deseas crear?</h3>
+        </div>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
+          <CampaignTypeCard
+            type={CAMPAIGN_TYPE.AUTOEVALUATION || 'autoevaluation'}
+            title="Autoevaluación"
+            description="Solo para que los empleados se evalúen a sí mismos."
+            icon={User}
+            selected={formData.type === (CAMPAIGN_TYPE.AUTOEVALUATION || 'autoevaluation')}
+            onSelect={(t) => handleChange('type', t)}
+          />
+          
+          <CampaignTypeCard
+            type={CAMPAIGN_TYPE.LEADERSHIP || 'leadership'} 
+            title="180° (Liderazgo)"
+            description="Yo + Mi Equipo (Reportes Directos)."
+            icon={UserPlus}
+            selected={formData.type === (CAMPAIGN_TYPE.LEADERSHIP || 'leadership')}
+            onSelect={(t) => handleChange('type', t)}
+          />
+          
+          <CampaignTypeCard
+            type={CAMPAIGN_TYPE.STANDARD || 'standard'} 
+            title="360° (Integral)"
+            description="Evaluación completa: Yo, Jefe, Pares y Equipo."
+            icon={Users}
+            selected={formData.type === (CAMPAIGN_TYPE.STANDARD || 'standard')}
+            onSelect={(t) => handleChange('type', t)}
+          />
+        </div>
+      </div>
+
       {/* Información Básica */}
       <div className="step-section">
         <div className="step-section-header">
@@ -199,28 +268,6 @@ const CampaignInfoStep = React.memo(({ data, onChange }) => {
               placeholder="Describe el propósito y objetivos de esta campaña de evaluación..."
               rows={3}
             />
-          </div>
-          
-          {/* Tipo de Campaña */}
-          <div className="step-form-group">
-            <label className="step-form-label">
-              Tipo de Campaña
-            </label>
-            <Select
-              value={formData.type}
-              onValueChange={(value) => handleChange('type', value)}
-            >
-              <Select.Trigger>
-                <Select.Value placeholder="Seleccionar tipo" />
-              </Select.Trigger>
-              <Select.Content>
-                {Object.values(CAMPAIGN_TYPE).map(type => (
-                  <Select.Item key={type} value={type}>
-                    {getCampaignTypeLabel(type)}
-                  </Select.Item>
-                ))}
-              </Select.Content>
-            </Select>
           </div>
         </div>
       </div>
@@ -292,7 +339,7 @@ const CampaignInfoStep = React.memo(({ data, onChange }) => {
             onValueChange={(value) => handleChange('config.timezone', value)}
           >
             <Select.Trigger>
-              <Select.Value placeholder="Seleccionar zona horaria" />
+            <Select.Value placeholder="Seleccionar zona horaria" />
             </Select.Trigger>
             <Select.Content>
               {getTimezones().map(tz => (
@@ -304,38 +351,6 @@ const CampaignInfoStep = React.memo(({ data, onChange }) => {
           </Select>
           <p className="step-form-help">
             Las fechas y recordatorios se mostrarán en esta zona horaria
-          </p>
-        </div>
-      </div>
-      
-      {/* Configuración de Recordatorios */}
-      <div className="step-section">
-        <div className="step-section-header">
-          <Clock className="step-section-icon" />
-          <h3 className="step-section-title">Recordatorios Automáticos</h3>
-        </div>
-        
-        <div className="step-form-group">
-          <label className="step-form-label">
-            Programación de Recordatorios
-          </label>
-          <Select
-            value={JSON.stringify(formData.config.reminderSchedule)}
-            onValueChange={(value) => handleChange('config.reminderSchedule', JSON.parse(value))}
-          >
-            <Select.Trigger>
-              <Select.Value placeholder="Seleccionar programación" />
-            </Select.Trigger>
-            <Select.Content>
-              {getReminderOptions().map(option => (
-                <Select.Item key={JSON.stringify(option.value)} value={JSON.stringify(option.value)}>
-                  {option.label}
-                </Select.Item>
-              ))}
-            </Select.Content>
-          </Select>
-          <p className="step-form-help">
-            Los evaluadores recibirán recordatorios automáticos según esta programación
           </p>
         </div>
       </div>

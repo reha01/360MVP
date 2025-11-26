@@ -246,18 +246,35 @@ function validateAnonymityThresholds(responses) {
 function aggregateResponsesByQuestion(responses, testDefinition) {
   const aggregatedResponses = {};
   
+  // Validar que testDefinition existe y tiene questions
+  if (!testDefinition || !testDefinition.questions || !Array.isArray(testDefinition.questions)) {
+    console.error('[Process360Aggregations] Invalid testDefinition: missing or invalid questions array');
+    return aggregatedResponses;
+  }
+  
   // Agrupar respuestas por pregunta
   responses.forEach(response => {
+    if (!response.answers) return;
+    
     Object.entries(response.answers).forEach(([questionId, answer]) => {
       if (!aggregatedResponses[questionId]) {
-        const question = testDefinition.questions.find(q => q.id === questionId);
-        if (!question) return;
+        const question = testDefinition.questions.find(q => q && q.id === questionId);
+        if (!question) {
+          console.warn(`[Process360Aggregations] Question ${questionId} not found in testDefinition`);
+          return;
+        }
+        
+        // Validar que question tiene las propiedades necesarias
+        if (!question.category || !question.category.id) {
+          console.warn(`[Process360Aggregations] Question ${questionId} missing category or category.id`);
+          return;
+        }
         
         aggregatedResponses[questionId] = {
           questionId,
-          questionText: question.text,
+          questionText: question.text || '',
           categoryId: question.category.id,
-          subdimensionId: question.subdimension?.id,
+          subdimensionId: question.subdimension?.id || null,
           responsesByType: {},
           responses: []
         };

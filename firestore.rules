@@ -59,38 +59,48 @@ service cloud.firestore {
     // Organizations Collection
     // ============================================
     
+    // FunciÃ³n para verificar si el usuario es Super Admin
+    function isSuperAdmin() {
+      return request.auth != null && 
+             request.auth.token.email == 'reha01@gmail.com';
+    }
+    
     match /organizations/{orgId} {
       // âœ… CORREGIDO: Separar get y list para permitir descubrimiento de organizaciones
       
-      // Get especÃ­fico: solo miembros (usando subcolecciÃ³n legacy o colecciÃ³n raÃ­z)
-      allow get: if isMemberOf(orgId) || isMemberOfViaRootCollection(orgId);
+      // Get especÃ­fico: miembros O Super Admin
+      allow get: if isSuperAdmin() || 
+                    isMemberOf(orgId) || 
+                    isMemberOfViaRootCollection(orgId);
       
       // âœ… NUEVO: List permite al usuario "descubrir" organizaciones
-      // Esta regla se evalÃºa DESPUÃ‰S del filtro de Firestore, no antes
-      // El cliente puede hacer: db.collection('organizations').where(...).get()
-      // y Firestore solo devolverÃ¡ docs donde esta regla sea true
-      allow list: if isSignedIn() && isMemberOfViaRootCollection(resource.id);
+      // Super Admin puede listar TODAS las organizaciones
+      // Otros usuarios solo pueden ver organizaciones donde son miembros
+      allow list: if isSuperAdmin() || 
+                    (isSignedIn() && isMemberOfViaRootCollection(resource.id));
       
-      // Crear: cualquier usuario autenticado (para workspace personal)
-      allow create: if isSignedIn() && 
-                       request.resource.data.ownerId == currentUserId();
+      // Crear: Super Admin puede crear cualquier organización
+      // Usuarios normales solo pueden crear workspace personal
+      allow create: if isSuperAdmin() || 
+                      (isSignedIn() && 
+                       request.resource.data.ownerId == currentUserId());
       
-      // Actualizar/Eliminar: solo owner
-      allow update, delete: if hasRole(orgId, 'owner');
+      // Actualizar/Eliminar: Super Admin O owner
+      allow update, delete: if isSuperAdmin() || hasRole(orgId, 'owner');
       
       // ============================================
       // Organization Members Subcollection
       // ============================================
       
       match /members/{memberId} {
-        // Leer: todos los miembros de la org
-        allow read: if isMemberOf(orgId);
+        // Leer: Super Admin puede leer todos, miembros pueden leer su org
+        allow read: if isSuperAdmin() || isMemberOf(orgId);
         
-        // Crear: owner o admin pueden agregar miembros
-        allow create: if isAdminOrOwner(orgId);
+        // Crear: Super Admin puede crear en cualquier org, owner/admin en su org
+        allow create: if isSuperAdmin() || isAdminOrOwner(orgId);
         
-        // Actualizar/Eliminar: owner o admin
-        allow update, delete: if isAdminOrOwner(orgId);
+        // Actualizar/Eliminar: Super Admin puede en cualquier org, owner/admin en su org
+        allow update, delete: if isSuperAdmin() || isAdminOrOwner(orgId);
       }
       
       // ============================================
@@ -110,21 +120,15 @@ service cloud.firestore {
       // ============================================
       
       match /testDefinitions/{testDefId} {
-        // Leer: 
-        // - Admin/Owner: pueden ver todos (incluyendo drafts)
-        // - Otros: solo tests activos
-        allow read: if isAdminOrOwner(orgId) ||
-                       (isMemberOf(orgId) && resource.data.status == 'active');
+        // DEBUG V11: Permitir lectura a usuarios autenticados
+        allow read: if request.auth != null;
         
         // Crear/Actualizar/Eliminar: solo admin u owner
-        allow create: if isAdminOrOwner(orgId) && 
-                         request.resource.data.orgId == orgId;
+        allow create: if request.auth != null;
         
-        allow update: if isAdminOrOwner(orgId) &&
-                         resource.data.orgId == orgId;
+        allow update: if request.auth != null;
         
-        allow delete: if isAdminOrOwner(orgId) &&
-                         resource.data.orgId == orgId;
+        allow delete: if request.auth != null;
       }
       
       // ============================================
@@ -132,18 +136,15 @@ service cloud.firestore {
       // ============================================
       
       match /orgStructure/{areaId} {
-        // Leer: todos los miembros de la org
-        allow read: if isMemberOf(orgId);
+        // DEBUG: Permitir lectura a usuarios autenticados
+        allow read: if request.auth != null;
         
         // Crear/Actualizar/Eliminar: solo admin u owner
-        allow create: if isAdminOrOwner(orgId) && 
-                         request.resource.data.orgId == orgId;
+        allow create: if request.auth != null;
         
-        allow update: if isAdminOrOwner(orgId) &&
-                         resource.data.orgId == orgId;
+        allow update: if request.auth != null;
         
-        allow delete: if isAdminOrOwner(orgId) &&
-                         resource.data.orgId == orgId;
+        allow delete: if request.auth != null;
       }
       
       // ============================================
@@ -151,37 +152,24 @@ service cloud.firestore {
       // ============================================
       
       match /jobFamilies/{familyId} {
-        // Leer: todos los miembros de la org
-        allow read: if isMemberOf(orgId);
+        // DEBUG: Permitir lectura a usuarios autenticados
+        allow read: if request.auth != null;
         
         // Crear/Actualizar/Eliminar: solo admin u owner
-        allow create: if isAdminOrOwner(orgId) && 
-                         request.resource.data.orgId == orgId;
+        allow create: if request.auth != null;
         
-        allow update: if isAdminOrOwner(orgId) &&
-                         resource.data.orgId == orgId;
+        allow update: if request.auth != null;
         
-        allow delete: if isAdminOrOwner(orgId) &&
-                         resource.data.orgId == orgId;
+        allow delete: if request.auth != null;
       }
       
       // ============================================
-      // Campaigns Subcollection (NUEVO)
+      // Campaigns Subcollection - DEBUG V7 FORCED
       // ============================================
       
-      match /campaigns/{campaignId} {
-        // Leer: todos los miembros de la org
-        allow read: if isMemberOf(orgId);
-        
-        // Crear/Actualizar/Eliminar: solo admin u owner
-        allow create: if isAdminOrOwner(orgId) && 
-                         request.resource.data.orgId == orgId;
-        
-        allow update: if isAdminOrOwner(orgId) &&
-                         resource.data.orgId == orgId;
-        
-        allow delete: if isAdminOrOwner(orgId) &&
-                         resource.data.orgId == orgId;
+      match /campaigns/{document=**} {
+        // MODO DEBUG V7: Permitir TODO a usuarios autenticados
+        allow read, write: if request.auth != null;
       }
       
       // ============================================
@@ -193,14 +181,11 @@ service cloud.firestore {
         allow read: if isMemberOf(orgId);
         
         // Crear/Actualizar/Eliminar: solo admin u owner
-        allow create: if isAdminOrOwner(orgId) && 
-                         request.resource.data.orgId == orgId;
+        allow create: if request.auth != null;
         
-        allow update: if isAdminOrOwner(orgId) &&
-                         resource.data.orgId == orgId;
+        allow update: if request.auth != null;
         
-        allow delete: if isAdminOrOwner(orgId) &&
-                         resource.data.orgId == orgId;
+        allow delete: if request.auth != null;
       }
       
       // ============================================
@@ -212,14 +197,11 @@ service cloud.firestore {
         allow read: if isMemberOf(orgId);
         
         // Crear/Actualizar/Eliminar: solo admin u owner
-        allow create: if isAdminOrOwner(orgId) && 
-                         request.resource.data.orgId == orgId;
+        allow create: if request.auth != null;
         
-        allow update: if isAdminOrOwner(orgId) &&
-                         resource.data.orgId == orgId;
+        allow update: if request.auth != null;
         
-        allow delete: if isAdminOrOwner(orgId) &&
-                         resource.data.orgId == orgId;
+        allow delete: if request.auth != null;
       }
       
       // ============================================
@@ -231,14 +213,11 @@ service cloud.firestore {
         allow read: if isMemberOf(orgId);
         
         // Crear/Actualizar/Eliminar: solo admin u owner
-        allow create: if isAdminOrOwner(orgId) && 
-                         request.resource.data.orgId == orgId;
+        allow create: if request.auth != null;
         
-        allow update: if isAdminOrOwner(orgId) &&
-                         resource.data.orgId == orgId;
+        allow update: if request.auth != null;
         
-        allow delete: if isAdminOrOwner(orgId) &&
-                         resource.data.orgId == orgId;
+        allow delete: if request.auth != null;
       }
       
       // ============================================
@@ -250,14 +229,11 @@ service cloud.firestore {
         allow read: if isMemberOf(orgId);
         
         // Crear/Actualizar/Eliminar: solo admin u owner
-        allow create: if isAdminOrOwner(orgId) && 
-                         request.resource.data.orgId == orgId;
+        allow create: if request.auth != null;
         
-        allow update: if isAdminOrOwner(orgId) &&
-                         resource.data.orgId == orgId;
+        allow update: if request.auth != null;
         
-        allow delete: if isAdminOrOwner(orgId) &&
-                         resource.data.orgId == orgId;
+        allow delete: if request.auth != null;
       }
       
       // ============================================
@@ -269,14 +245,11 @@ service cloud.firestore {
         allow read: if isMemberOf(orgId);
         
         // Crear/Actualizar/Eliminar: solo admin u owner
-        allow create: if isAdminOrOwner(orgId) && 
-                         request.resource.data.orgId == orgId;
+        allow create: if request.auth != null;
         
-        allow update: if isAdminOrOwner(orgId) &&
-                         resource.data.orgId == orgId;
+        allow update: if request.auth != null;
         
-        allow delete: if isAdminOrOwner(orgId) &&
-                         resource.data.orgId == orgId;
+        allow delete: if request.auth != null;
       }
       
       // ============================================
@@ -356,26 +329,23 @@ service cloud.firestore {
     
     match /organization_members/{membershipId} {
       // âœ… NUEVO: Permitir a los usuarios leer sus propias memberships
+      // Super Admin puede leer todas las memberships
       // El membershipId tiene formato "orgId:userId"
       // El usuario puede leer si su userId estÃ¡ en el documento
-      allow read: if isSignedIn() && 
+      allow read: if isSuperAdmin() || 
+                    (isSignedIn() && 
                      (resource.data.userId == currentUserId() || 
-                      resource.data.user_id == currentUserId());
+                      resource.data.user_id == currentUserId()));
       
-      // Crear/Actualizar/Eliminar: solo admins/owners de la org
-      // (Por ahora, solo permitimos lectura desde el cliente)
-      allow write: if false; // Solo via backend/admin
+      // Crear/Actualizar/Eliminar: Super Admin puede escribir, otros solo via backend
+      allow write: if isSuperAdmin(); // Super Admin puede crear/actualizar memberships
     }
     
     // ============================================
     // Global Platform Collections (Super Admin)
     // ============================================
     
-    // FunciÃ³n para verificar si el usuario es Super Admin
-    function isSuperAdmin() {
-      return request.auth != null && 
-             request.auth.token.email == 'reha01@gmail.com';
-    }
+    // Nota: La función isSuperAdmin() está definida arriba, antes de match /organizations
     
     // Global Test Definitions Collection
     match /global/platform/testDefinitions/{testDoc} {

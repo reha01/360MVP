@@ -1,8 +1,12 @@
-﻿/**
+/**
+<<<<<<< Current (Your changes)
  * Servicio para gestiÃ³n de Campaigns 360Â°
+=======
+ * Servicio para gestión de Campaigns 360°
+>>>>>>> Incoming (Background Agent changes)
  * 
- * Maneja CRUD de campaÃ±as, sesiones de evaluaciÃ³n 360Â°,
- * y generaciÃ³n automÃ¡tica de evaluadores
+ * Maneja CRUD de campañas, sesiones de evaluación 360°,
+ * y generación automática de evaluadores
  */
 
 import { 
@@ -39,10 +43,11 @@ import evaluatorAssignmentService from './evaluatorAssignmentService';
 // ========== CAMPAIGN MANAGEMENT ==========
 
 /**
- * Obtener todas las campaÃ±as de una organizaciÃ³n
+ * Obtener todas las campañas de una organización
  */
 export const getOrgCampaigns = async (orgId) => {
   try {
+    console.log('>>> CAMPAIGN SERVICE V6 LOADED - OrgID:', orgId);
     const campaignsRef = collection(db, 'organizations', orgId, 'campaigns');
     const q = query(
       campaignsRef,
@@ -64,7 +69,7 @@ export const getOrgCampaigns = async (orgId) => {
 };
 
 /**
- * Obtener campañas con filtros y paginación (para dashboard)
+ * Obtener campa�as con filtros y paginaci�n (para dashboard)
  */
 export const getCampaigns = async (orgId, options = {}) => {
   try {
@@ -85,19 +90,19 @@ export const getCampaigns = async (orgId, options = {}) => {
       q = query(q, where('type', '==', options.type));
     }
 
-    // Ordenar por fecha de creación
+    // Ordenar por fecha de creaci�n
     q = query(q, orderBy('createdAt', 'desc'));
     
-    // Nota: Los filtros de fecha se aplican en memoria después de obtener los datos
-    // porque requieren índices compuestos en Firestore para campos anidados (config.startDate)
+    // Nota: Los filtros de fecha se aplican en memoria despu�s de obtener los datos
+    // porque requieren �ndices compuestos en Firestore para campos anidados (config.startDate)
 
-    // Paginación
+    // Paginaci�n
     const page = options.page || 1;
     const pageSize = options.pageSize || 20;
     const startIndex = (page - 1) * pageSize;
     
-    // Obtener datos con límite
-    q = query(q, limit(pageSize * page)); // Obtener hasta la página actual
+    // Obtener datos con l�mite
+    q = query(q, limit(pageSize * page)); // Obtener hasta la p�gina actual
     const snapshot = await getDocs(q);
     
     let campaigns = snapshot.docs.map(doc => ({
@@ -105,7 +110,7 @@ export const getCampaigns = async (orgId, options = {}) => {
       ...doc.data()
     }));
 
-    // Filtrar por búsqueda de texto en memoria (si se proporciona)
+    // Filtrar por b�squeda de texto en memoria (si se proporciona)
     if (options.search) {
       const searchLower = options.search.toLowerCase();
       campaigns = campaigns.filter(c => 
@@ -132,17 +137,17 @@ export const getCampaigns = async (orgId, options = {}) => {
     // Filtrar por Job Family (si se proporciona)
     if (options.jobFamily && options.jobFamily !== 'all') {
       campaigns = campaigns.filter(c => {
-        // Verificar si algún test asignado corresponde a la Job Family
+        // Verificar si alg�n test asignado corresponde a la Job Family
         const testAssignments = c.testAssignments || {};
         return Object.values(testAssignments).some(assignment => {
-          // Aquí se podría verificar contra Job Family mappings
+          // Aqu� se podr�a verificar contra Job Family mappings
           // Por ahora, filtramos por testId si coincide
           return assignment.testId && assignment.testId.includes(options.jobFamily);
         });
       });
     }
 
-    // Aplicar paginación en memoria
+    // Aplicar paginaci�n en memoria
     const paginatedCampaigns = campaigns.slice(startIndex, startIndex + pageSize);
     const hasMore = campaigns.length > startIndex + pageSize;
     
@@ -162,7 +167,7 @@ export const getCampaigns = async (orgId, options = {}) => {
 };
 
 /**
- * Obtener campaÃ±a especÃ­fica
+ * Obtener campaña específica
  */
 export const getCampaign = async (orgId, campaignId) => {
   try {
@@ -184,7 +189,7 @@ export const getCampaign = async (orgId, campaignId) => {
 };
 
 /**
- * Crear nueva campaÃ±a
+ * Crear nueva campaña
  */
 export const createCampaign = async (orgId, campaignData, userId) => {
   try {
@@ -194,7 +199,7 @@ export const createCampaign = async (orgId, campaignData, userId) => {
       throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
     }
     
-    // Crear campaÃ±a
+    // Crear campaña
     const newCampaign = createCampaignModel({
       ...campaignData,
       orgId,
@@ -219,7 +224,7 @@ export const createCampaign = async (orgId, campaignData, userId) => {
 };
 
 /**
- * Actualizar campaÃ±a existente
+ * Actualizar campaña existente
  */
 export const updateCampaign = async (orgId, campaignId, updates, userId) => {
   try {
@@ -229,10 +234,10 @@ export const updateCampaign = async (orgId, campaignId, updates, userId) => {
       throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
     }
     
-    // Obtener campaÃ±a actual
+    // Obtener campaña actual
     const currentCampaign = await getCampaign(orgId, campaignId);
     
-    // Crear campaÃ±a actualizada
+    // Crear campaña actualizada
     const updatedCampaign = {
       ...currentCampaign,
       ...updates,
@@ -253,11 +258,11 @@ export const updateCampaign = async (orgId, campaignId, updates, userId) => {
 };
 
 /**
- * Activar campaÃ±a
+ * Activar campaña
  */
 export const activateCampaign = async (orgId, campaignId, userId) => {
   try {
-    // Obtener campaÃ±a actual
+    // Obtener campaña actual
     const campaign = await getCampaign(orgId, campaignId);
     
     // Verificar que puede activarse
@@ -266,10 +271,10 @@ export const activateCampaign = async (orgId, campaignId, userId) => {
       throw new Error(`Cannot activate campaign: ${activationCheck.issues.join(', ')}`);
     }
     
-    // Generar sesiones de evaluaciÃ³n 360Â°
+    // Generar sesiones de evaluación 360°
     const sessions = await generateEvaluation360Sessions(orgId, campaignId, campaign);
     
-    // Actualizar campaÃ±a
+    // Actualizar campaña
     const updatedCampaign = {
       ...campaign,
       status: CAMPAIGN_STATUS.ACTIVE,
@@ -295,18 +300,18 @@ export const activateCampaign = async (orgId, campaignId, userId) => {
 };
 
 /**
- * Cerrar campaÃ±a
+ * Cerrar campaña
  */
 export const closeCampaign = async (orgId, campaignId, userId) => {
   try {
-    // Obtener campaÃ±a actual
+    // Obtener campaña actual
     const campaign = await getCampaign(orgId, campaignId);
     
     if (campaign.status !== CAMPAIGN_STATUS.ACTIVE) {
       throw new Error('Only active campaigns can be closed');
     }
     
-    // Actualizar campaÃ±a
+    // Actualizar campaña
     const updatedCampaign = {
       ...campaign,
       status: CAMPAIGN_STATUS.CLOSED,
@@ -330,7 +335,7 @@ export const closeCampaign = async (orgId, campaignId, userId) => {
 // ========== EVALUATION360SESSION MANAGEMENT ==========
 
 /**
- * Obtener sesiones de evaluación 360° de una campaña
+ * Obtener sesiones de evaluaci�n 360� de una campa�a
  */
 export const getCampaignSessions = async (orgId, campaignId) => {
   try {
@@ -356,7 +361,7 @@ export const getCampaignSessions = async (orgId, campaignId) => {
 };
 
 /**
- * Obtener sesión 360° específica por ID
+ * Obtener sesi�n 360� espec�fica por ID
  */
 export const getCampaignSession = async (orgId, session360Id) => {
   try {
@@ -378,18 +383,18 @@ export const getCampaignSession = async (orgId, session360Id) => {
 };
 
 /**
- * Generar sesiones de evaluaciÃ³n 360Â° para una campaÃ±a
+ * Generar sesiones de evaluación 360° para una campaña
  */
 export const generateEvaluation360Sessions = async (orgId, campaignId, campaign) => {
   try {
-    // Obtener usuarios segÃºn filtros
+    // Obtener usuarios según filtros
     const users = await getUsersByFilters(orgId, campaign.evaluateeFilters);
     
     if (users.length === 0) {
       throw new Error('No users found matching the campaign filters');
     }
     
-    // Obtener Job Families para asignaciÃ³n automÃ¡tica de tests
+    // Obtener Job Families para asignación automática de tests
     const jobFamilies = await jobFamilyService.getOrgJobFamilies(orgId);
     const jobFamiliesMap = jobFamilies.reduce((acc, family) => {
       acc[family.id] = family;
@@ -410,14 +415,14 @@ export const generateEvaluation360Sessions = async (orgId, campaignId, campaign)
         continue;
       }
       
-      // Generar configuraciÃ³n de evaluadores basada en Job Family
+      // Generar configuración de evaluadores basada en Job Family
       const userJobFamilies = user.jobFamilyIds || [];
       const primaryJobFamily = userJobFamilies.length > 0 ? 
                               jobFamiliesMap[userJobFamilies[0]] : null;
       
       const evaluatorConfig = generateEvaluatorConfigFromJobFamily(primaryJobFamily);
       
-      // Crear sesiÃ³n
+      // Crear sesión
       const session = createEvaluation360SessionModel({
         orgId,
         campaignId,
@@ -451,7 +456,7 @@ export const generateEvaluation360Sessions = async (orgId, campaignId, campaign)
 };
 
 /**
- * Obtener usuarios segÃºn filtros de campaÃ±a
+ * Obtener usuarios según filtros de campaña
  */
 export const getUsersByFilters = async (orgId, filters) => {
   try {
@@ -467,7 +472,7 @@ export const getUsersByFilters = async (orgId, filters) => {
       );
     }
     
-    // Filtrar por Ãreas
+    // Filtrar por Áreas
     if (filters.areaIds && filters.areaIds.length > 0) {
       filteredUsers = filteredUsers.filter(user => 
         filters.areaIds.includes(user.areaId) || 
@@ -475,7 +480,7 @@ export const getUsersByFilters = async (orgId, filters) => {
       );
     }
     
-    // Filtrar por IDs especÃ­ficos
+    // Filtrar por IDs específicos
     if (filters.userIds && filters.userIds.length > 0) {
       filteredUsers = filteredUsers.filter(user => 
         filters.userIds.includes(user.id)
@@ -516,7 +521,7 @@ export const getDefaultTestForUser = (user, jobFamiliesMap) => {
 // ========== STATISTICS AND ANALYTICS ==========
 
 /**
- * Obtener estadÃ­sticas de campaÃ±a
+ * Obtener estadísticas de campaña
  */
 export const getCampaignStats = async (orgId, campaignId) => {
   try {
@@ -527,7 +532,7 @@ export const getCampaignStats = async (orgId, campaignId) => {
     
     const stats = calculateCampaignStats(campaign, sessions);
     
-    // Actualizar estadÃ­sticas en la campaÃ±a si han cambiado
+    // Actualizar estadísticas en la campaña si han cambiado
     if (JSON.stringify(stats) !== JSON.stringify(campaign.stats)) {
       await updateCampaign(orgId, campaignId, { stats }, 'system');
     }
@@ -540,7 +545,7 @@ export const getCampaignStats = async (orgId, campaignId) => {
 };
 
 /**
- * Obtener estadÃ­sticas generales de campaÃ±as
+ * Obtener estadísticas generales de campañas
  */
 export const getCampaignsOverview = async (orgId) => {
   try {
@@ -586,7 +591,7 @@ export const getCampaignsOverview = async (orgId) => {
 // ========== UTILITY FUNCTIONS ==========
 
 /**
- * Obtener campaÃ±as por estado
+ * Obtener campañas por estado
  */
 export const getCampaignsByStatus = async (orgId, status) => {
   try {
@@ -609,21 +614,21 @@ export const getCampaignsByStatus = async (orgId, status) => {
 };
 
 /**
- * Obtener campaÃ±as activas
+ * Obtener campañas activas
  */
 export const getActiveCampaigns = async (orgId) => {
   return getCampaignsByStatus(orgId, CAMPAIGN_STATUS.ACTIVE);
 };
 
 /**
- * Verificar si una campaÃ±a puede ser editada
+ * Verificar si una campaña puede ser editada
  */
 export const canEditCampaign = (campaign) => {
   return campaign.status === CAMPAIGN_STATUS.DRAFT;
 };
 
 /**
- * Verificar si una campaÃ±a puede ser eliminada
+ * Verificar si una campaña puede ser eliminada
  */
 export const canDeleteCampaign = (campaign) => {
   return campaign.status === CAMPAIGN_STATUS.DRAFT;
