@@ -1,0 +1,227 @@
+.strategy-selection-step {
+  padding: 48px 64px;
+  max-width: 1400px;
+  margin: 0 auto;
+  min-height: 500px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.strategy-header {
+  text-align: center;
+  margin-bottom: 48px;
+  max-width: 600px;
+}
+
+.strategy-header h3 {
+  font-size: 28px;
+  font-weight: 600;
+  color: #1F2937;
+  margin-bottom: 12px;
+  line-height: 1.3;
+}
+
+.strategy-subtitle {
+  font-size: 16px;
+  color: #6B7280;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.strategy-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  width: 100%;
+  margin-bottom: 32px;
+}
+
+.strategy-card {
+  position: relative;
+  background: #FFFFFF;
+  border: 2px solid #E5E7EB;
+  border-radius: 16px;
+  padding: 40px 24px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.strategy-card:hover {
+  border-color: #3B82F6;
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(59, 130, 246, 0.15);
+}
+
+.strategy-card.selected {
+  border-color: #3B82F6;
+  background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 50%, #BFDBFE 100%);
+  box-shadow: 0 12px 32px rgba(59, 130, 246, 0.25);
+  transform: translateY(-2px);
+}
+
+.strategy-card.selected::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  padding: 2px;
+  background: linear-gradient(135deg, #3B82F6, #2563EB);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.strategy-icon {
+  font-size: 64px;
+  margin-bottom: 24px;
+  line-height: 1;
+  filter: grayscale(30%);
+  transition: all 0.3s ease;
+}
+
+.strategy-card.selected .strategy-icon {
+  filter: grayscale(0%);
+  transform: scale(1.1);
+}
+
+.strategy-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1F2937;
+  margin: 0 0 12px 0;
+  transition: color 0.3s ease;
+}
+
+.strategy-card.selected .strategy-title {
+  color: #1E40AF;
+}
+
+.strategy-description {
+  font-size: 14px;
+  color: #6B7280;
+  margin: 0 0 24px 0;
+  flex-grow: 1;
+  line-height: 1.6;
+}
+
+.strategy-card.selected .strategy-description {
+  color: #1E40AF;
+}
+
+.strategy-evaluators {
+  width: 100%;
+  margin-top: auto;
+}
+
+.evaluator-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.evaluator-tags .tag {
+  background: #F3F4F6;
+  color: #6B7280;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.strategy-card.selected .evaluator-tags .tag {
+  background: #3B82F6;
+  color: #FFFFFF;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+}
+
+.strategy-selected-badge {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: linear-gradient(135deg, #10B981, #059669);
+  color: #FFFFFF;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  animation: slideInRight 0.4s ease;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.strategy-selection-summary {
+  background: linear-gradient(135deg, #F9FAFB 0%, #F3F4F6 100%);
+  border: 1px solid #E5E7EB;
+  border-radius: 12px;
+  padding: 20px 24px;
+  text-align: center;
+  max-width: 500px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.strategy-selection-summary p {
+  margin: 0;
+  color: #374151;
+  font-size: 15px;
+}
+
+.strategy-selection-summary strong {
+  color: #1F2937;
+  font-weight: 600;
+}
+
+/* Responsive - 2 columns on tablet */
+@media (max-width: 1024px) {
+  .strategy-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .strategy-selection-step {
+    padding: 32px 24px;
+  }
+}
+
+/* Responsive - 1 column on mobile */
+@media (max-width: 640px) {
+  .strategy-cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .strategy-card {
+    min-height: 240px;
+    padding: 32px 20px;
+  }
+
+  .strategy-icon {
+    font-size: 48px;
+  }
+
+  .strategy-header h3 {
+    font-size: 24px;
+  }
+
+  .strategy-selection-step {
+    padding: 24px 16px;
+  }
+}

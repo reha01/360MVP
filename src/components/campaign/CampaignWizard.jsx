@@ -1,31 +1,27 @@
 /**
- * Wizard para creación de campañas 360° - CLEAN SLATE
+ * Wizard para creación de campañas 360° - SIMPLIFIED
  * 
- * Proceso de 6 pasos (SIN SEMÁFORO):
- * 1. Información general + fechas
- * 2. Selección de evaluados (filtros)
- * 3. Asignación de tests (auto por Job Family)
- * 4. Reglas de evaluadores (global)
- * 5. Personalización individual
- * 6. Revisión + activación
+ * Proceso de 3 pasos estratégicos:
+ * 1. Estrategia: ¿Qué tipo de evaluación deseas crear?
+ * 2. Identidad: Título, fechas y descripción
+ * 3. Reglas de Conexión: Test y opciones → Generar Borrador
+ * 
+ * La audiencia (evaluatees) se agregará después en una pantalla dedicada
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMultiTenant } from '../../hooks/useMultiTenant';
 import { useAuth } from '../../context/AuthContext';
 import campaignService from '../../services/campaignService';
-import jobFamilyService from '../../services/jobFamilyService';
-import orgStructureService from '../../services/orgStructureService';
 import { getTestsForOrg } from '../../services/globalTestDefinitionService';
-import { CAMPAIGN_TYPE, CAMPAIGN_STATUS, validateCampaign } from '../../models/Campaign';
+import { CAMPAIGN_TYPE, CAMPAIGN_STATUS } from '../../models/Campaign';
 
-// Subcomponentes
+// Subcomponentes (3 pasos)
+import WizardStepper from './WizardStepper';
+import StrategySelectionStep from './StrategySelectionStep';
 import CampaignInfoStep from './CampaignInfoStep';
-import EvaluateeSelectionStep from './EvaluateeSelectionStep';
-import TestAssignmentStep from './TestAssignmentStep';
-import EvaluatorRulesStep from './EvaluatorRulesStep';
-import IndividualCustomizationStep from './IndividualCustomizationStep';
-import CampaignReviewStep from './CampaignReviewStep';
+import ConnectionRulesStep from './ConnectionRulesStep';
 
 // Estilos
 import './CampaignWizard.css';
@@ -33,14 +29,25 @@ import './CampaignWizard.css';
 const CampaignWizard = ({ isOpen, onClose, onSuccess }) => {
   const { currentOrgId } = useMultiTenant();
   const { user } = useAuth();
-  
-  // Estado del wizard - EMPIEZA EN PASO 1
+  const navigate = useNavigate();
+
+  // Estado del wizard - EMPIEZA EN PASO 1 (de 3 pasos)
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  
-  // Datos del wizard
+
+  // Datos del wizard (3 pasos)
   const [campaignData, setCampaignData] = useState({
+    // Paso 1: Estrategia
+    selectedStrategy: null,
+    evaluatorRules: {
+      self: false,
+      manager: false,
+      peers: false,
+      subordinates: false,
+      external: false
+    },
+    // Paso 2: Identidad
     title: '',
     description: '',
     type: CAMPAIGN_TYPE.CUSTOM,
@@ -48,405 +55,273 @@ const CampaignWizard = ({ isOpen, onClose, onSuccess }) => {
       startDate: null,
       endDate: null,
       timezone: 'UTC',
-      reminderSchedule: [3, 7, 14],
-      anonymityThresholds: {
-        peers: 3,
-        subordinates: 3,
-        external: 1
-      },
-      requiredEvaluators: {
-        self: true,
-        manager: true,
-        peers: { min: 3, max: 5 },
-        subordinates: { min: 0 },
-        external: { min: 0 }
-      }
+      reminderSchedule: [3, 7, 14]
     },
-    evaluateeFilters: {
-      jobFamilyIds: [],
-      areaIds: [],
-      userIds: []
-    },
-    testAssignments: {}
+    // Paso 3: Reglas de Conexión
+    selectedTestId: null,
+    connectionRules: {
+      allowMultipleManagers: false,
+      restrictPeersToArea: true
+    }
   });
-  
+
   // Datos de referencia
-  const [jobFamilies, setJobFamilies] = useState([]);
-  const [areas, setAreas] = useState([]);
-  const [users, setUsers] = useState([]);
   const [availableTests, setAvailableTests] = useState([]);
-  const [filteredUsers, setFilteredUsers] = useState([]);
-  
-  // Cargar datos de referencia
+
+  // Cargar tests disponibles
   useEffect(() => {
     if (!currentOrgId || !isOpen) return;
-    
-    const loadData = async () => {
+
+    const loadTests = async () => {
       try {
-        const [jobFamiliesData, areasData, usersData, testsData] = await Promise.all([
-          jobFamilyService.getOrgJobFamilies(currentOrgId).catch(() => []),
-          orgStructureService.getOrgAreas(currentOrgId).catch(() => []),
-          orgStructureService.getOrgUsers(currentOrgId).catch(() => []),
-          getTestsForOrg(currentOrgId).catch(() => [])
-        ]);
-        
-        setJobFamilies(jobFamiliesData || []);
-        setAreas(areasData || []);
-        setUsers(usersData || []);
+        const testsData = await getTestsForOrg(currentOrgId).catch(() => []);
         setAvailableTests(testsData || []);
       } catch (err) {
-        console.error('[CampaignWizard] Error loading data:', err);
+        console.error('[CampaignWizard] Error loading tests:', err);
       }
     };
-    
-    loadData();
+
+    loadTests();
   }, [currentOrgId, isOpen]);
-  
-  // Calcular usuarios filtrados
-  useEffect(() => {
-    if (!users.length) {
-      setFilteredUsers([]);
-      return;
-    }
-    
-    const filters = campaignData.evaluateeFilters;
-    let filtered = [...users];
-    
-    // Filtrar por Job Family
-    if (filters.jobFamilyIds && filters.jobFamilyIds.length > 0) {
-      filtered = filtered.filter(user => 
-        user.jobFamilyIds && 
-        user.jobFamilyIds.some(id => filters.jobFamilyIds.includes(id))
-      );
-    }
-    
-    // Filtrar por Área
-    if (filters.areaIds && filters.areaIds.length > 0) {
-      filtered = filtered.filter(user => 
-        (user.areaId && filters.areaIds.includes(user.areaId)) ||
-        (user.departmentId && filters.areaIds.includes(user.departmentId))
-      );
-    }
-    
-    // Filtrar por IDs específicos
-    if (filters.userIds && filters.userIds.length > 0) {
-      filtered = filtered.filter(user => filters.userIds.includes(user.id));
-    }
-    
-    setFilteredUsers(filtered);
-  }, [users, campaignData.evaluateeFilters]);
-  
-  // Handlers de pasos
+
+  // Definición de pasos para el stepper (3 pasos)
+  const stepDefinitions = [
+    { title: 'Estrategia', subtitle: '¿Qué tipo de evaluación?' },
+    { title: 'Identidad', subtitle: 'Información básica' },
+    { title: 'Reglas', subtitle: 'Configuración final' }
+  ];
+
+  // Handlers de pasos (3 pasos)
   const handleStep1Change = useCallback((updates) => {
+    // Paso 1: Estrategia
+    setCampaignData(prev => ({
+      ...prev,
+      selectedStrategy: updates.selectedStrategy,
+      evaluatorRules: {
+        ...prev.evaluatorRules,
+        ...updates.evaluatorRules
+      }
+    }));
+  }, []);
+
+  const handleStep2Change = useCallback((updates) => {
+    // Paso 2: Identidad
     setCampaignData(prev => ({
       ...prev,
       ...updates
     }));
   }, []);
-  
-  const handleStep2Change = useCallback((filters) => {
-    setCampaignData(prev => ({
-      ...prev,
-      evaluateeFilters: {
-        ...prev.evaluateeFilters,
-        ...filters
-      }
-    }));
-  }, []);
-  
+
   const handleStep3Change = useCallback((updates) => {
+    // Paso 3: Reglas de Conexión
     setCampaignData(prev => ({
       ...prev,
-      ...updates
-    }));
-  }, []);
-  
-  const handleStep4Change = useCallback((updates) => {
-    setCampaignData(prev => ({
-      ...prev,
-      config: {
-        ...prev.config,
-        ...updates.config
+      selectedTestId: updates.selectedTestId,
+      connectionRules: {
+        ...prev.connectionRules,
+        ...updates.connectionRules
       }
     }));
   }, []);
-  
-  const handleStep5Change = useCallback((updates) => {
-    setCampaignData(prev => ({
-      ...prev,
-      ...updates
-    }));
-  }, []);
-  
-  // Navegación
+
+  // Navegación (3 pasos)
   const handleNext = useCallback(() => {
-    if (currentStep < 6) {
+    if (currentStep < 3) {
       setCurrentStep(prev => prev + 1);
     }
   }, [currentStep]);
-  
+
   const handlePrevious = useCallback(() => {
     if (currentStep > 1) {
       setCurrentStep(prev => prev - 1);
     }
   }, [currentStep]);
-  
-  // Crear campaña
-  const handleCreate = useCallback(async () => {
+
+  // Generar borrador (último paso)
+  const handleGenerateDraft = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      
-      // Validar datos
-      const validation = validateCampaign(campaignData);
-      if (!validation.valid) {
-        setError(validation.errors.join(', '));
+
+      // Validar test seleccionado
+      if (!campaignData.selectedTestId) {
+        setError('Debes seleccionar un test');
         return;
       }
-      
-      // Crear campaña
-      const newCampaign = await campaignService.createCampaign(currentOrgId, {
-        ...campaignData,
-        status: CAMPAIGN_STATUS.DRAFT,
-        createdBy: user.uid,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
-      
+
+      // Crear campaña como borrador con evaluatees vacío
+      const newCampaign = await campaignService.createCampaign(
+        currentOrgId,
+        {
+          ...campaignData,
+          evaluateeFilters: campaignData.evaluateeFilters || { jobFamilyIds: [], areaIds: [], userIds: [] },
+          status: CAMPAIGN_STATUS.DRAFT
+        },
+        user.uid // userId como tercer parámetro
+      );
+
       if (onSuccess) {
         onSuccess(newCampaign);
       }
-      
-      // Reset y cerrar
-      setCurrentStep(1);
-      setCampaignData({
-        title: '',
-        description: '',
-        type: CAMPAIGN_TYPE.CUSTOM,
-        config: {
-          startDate: null,
-          endDate: null,
-          timezone: 'UTC',
-          reminderSchedule: [3, 7, 14],
-          anonymityThresholds: {
-            peers: 3,
-            subordinates: 3,
-            external: 1
-          },
-          requiredEvaluators: {
-            self: true,
-            manager: true,
-            peers: { min: 3, max: 5 },
-            subordinates: { min: 0 },
-            external: { min: 0 }
-          }
-        },
-        evaluateeFilters: {
-          jobFamilyIds: [],
-          areaIds: [],
-          userIds: []
-        },
-        testAssignments: {}
-      });
-      
+
+      // Reset wizard
+      resetWizard();
+
+      // Cerrar modal
       onClose();
+
+      // Redirigir a la página de detalle de campaña
+      if (newCampaign.id) {
+        navigate(`/gestion/campanas/${newCampaign.id}`);
+      }
     } catch (err) {
       console.error('[CampaignWizard] Error creating campaign:', err);
       setError(err.message || 'Error al crear la campaña');
     } finally {
       setLoading(false);
     }
-  }, [campaignData, currentOrgId, user, onSuccess, onClose]);
-  
+  }, [campaignData, currentOrgId, user, onSuccess, onClose, navigate]);
+
+  // Reset wizard
+  const resetWizard = useCallback(() => {
+    setCurrentStep(1);
+    setError(null);
+    setCampaignData({
+      selectedStrategy: null,
+      evaluatorRules: {
+        self: false,
+        manager: false,
+        peers: false,
+        subordinates: false,
+        external: false
+      },
+      title: '',
+      description: '',
+      type: CAMPAIGN_TYPE.CUSTOM,
+      config: {
+        startDate: null,
+        endDate: null,
+        timezone: 'UTC',
+        reminderSchedule: [3, 7, 14]
+      },
+      selectedTestId: null,
+      connectionRules: {
+        allowMultipleManagers: false,
+        restrictPeersToArea: true
+      }
+    });
+  }, []);
+
   // Reset al cerrar
   useEffect(() => {
     if (!isOpen) {
-      setCurrentStep(1);
-      setError(null);
-      setCampaignData({
-        title: '',
-        description: '',
-        type: CAMPAIGN_TYPE.CUSTOM,
-        config: {
-          startDate: null,
-          endDate: null,
-          timezone: 'UTC',
-          reminderSchedule: [3, 7, 14],
-          anonymityThresholds: {
-            peers: 3,
-            subordinates: 3,
-            external: 1
-          },
-          requiredEvaluators: {
-            self: true,
-            manager: true,
-            peers: { min: 3, max: 5 },
-            subordinates: { min: 0 },
-            external: { min: 0 }
-          }
-        },
-        evaluateeFilters: {
-          jobFamilyIds: [],
-          areaIds: [],
-          userIds: []
-        },
-        testAssignments: {}
-      });
+      resetWizard();
     }
-  }, [isOpen]);
-  
-  // Renderizar paso actual
+  }, [isOpen, resetWizard]);
+
+  // Renderizar paso actual (3 pasos)
   const renderStep = () => {
     switch (currentStep) {
       case 1:
         return (
-          <CampaignInfoStep
-            data={campaignData}
+          <StrategySelectionStep
+            selectedStrategy={campaignData.selectedStrategy}
             onChange={handleStep1Change}
           />
         );
       case 2:
         return (
-          <EvaluateeSelectionStep
-            filters={campaignData.evaluateeFilters}
-            onFilterChange={handleStep2Change}
-            jobFamilies={jobFamilies}
-            areas={areas}
-            users={users}
-            filteredUsers={filteredUsers}
+          <CampaignInfoStep
+            data={campaignData}
+            onChange={handleStep2Change}
           />
         );
       case 3:
         return (
-          <TestAssignmentStep
+          <ConnectionRulesStep
             data={campaignData}
-            filteredUsers={filteredUsers}
-            jobFamilies={jobFamilies}
             availableTests={availableTests}
             onChange={handleStep3Change}
-          />
-        );
-      case 4:
-        return (
-          <EvaluatorRulesStep
-            data={campaignData}
-            onChange={handleStep4Change}
-          />
-        );
-      case 5:
-        return (
-          <IndividualCustomizationStep
-            data={campaignData}
-            filteredUsers={filteredUsers}
-            availableTests={availableTests}
-            onChange={handleStep5Change}
-          />
-        );
-      case 6:
-        return (
-          <CampaignReviewStep
-            data={campaignData}
-            filteredUsers={filteredUsers}
-            jobFamilies={jobFamilies}
-            areas={areas}
-            availableTests={availableTests}
           />
         );
       default:
         return null;
     }
   };
-  
-  // Títulos de pasos
-  const getStepTitle = (step) => {
-    const titles = {
-      1: 'Información General',
-      2: 'Selección de Evaluados',
-      3: 'Asignación de Tests',
-      4: 'Reglas de Evaluadores',
-      5: 'Personalización Individual',
-      6: 'Revisión y Activación'
-    };
-    return titles[step] || '';
-  };
-  
+
   if (!isOpen) return null;
-  
-  const progressPercentage = (currentStep / 6) * 100;
-  
+
   return (
     <div className="campaign-wizard-overlay" onClick={(e) => {
       if (e.target.classList.contains('campaign-wizard-overlay')) {
         onClose();
       }
     }}>
-      <div className="campaign-wizard-modal">
+      <div className="campaign-wizard-modal modern">
         {/* Header */}
-        <div className="campaign-wizard-header">
-          <h2>Crear Nueva Campaña</h2>
+        <div className="campaign-wizard-header modern">
+          <h2>Crear Nueva Campaña de Evaluación</h2>
           <button className="campaign-wizard-close" onClick={onClose}>×</button>
         </div>
-        
-        {/* Progress Bar */}
-        <div className="campaign-wizard-progress">
-          <div 
-            className="campaign-wizard-progress-bar"
-            style={{ width: `${progressPercentage}%` }}
-          />
-        </div>
-        
-        {/* Step Indicator */}
-        <div className="campaign-wizard-step-indicator">
-          <span>Paso {currentStep} de 6: {getStepTitle(currentStep)}</span>
-        </div>
-        
+
+        {/* Modern Stepper (3 pasos) */}
+        <WizardStepper currentStep={currentStep} steps={stepDefinitions} />
+
         {/* Error Display */}
         {error && (
-          <div className="alert alert-error" style={{ margin: '16px' }}>
+          <div className="alert alert-error modern">
             {error}
             <button onClick={() => setError(null)}>×</button>
           </div>
         )}
-        
+
         {/* Step Content */}
-        <div className="campaign-wizard-content">
+        <div className="campaign-wizard-content modern">
           {renderStep()}
         </div>
-        
+
         {/* Footer */}
-        <div className="campaign-wizard-footer">
+        <div className="campaign-wizard-footer modern">
           <button
-            className="btn-secondary"
+            className="btn-wizard btn-secondary"
             onClick={handlePrevious}
             disabled={currentStep === 1}
           >
-            ← Anterior
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            </svg>
+            Anterior
           </button>
-          
-          <div className="campaign-wizard-steps">
-            {[1, 2, 3, 4, 5, 6].map(step => (
-              <div
-                key={step}
-                className={`campaign-wizard-step-dot ${step === currentStep ? 'active' : ''} ${step < currentStep ? 'completed' : ''}`}
-                onClick={() => setCurrentStep(step)}
-              />
-            ))}
-          </div>
-          
-          {currentStep < 6 ? (
+
+          {currentStep < 3 ? (
             <button
-              className="btn-primary"
+              className="btn-wizard btn-primary"
               onClick={handleNext}
             >
-              Siguiente →
+              Siguiente
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              </svg>
             </button>
           ) : (
             <button
-              className="btn-primary"
-              onClick={handleCreate}
-              disabled={loading}
+              className="btn-wizard btn-primary"
+              onClick={handleGenerateDraft}
+              disabled={loading || !campaignData.selectedTestId}
             >
-              {loading ? 'Creando...' : 'Crear Campaña'}
+              {loading ? (
+                <>
+                  <span className="spinner"></span>
+                  Generando...
+                </>
+              ) : (
+                <>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M13.3337 4L6.00033 11.3333L2.66699 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                  </svg>
+                  Crear Borrador
+                </>
+              )}
             </button>
           )}
         </div>
@@ -456,4 +331,3 @@ const CampaignWizard = ({ isOpen, onClose, onSuccess }) => {
 };
 
 export default CampaignWizard;
-

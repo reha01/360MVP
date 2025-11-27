@@ -9,27 +9,27 @@
  * y generación automática de evaluadores
  */
 
-import { 
-  collection, 
-  doc, 
-  getDocs, 
-  getDoc, 
-  addDoc, 
+import {
+  collection,
+  doc,
+  getDocs,
+  getDoc,
+  addDoc,
   setDoc,
-  updateDoc, 
-  deleteDoc, 
-  query, 
-  where, 
-  orderBy, 
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
   limit,
   writeBatch,
-  serverTimestamp 
+  serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { 
-  createCampaignModel, 
+import {
+  createCampaignModel,
   createEvaluation360SessionModel,
-  validateCampaign, 
+  validateCampaign,
   validateEvaluation360Session,
   canActivateCampaign,
   calculateCampaignStats,
@@ -53,13 +53,13 @@ export const getOrgCampaigns = async (orgId) => {
       campaignsRef,
       orderBy('createdAt', 'desc')
     );
-    
+
     const snapshot = await getDocs(q);
     const campaigns = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
-    
+
     console.log(`[Campaign] Loaded ${campaigns.length} campaigns for org ${orgId}`);
     return campaigns;
   } catch (error) {
@@ -92,7 +92,7 @@ export const getCampaigns = async (orgId, options = {}) => {
 
     // Ordenar por fecha de creaci�n
     q = query(q, orderBy('createdAt', 'desc'));
-    
+
     // Nota: Los filtros de fecha se aplican en memoria despu�s de obtener los datos
     // porque requieren �ndices compuestos en Firestore para campos anidados (config.startDate)
 
@@ -100,11 +100,11 @@ export const getCampaigns = async (orgId, options = {}) => {
     const page = options.page || 1;
     const pageSize = options.pageSize || 20;
     const startIndex = (page - 1) * pageSize;
-    
+
     // Obtener datos con l�mite
     q = query(q, limit(pageSize * page)); // Obtener hasta la p�gina actual
     const snapshot = await getDocs(q);
-    
+
     let campaigns = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
@@ -113,7 +113,7 @@ export const getCampaigns = async (orgId, options = {}) => {
     // Filtrar por b�squeda de texto en memoria (si se proporciona)
     if (options.search) {
       const searchLower = options.search.toLowerCase();
-      campaigns = campaigns.filter(c => 
+      campaigns = campaigns.filter(c =>
         (c.title || '').toLowerCase().includes(searchLower) ||
         (c.description || '').toLowerCase().includes(searchLower)
       );
@@ -150,9 +150,9 @@ export const getCampaigns = async (orgId, options = {}) => {
     // Aplicar paginaci�n en memoria
     const paginatedCampaigns = campaigns.slice(startIndex, startIndex + pageSize);
     const hasMore = campaigns.length > startIndex + pageSize;
-    
+
     console.log(`[Campaign] Returning ${paginatedCampaigns.length} campaigns for org ${orgId} (page ${page})`);
-    
+
     return {
       campaigns: paginatedCampaigns,
       total: campaigns.length,
@@ -173,11 +173,11 @@ export const getCampaign = async (orgId, campaignId) => {
   try {
     const campaignRef = doc(db, 'organizations', orgId, 'campaigns', campaignId);
     const snapshot = await getDoc(campaignRef);
-    
+
     if (!snapshot.exists()) {
       throw new Error(`Campaign ${campaignId} not found`);
     }
-    
+
     return {
       id: snapshot.id,
       ...snapshot.data()
@@ -198,7 +198,7 @@ export const createCampaign = async (orgId, campaignData, userId) => {
     if (!validation.isValid) {
       throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
     }
-    
+
     // Crear campaña
     const newCampaign = createCampaignModel({
       ...campaignData,
@@ -206,7 +206,7 @@ export const createCampaign = async (orgId, campaignData, userId) => {
       createdBy: userId,
       updatedBy: userId
     });
-    
+
     // Crear en Firestore
     const campaignRef = doc(db, 'organizations', orgId, 'campaigns', newCampaign.campaignId);
     await setDoc(campaignRef, {
@@ -214,7 +214,7 @@ export const createCampaign = async (orgId, campaignData, userId) => {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
-    
+
     console.log(`[Campaign] Created campaign: ${newCampaign.title} (${newCampaign.campaignId})`);
     return newCampaign;
   } catch (error) {
@@ -233,10 +233,10 @@ export const updateCampaign = async (orgId, campaignId, updates, userId) => {
     if (!validation.isValid) {
       throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
     }
-    
+
     // Obtener campaña actual
     const currentCampaign = await getCampaign(orgId, campaignId);
-    
+
     // Crear campaña actualizada
     const updatedCampaign = {
       ...currentCampaign,
@@ -244,15 +244,40 @@ export const updateCampaign = async (orgId, campaignId, updates, userId) => {
       updatedBy: userId,
       updatedAt: serverTimestamp()
     };
-    
+
     // Actualizar en Firestore
     const campaignRef = doc(db, 'organizations', orgId, 'campaigns', campaignId);
     await updateDoc(campaignRef, updatedCampaign);
-    
+
     console.log(`[Campaign] Updated campaign: ${updatedCampaign.title} (${campaignId})`);
     return updatedCampaign;
   } catch (error) {
     console.error('[Campaign] Error updating campaign:', error);
+    throw error;
+  }
+};
+
+/**
+ * Eliminar campaña (solo borradores)
+ */
+export const deleteCampaign = async (orgId, campaignId) => {
+  try {
+    // Obtener campaña
+    const campaign = await getCampaign(orgId, campaignId);
+
+    // Verificar que sea borrador
+    if (campaign.status !== CAMPAIGN_STATUS.DRAFT) {
+      throw new Error('Solo se pueden eliminar campañas en estado borrador');
+    }
+
+    // Eliminar de Firestore
+    const campaignRef = doc(db, 'organizations', orgId, 'campaigns', campaignId);
+    await deleteDoc(campaignRef);
+
+    console.log(`[Campaign] Deleted campaign: ${campaign.title} (${campaignId})`);
+    return true;
+  } catch (error) {
+    console.error('[Campaign] Error deleting campaign:', error);
     throw error;
   }
 };
@@ -264,16 +289,16 @@ export const activateCampaign = async (orgId, campaignId, userId) => {
   try {
     // Obtener campaña actual
     const campaign = await getCampaign(orgId, campaignId);
-    
+
     // Verificar que puede activarse
     const activationCheck = canActivateCampaign(campaign);
     if (!activationCheck.canActivate) {
       throw new Error(`Cannot activate campaign: ${activationCheck.issues.join(', ')}`);
     }
-    
+
     // Generar sesiones de evaluación 360°
     const sessions = await generateEvaluation360Sessions(orgId, campaignId, campaign);
-    
+
     // Actualizar campaña
     const updatedCampaign = {
       ...campaign,
@@ -286,11 +311,11 @@ export const activateCampaign = async (orgId, campaignId, userId) => {
         totalEvaluatees: sessions.length
       }
     };
-    
+
     // Guardar en Firestore
     const campaignRef = doc(db, 'organizations', orgId, 'campaigns', campaignId);
     await updateDoc(campaignRef, updatedCampaign);
-    
+
     console.log(`[Campaign] Activated campaign: ${campaign.title} (${campaignId}) with ${sessions.length} sessions`);
     return { campaign: updatedCampaign, sessions };
   } catch (error) {
@@ -306,11 +331,11 @@ export const closeCampaign = async (orgId, campaignId, userId) => {
   try {
     // Obtener campaña actual
     const campaign = await getCampaign(orgId, campaignId);
-    
+
     if (campaign.status !== CAMPAIGN_STATUS.ACTIVE) {
       throw new Error('Only active campaigns can be closed');
     }
-    
+
     // Actualizar campaña
     const updatedCampaign = {
       ...campaign,
@@ -319,11 +344,11 @@ export const closeCampaign = async (orgId, campaignId, userId) => {
       updatedBy: userId,
       updatedAt: serverTimestamp()
     };
-    
+
     // Guardar en Firestore
     const campaignRef = doc(db, 'organizations', orgId, 'campaigns', campaignId);
     await updateDoc(campaignRef, updatedCampaign);
-    
+
     console.log(`[Campaign] Closed campaign: ${campaign.title} (${campaignId})`);
     return updatedCampaign;
   } catch (error) {
@@ -345,13 +370,13 @@ export const getCampaignSessions = async (orgId, campaignId) => {
       where('campaignId', '==', campaignId),
       orderBy('createdAt', 'asc')
     );
-    
+
     const snapshot = await getDocs(q);
     const sessions = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
-    
+
     console.log(`[Campaign] Loaded ${sessions.length} sessions for campaign ${campaignId}`);
     return sessions;
   } catch (error) {
@@ -367,11 +392,11 @@ export const getCampaignSession = async (orgId, session360Id) => {
   try {
     const sessionRef = doc(db, 'organizations', orgId, 'evaluation360Sessions', session360Id);
     const snapshot = await getDoc(sessionRef);
-    
+
     if (!snapshot.exists()) {
       throw new Error(`Evaluation360Session ${session360Id} not found`);
     }
-    
+
     return {
       id: snapshot.id,
       ...snapshot.data()
@@ -389,39 +414,39 @@ export const generateEvaluation360Sessions = async (orgId, campaignId, campaign)
   try {
     // Obtener usuarios según filtros
     const users = await getUsersByFilters(orgId, campaign.evaluateeFilters);
-    
+
     if (users.length === 0) {
       throw new Error('No users found matching the campaign filters');
     }
-    
+
     // Obtener Job Families para asignación automática de tests
     const jobFamilies = await jobFamilyService.getOrgJobFamilies(orgId);
     const jobFamiliesMap = jobFamilies.reduce((acc, family) => {
       acc[family.id] = family;
       return acc;
     }, {});
-    
+
     // Crear sesiones
     const batch = writeBatch(db);
     const sessions = [];
-    
+
     for (const user of users) {
       // Determinar test asignado
-      const testAssignment = campaign.testAssignments[user.id] || 
-                            getDefaultTestForUser(user, jobFamiliesMap);
-      
+      const testAssignment = campaign.testAssignments[user.id] ||
+        getDefaultTestForUser(user, jobFamiliesMap);
+
       if (!testAssignment) {
         console.warn(`[Campaign] No test assigned for user ${user.id}, skipping`);
         continue;
       }
-      
+
       // Generar configuración de evaluadores basada en Job Family
       const userJobFamilies = user.jobFamilyIds || [];
-      const primaryJobFamily = userJobFamilies.length > 0 ? 
-                              jobFamiliesMap[userJobFamilies[0]] : null;
-      
+      const primaryJobFamily = userJobFamilies.length > 0 ?
+        jobFamiliesMap[userJobFamilies[0]] : null;
+
       const evaluatorConfig = generateEvaluatorConfigFromJobFamily(primaryJobFamily);
-      
+
       // Crear sesión
       const session = createEvaluation360SessionModel({
         orgId,
@@ -432,7 +457,7 @@ export const generateEvaluation360Sessions = async (orgId, campaignId, campaign)
         evaluatorConfig,
         createdBy: campaign.createdBy
       });
-      
+
       // Agregar a batch
       const sessionRef = doc(db, 'organizations', orgId, 'evaluation360Sessions', session.session360Id);
       batch.set(sessionRef, {
@@ -440,13 +465,13 @@ export const generateEvaluation360Sessions = async (orgId, campaignId, campaign)
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
-      
+
       sessions.push(session);
     }
-    
+
     // Ejecutar batch
     await batch.commit();
-    
+
     console.log(`[Campaign] Generated ${sessions.length} evaluation sessions for campaign ${campaignId}`);
     return sessions;
   } catch (error) {
@@ -461,32 +486,32 @@ export const generateEvaluation360Sessions = async (orgId, campaignId, campaign)
 export const getUsersByFilters = async (orgId, filters) => {
   try {
     const users = await orgStructureService.getOrgUsers(orgId);
-    
+
     let filteredUsers = users;
-    
+
     // Filtrar por Job Families
     if (filters.jobFamilyIds && filters.jobFamilyIds.length > 0) {
-      filteredUsers = filteredUsers.filter(user => 
-        user.jobFamilyIds && 
+      filteredUsers = filteredUsers.filter(user =>
+        user.jobFamilyIds &&
         user.jobFamilyIds.some(familyId => filters.jobFamilyIds.includes(familyId))
       );
     }
-    
+
     // Filtrar por Áreas
     if (filters.areaIds && filters.areaIds.length > 0) {
-      filteredUsers = filteredUsers.filter(user => 
-        filters.areaIds.includes(user.areaId) || 
+      filteredUsers = filteredUsers.filter(user =>
+        filters.areaIds.includes(user.areaId) ||
         filters.areaIds.includes(user.departmentId)
       );
     }
-    
+
     // Filtrar por IDs específicos
     if (filters.userIds && filters.userIds.length > 0) {
-      filteredUsers = filteredUsers.filter(user => 
+      filteredUsers = filteredUsers.filter(user =>
         filters.userIds.includes(user.id)
       );
     }
-    
+
     return filteredUsers;
   } catch (error) {
     console.error('[Campaign] Error filtering users:', error);
@@ -501,7 +526,7 @@ export const getDefaultTestForUser = (user, jobFamiliesMap) => {
   if (!user.jobFamilyIds || user.jobFamilyIds.length === 0) {
     return null;
   }
-  
+
   // Buscar en Job Families del usuario
   for (const familyId of user.jobFamilyIds) {
     const jobFamily = jobFamiliesMap[familyId];
@@ -514,7 +539,7 @@ export const getDefaultTestForUser = (user, jobFamiliesMap) => {
       };
     }
   }
-  
+
   return null;
 };
 
@@ -529,14 +554,14 @@ export const getCampaignStats = async (orgId, campaignId) => {
       getCampaign(orgId, campaignId),
       getCampaignSessions(orgId, campaignId)
     ]);
-    
+
     const stats = calculateCampaignStats(campaign, sessions);
-    
+
     // Actualizar estadísticas en la campaña si han cambiado
     if (JSON.stringify(stats) !== JSON.stringify(campaign.stats)) {
       await updateCampaign(orgId, campaignId, { stats }, 'system');
     }
-    
+
     return stats;
   } catch (error) {
     console.error('[Campaign] Error loading campaign stats:', error);
@@ -550,7 +575,7 @@ export const getCampaignStats = async (orgId, campaignId) => {
 export const getCampaignsOverview = async (orgId) => {
   try {
     const campaigns = await getOrgCampaigns(orgId);
-    
+
     const overview = {
       total: campaigns.length,
       byStatus: {
@@ -563,24 +588,24 @@ export const getCampaignsOverview = async (orgId) => {
       totalInvitations: 0,
       averageCompletionRate: 0
     };
-    
+
     let totalCompletionRate = 0;
     let campaignsWithStats = 0;
-    
+
     campaigns.forEach(campaign => {
       overview.byStatus[campaign.status] = (overview.byStatus[campaign.status] || 0) + 1;
       overview.totalEvaluatees += campaign.stats?.totalEvaluatees || 0;
       overview.totalInvitations += campaign.stats?.totalInvitations || 0;
-      
+
       if (campaign.stats?.completionRate !== undefined) {
         totalCompletionRate += campaign.stats.completionRate;
         campaignsWithStats++;
       }
     });
-    
-    overview.averageCompletionRate = campaignsWithStats > 0 ? 
+
+    overview.averageCompletionRate = campaignsWithStats > 0 ?
       Math.round((totalCompletionRate / campaignsWithStats) * 100) / 100 : 0;
-    
+
     return overview;
   } catch (error) {
     console.error('[Campaign] Error loading campaigns overview:', error);
@@ -601,7 +626,7 @@ export const getCampaignsByStatus = async (orgId, status) => {
       where('status', '==', status),
       orderBy('createdAt', 'desc')
     );
-    
+
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({
       id: doc.id,
@@ -642,6 +667,7 @@ export default {
   getCampaign,
   createCampaign,
   updateCampaign,
+  deleteCampaign,
   activateCampaign,
   closeCampaign,
   getCampaignSessions,

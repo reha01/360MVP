@@ -8,16 +8,16 @@ import { useMultiTenant } from '../../hooks/useMultiTenant';
 import jobFamilyService from '../../services/jobFamilyService';
 import orgStructureService from '../../services/orgStructureService';
 
-const EvaluateeSelectionStep = ({ 
+const EvaluateeSelectionStep = ({
   filters: controlledFilters = { jobFamilyIds: [], areaIds: [], userIds: [] },
   onFilterChange,
-  jobFamilies: propJobFamilies = [], 
-  areas: propAreas = [], 
-  users: propUsers = [], 
-  filteredUsers = [], 
+  jobFamilies: propJobFamilies = [],
+  areas: propAreas = [],
+  users: propUsers = [],
+  filteredUsers = [],
 }) => {
   const { currentOrgId } = useMultiTenant();
-  
+
   // Estado local para datos cargados directamente
   const [localJobFamilies, setLocalJobFamilies] = useState([]);
   const [localAreas, setLocalAreas] = useState([]);
@@ -25,12 +25,12 @@ const EvaluateeSelectionStep = ({
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUsers, setSelectedUsers] = useState(new Set());
-  
+
   // Usar datos de props si existen, sino cargar directamente
   const jobFamilies = propJobFamilies.length > 0 ? propJobFamilies : localJobFamilies;
   const areas = propAreas.length > 0 ? propAreas : localAreas;
   const users = propUsers.length > 0 ? propUsers : localUsers;
-  
+
   // Cargar datos directamente si no vienen en props
   useEffect(() => {
     const loadData = async () => {
@@ -39,18 +39,18 @@ const EvaluateeSelectionStep = ({
         setLoading(false);
         return;
       }
-      
+
       console.log('[Step2] Loading data for org:', currentOrgId);
-      
+
       try {
         const [jfData, areasData, usersData] = await Promise.all([
           jobFamilyService.getOrgJobFamilies(currentOrgId).catch(() => []),
           orgStructureService.getOrgAreas(currentOrgId).catch(() => []),
           orgStructureService.getOrgUsers(currentOrgId).catch(() => [])
         ]);
-        
-        console.log('[Step2] Loaded:', {jf: jfData.length, areas: areasData.length, users: usersData.length});
-        
+
+        console.log('[Step2] Loaded:', { jf: jfData.length, areas: areasData.length, users: usersData.length });
+
         setLocalJobFamilies(jfData);
         setLocalAreas(areasData);
         setLocalUsers(usersData);
@@ -60,7 +60,7 @@ const EvaluateeSelectionStep = ({
         setLoading(false);
       }
     };
-    
+
     // Solo cargar si props están vacías
     if (propJobFamilies.length === 0 && propAreas.length === 0) {
       loadData();
@@ -68,20 +68,20 @@ const EvaluateeSelectionStep = ({
       setLoading(false);
     }
   }, [currentOrgId, propJobFamilies.length, propAreas.length]);
-  
+
   const handleFilterChange = (filterType, value, checked) => {
     const newFilters = {
       ...controlledFilters,
-      [filterType]: checked 
+      [filterType]: checked
         ? [...(controlledFilters[filterType] || []), value]
         : (controlledFilters[filterType] || []).filter(id => id !== value)
     };
-    
+
     if (onFilterChange) {
       onFilterChange(newFilters);
     }
   };
-  
+
   const handleUserToggle = (userId) => {
     setSelectedUsers(prev => {
       const newSet = new Set(prev);
@@ -93,25 +93,25 @@ const EvaluateeSelectionStep = ({
       return newSet;
     });
   };
-  
+
   const handleApplySelection = () => {
     const newFilters = {
       ...controlledFilters,
       userIds: Array.from(selectedUsers)
     };
-    
+
     if (onFilterChange) {
       onFilterChange(newFilters);
     }
   };
-  
+
   const displayUsers = (users || []).filter(user =>
-    !searchTerm || 
+    !searchTerm ||
     user.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
-  
+
   const cardStyle = {
     backgroundColor: 'white',
     borderRadius: '8px',
@@ -119,7 +119,7 @@ const EvaluateeSelectionStep = ({
     padding: '20px',
     marginBottom: '16px'
   };
-  
+
   const inputStyle = {
     width: '100%',
     padding: '8px 12px',
@@ -127,7 +127,7 @@ const EvaluateeSelectionStep = ({
     borderRadius: '6px',
     fontSize: '14px'
   };
-  
+
   const buttonStyle = {
     padding: '8px 16px',
     backgroundColor: '#3B82F6',
@@ -137,13 +137,23 @@ const EvaluateeSelectionStep = ({
     cursor: 'pointer',
     fontSize: '14px'
   };
-  
+
   if (loading) {
-    return <div style={{padding: '40px', textAlign: 'center'}}>Cargando datos...</div>;
+    return <div style={{ padding: '40px', textAlign: 'center' }}>Cargando datos...</div>;
   }
-  
+
   return (
-    <div style={{ padding: '0' }}>
+    <div style={{ padding: '32px 48px' }}>
+      {/* Header with Context */}
+      <div style={{ textAlign: 'center', marginBottom: '40px', maxWidth: '700px', margin: '0 auto 40px' }}>
+        <h3 style={{ fontSize: '28px', fontWeight: '600', color: '#1F2937', marginBottom: '12px' }}>
+          ¿Quiénes participarán en esta campaña?
+        </h3>
+        <p style={{ fontSize: '16px', color: '#6B7280', margin: 0, lineHeight: '1.6' }}>
+          Selecciona a los colaboradores. El sistema asignará sus evaluaciones según la estrategia elegida (180°, 360°, etc).
+        </p>
+      </div>
+
       {/* Job Families */}
       <div style={cardStyle}>
         <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '600' }}>
@@ -167,7 +177,7 @@ const EvaluateeSelectionStep = ({
           <p style={{ color: '#6B7280', fontSize: '14px' }}>No hay Job Families configuradas</p>
         )}
       </div>
-      
+
       {/* Áreas */}
       <div style={cardStyle}>
         <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '600' }}>
@@ -191,13 +201,13 @@ const EvaluateeSelectionStep = ({
           <p style={{ color: '#6B7280', fontSize: '14px' }}>No hay áreas configuradas</p>
         )}
       </div>
-      
+
       {/* Selección de usuarios */}
       <div style={cardStyle}>
         <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '600' }}>
           Selección Manual de Usuarios
         </h3>
-        
+
         <div style={{ marginBottom: '16px' }}>
           <input
             type="text"
@@ -207,7 +217,7 @@ const EvaluateeSelectionStep = ({
             style={inputStyle}
           />
         </div>
-        
+
         {displayUsers.length > 0 ? (
           <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid #E5E7EB', borderRadius: '6px', padding: '8px' }}>
             {displayUsers.map(user => (
@@ -226,11 +236,11 @@ const EvaluateeSelectionStep = ({
             ))}
           </div>
         ) : (
-          <p style={{ color: '#6B7280', fontSize: '14px' }}>
-            {searchTerm ? 'No se encontraron usuarios' : 'No hay usuarios disponibles'}
+          <p style={{ color: '#6B7280', fontSize: '14px', textAlign: 'center', padding: '20px' }}>
+            {searchTerm ? 'No se encontraron usuarios con esa búsqueda' : 'Usa el buscador para agregar colaboradores'}
           </p>
         )}
-        
+
         {selectedUsers.size > 0 && (
           <div style={{ marginTop: '16px', textAlign: 'right' }}>
             <button onClick={handleApplySelection} style={buttonStyle}>
@@ -239,7 +249,7 @@ const EvaluateeSelectionStep = ({
           </div>
         )}
       </div>
-      
+
       {/* Resumen */}
       <div style={cardStyle}>
         <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '600' }}>

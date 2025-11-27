@@ -10,7 +10,7 @@ import './CampaignInfoStep.css';
 
 // Componente interno para selección visual de tipo
 const CampaignTypeCard = ({ type, selected, onSelect, icon: Icon, title, description }) => (
-  <div 
+  <div
     onClick={() => onSelect(type)}
     style={{
       border: `2px solid ${selected ? '#3B82F6' : '#E5E7EB'}`,
@@ -26,10 +26,10 @@ const CampaignTypeCard = ({ type, selected, onSelect, icon: Icon, title, descrip
       minHeight: '140px'
     }}
   >
-    <div style={{ 
-      backgroundColor: selected ? '#BFDBFE' : '#F3F4F6', 
-      padding: '10px', 
-      borderRadius: '50%' 
+    <div style={{
+      backgroundColor: selected ? '#BFDBFE' : '#F3F4F6',
+      padding: '10px',
+      borderRadius: '50%'
     }}>
       <Icon size={24} color={selected ? '#2563EB' : '#6B7280'} />
     </div>
@@ -56,48 +56,48 @@ const CampaignInfoStep = React.memo(({ data, onChange }) => {
       reminderSchedule: data.config?.reminderSchedule || [3, 7, 14]
     }
   });
-  
+
   const [errors, setErrors] = useState({});
-  
+
   // Notificar cambios al padre (solo cuando formData cambia realmente)
   const prevFormDataRef = React.useRef();
   const onChangeRef = React.useRef(onChange);
   const isInitialMountRef = React.useRef(true);
   const skipNextUpdateRef = React.useRef(false);
-  
+
   // Mantener onChange actualizado sin causar re-renders
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
-  
+
   // Prevenir actualizaciones durante el mount inicial
   useEffect(() => {
     const timer = setTimeout(() => {
       isInitialMountRef.current = false;
     }, 200);
-    
+
     return () => clearTimeout(timer);
   }, []);
-  
+
   useEffect(() => {
     if (isInitialMountRef.current || skipNextUpdateRef.current) {
       skipNextUpdateRef.current = false;
       return;
     }
-    
+
     let isMounted = true;
     let timeoutId = null;
-    
+
     const formDataStr = JSON.stringify(formData);
     if (onChangeRef.current && formDataStr !== prevFormDataRef.current) {
       prevFormDataRef.current = formDataStr;
-      
+
       Promise.resolve().then(() => {
         if (!isMounted) return;
-        
+
         requestAnimationFrame(() => {
           if (!isMounted) return;
-          
+
           timeoutId = setTimeout(() => {
             if (isMounted && onChangeRef.current && !isInitialMountRef.current) {
               onChangeRef.current(formData);
@@ -106,7 +106,7 @@ const CampaignInfoStep = React.memo(({ data, onChange }) => {
         });
       });
     }
-    
+
     return () => {
       isMounted = false;
       if (timeoutId) {
@@ -114,7 +114,7 @@ const CampaignInfoStep = React.memo(({ data, onChange }) => {
       }
     };
   }, [formData]);
-  
+
   const handleChange = (field, value) => {
     if (field.startsWith('config.')) {
       const configField = field.replace('config.', '');
@@ -131,7 +131,7 @@ const CampaignInfoStep = React.memo(({ data, onChange }) => {
         [field]: value
       }));
     }
-    
+
     if (errors[field]) {
       setErrors(prev => ({
         ...prev,
@@ -139,32 +139,32 @@ const CampaignInfoStep = React.memo(({ data, onChange }) => {
       }));
     }
   };
-  
+
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (!formData.title || formData.title.length < 3) {
       newErrors.title = 'Título debe tener al menos 3 caracteres';
     }
-    
+
     if (formData.config.startDate && formData.config.endDate) {
       const startDate = new Date(formData.config.startDate);
       const endDate = new Date(formData.config.endDate);
-      
+
       if (startDate >= endDate) {
         newErrors.endDate = 'La fecha de fin debe ser posterior a la fecha de inicio';
       }
-      
+
       const durationDays = (endDate - startDate) / (1000 * 60 * 60 * 24);
       if (durationDays < 1) {
         newErrors.endDate = 'La duración mínima es 1 día';
       }
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-  
+
   const getTimezones = () => {
     return [
       { value: 'UTC', label: 'UTC (Tiempo Universal Coordinado)' },
@@ -179,7 +179,7 @@ const CampaignInfoStep = React.memo(({ data, onChange }) => {
       { value: 'America/Argentina/Buenos_Aires', label: 'ART (Buenos Aires)' }
     ];
   };
-  
+
   const getReminderOptions = () => {
     return [
       { value: [1], label: '1 día antes' },
@@ -190,53 +190,16 @@ const CampaignInfoStep = React.memo(({ data, onChange }) => {
       { value: [1, 3, 7], label: '1, 3 y 7 días antes' }
     ];
   };
-  
+
   return (
     <div>
-      {/* Selección de Tipo de Campaña (Lo primero que ve el usuario) */}
-      <div className="step-section">
-        <div className="step-section-header">
-          <Network className="step-section-icon" />
-          <h3 className="step-section-title">¿Qué tipo de campaña deseas crear?</h3>
-        </div>
-        
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
-          <CampaignTypeCard
-            type={CAMPAIGN_TYPE.AUTOEVALUATION || 'autoevaluation'}
-            title="Autoevaluación"
-            description="Solo para que los empleados se evalúen a sí mismos."
-            icon={User}
-            selected={formData.type === (CAMPAIGN_TYPE.AUTOEVALUATION || 'autoevaluation')}
-            onSelect={(t) => handleChange('type', t)}
-          />
-          
-          <CampaignTypeCard
-            type={CAMPAIGN_TYPE.LEADERSHIP || 'leadership'} 
-            title="180° (Liderazgo)"
-            description="Yo + Mi Equipo (Reportes Directos)."
-            icon={UserPlus}
-            selected={formData.type === (CAMPAIGN_TYPE.LEADERSHIP || 'leadership')}
-            onSelect={(t) => handleChange('type', t)}
-          />
-          
-          <CampaignTypeCard
-            type={CAMPAIGN_TYPE.STANDARD || 'standard'} 
-            title="360° (Integral)"
-            description="Evaluación completa: Yo, Jefe, Pares y Equipo."
-            icon={Users}
-            selected={formData.type === (CAMPAIGN_TYPE.STANDARD || 'standard')}
-            onSelect={(t) => handleChange('type', t)}
-          />
-        </div>
-      </div>
-
       {/* Información Básica */}
       <div className="step-section">
         <div className="step-section-header">
           <Users className="step-section-icon" />
           <h3 className="step-section-title">Información Básica</h3>
         </div>
-        
+
         <div>
           {/* Título */}
           <div className="step-form-group">
@@ -255,7 +218,7 @@ const CampaignInfoStep = React.memo(({ data, onChange }) => {
               <p className="step-form-error">{errors.title}</p>
             )}
           </div>
-          
+
           {/* Descripción */}
           <div className="step-form-group">
             <label className="step-form-label">
@@ -271,14 +234,14 @@ const CampaignInfoStep = React.memo(({ data, onChange }) => {
           </div>
         </div>
       </div>
-      
+
       {/* Configuración de Fechas */}
       <div className="step-section">
         <div className="step-section-header">
           <Calendar className="step-section-icon" />
           <h3 className="step-section-title">Fechas y Duración</h3>
         </div>
-        
+
         <div className="step-form-grid">
           {/* Fecha de Inicio */}
           <div className="step-form-group">
@@ -293,7 +256,7 @@ const CampaignInfoStep = React.memo(({ data, onChange }) => {
               required
             />
           </div>
-          
+
           {/* Fecha de Fin */}
           <div className="step-form-group">
             <label className="step-form-label required">
@@ -311,7 +274,7 @@ const CampaignInfoStep = React.memo(({ data, onChange }) => {
             )}
           </div>
         </div>
-        
+
         {/* Duración calculada */}
         {formData.config.startDate && formData.config.endDate && (
           <div className="step-duration-info">
@@ -322,14 +285,14 @@ const CampaignInfoStep = React.memo(({ data, onChange }) => {
           </div>
         )}
       </div>
-      
+
       {/* Configuración de Zona Horaria */}
       <div className="step-section">
         <div className="step-section-header">
           <Globe className="step-section-icon" />
           <h3 className="step-section-title">Zona Horaria</h3>
         </div>
-        
+
         <div className="step-form-group">
           <label className="step-form-label">
             Zona Horaria de la Organización
@@ -339,7 +302,7 @@ const CampaignInfoStep = React.memo(({ data, onChange }) => {
             onValueChange={(value) => handleChange('config.timezone', value)}
           >
             <Select.Trigger>
-            <Select.Value placeholder="Seleccionar zona horaria" />
+              <Select.Value placeholder="Seleccionar zona horaria" />
             </Select.Trigger>
             <Select.Content>
               {getTimezones().map(tz => (
@@ -354,7 +317,7 @@ const CampaignInfoStep = React.memo(({ data, onChange }) => {
           </p>
         </div>
       </div>
-      
+
       {/* Validación */}
       {Object.keys(errors).length > 0 && (
         <div className="alert alert-error" style={{ marginTop: '20px' }}>

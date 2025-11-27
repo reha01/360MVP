@@ -1,0 +1,124 @@
+.wizard-stepper {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 32px 48px;
+    background: linear-gradient(to bottom, #FAFBFC 0%, #FFFFFF 100%);
+    border-bottom: 1px solid #E5E7EB;
+}
+
+.stepper-item-wrapper {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    position: relative;
+}
+
+.stepper-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+    z-index: 2;
+}
+
+.stepper-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #F3F4F6;
+    border: 2px solid #E5E7EB;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.stepper-item.active .stepper-circle {
+    background: #3B82F6;
+    border-color: #3B82F6;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+}
+
+.stepper-item.completed .stepper-circle {
+    background: #10B981;
+    border-color: #10B981;
+}
+
+.stepper-number {
+    font-size: 16px;
+    font-weight: 600;
+    color: #9CA3AF;
+}
+
+.stepper-item.active .stepper-number {
+    color: #FFFFFF;
+}
+
+.stepper-label {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.stepper-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: #6B7280;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+.stepper-item.active .stepper-title {
+    color: #1F2937;
+    font-weight: 600;
+    font-size: 15px;
+}
+
+.stepper-item.completed .stepper-title {
+    color: #10B981;
+}
+
+.stepper-subtitle {
+    font-size: 12px;
+    color: #9CA3AF;
+    white-space: nowrap;
+}
+
+.stepper-line {
+    flex: 1;
+    height: 2px;
+    background: #E5E7EB;
+    margin: 0 16px;
+    transition: all 0.3s ease;
+}
+
+.stepper-line.completed {
+    background: #10B981;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .wizard-stepper {
+        padding: 20px 16px;
+        overflow-x: auto;
+    }
+
+    .stepper-label {
+        display: none;
+    }
+
+    .stepper-item.active .stepper-label {
+        display: flex;
+    }
+
+    .stepper-circle {
+        width: 32px;
+        height: 32px;
+    }
+
+    .stepper-number {
+        font-size: 14px;
+    }
+}

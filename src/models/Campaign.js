@@ -57,20 +57,20 @@ export const VALIDATION_RULES = {
  */
 export const createCampaignModel = (data) => {
   const now = new Date();
-  
+
   return {
     // Identificadores
     campaignId: data.campaignId || `campaign_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     orgId: data.orgId,
-    
+
     // InformaciÃ³n bÃ¡sica
     title: data.title?.trim(),
     description: data.description?.trim() || '',
     type: data.type || CAMPAIGN_TYPE.CUSTOM,
-    
+
     // Estado
     status: data.status || CAMPAIGN_STATUS.DRAFT,
-    
+
     // ConfiguraciÃ³n
     config: {
       startDate: data.config?.startDate || null,
@@ -102,24 +102,24 @@ export const createCampaignModel = (data) => {
         thanks: data.config?.emailTemplates?.thanks || null
       }
     },
-    
+
     // Filtros de evaluados
     evaluateeFilters: {
       jobFamilyIds: data.evaluateeFilters?.jobFamilyIds || [],
       areaIds: data.evaluateeFilters?.areaIds || [],
       userIds: data.evaluateeFilters?.userIds || []
     },
-    
+
     // Tests asignados
     testAssignments: data.testAssignments || {}, // { userId: { testId, version, reason } }
-    
+
     // Metadatos
     createdBy: data.createdBy,
     createdAt: data.createdAt || now,
     updatedAt: data.updatedAt || now,
     activatedAt: data.activatedAt || null,
     closedAt: data.closedAt || null,
-    
+
     // EstadÃ­sticas
     stats: {
       totalEvaluatees: data.stats?.totalEvaluatees || 0,
@@ -135,19 +135,19 @@ export const createCampaignModel = (data) => {
  */
 export const createEvaluation360SessionModel = (data) => {
   const now = new Date();
-  
+
   return {
     // Identificadores
     session360Id: data.session360Id || `session360_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     orgId: data.orgId,
     campaignId: data.campaignId,
     evaluateeId: data.evaluateeId,
-    
+
     // Test asignado
     testId: data.testId,
     testVersion: data.testVersion || '1.0',
     testSnapshot: data.testSnapshot || null, // Snapshot del test al momento de la evaluaciÃ³n
-    
+
     // ConfiguraciÃ³n de evaluadores
     evaluatorConfig: {
       self: {
@@ -171,10 +171,10 @@ export const createEvaluation360SessionModel = (data) => {
         assigned: data.evaluatorConfig?.external?.assigned || []
       }
     },
-    
+
     // Estado
     status: data.status || 'pending', // pending, active, completed, closed
-    
+
     // Resultados
     results: {
       self: data.results?.self || null,
@@ -185,7 +185,7 @@ export const createEvaluation360SessionModel = (data) => {
       aggregated: data.results?.aggregated || null,
       releasedAt: data.results?.releasedAt || null
     },
-    
+
     // Metadatos
     createdAt: data.createdAt || now,
     updatedAt: data.updatedAt || now,
@@ -200,63 +200,68 @@ export const createEvaluation360SessionModel = (data) => {
  */
 export const validateCampaign = (campaign) => {
   const errors = [];
-  
+
   // Validaciones básicas
   if (!campaign.title || campaign.title.trim().length < VALIDATION_RULES.MIN_TITLE_LENGTH) {
     errors.push(`Título debe tener al menos ${VALIDATION_RULES.MIN_TITLE_LENGTH} caracteres`);
   }
-  
+
   if (campaign.title && campaign.title.length > VALIDATION_RULES.MAX_TITLE_LENGTH) {
     errors.push(`Título no puede exceder ${VALIDATION_RULES.MAX_TITLE_LENGTH} caracteres`);
   }
-  
+
   if (campaign.description && campaign.description.length > VALIDATION_RULES.MAX_DESCRIPTION_LENGTH) {
     errors.push(`Descripción no puede exceder ${VALIDATION_RULES.MAX_DESCRIPTION_LENGTH} caracteres`);
   }
-  
+
   // Validar tipo
   if (!Object.values(CAMPAIGN_TYPE).includes(campaign.type)) {
     errors.push(`Tipo de campaña inválido: ${campaign.type}`);
   }
-  
+
   // Validar fechas
   if (campaign.config.startDate && campaign.config.endDate) {
     const startDate = new Date(campaign.config.startDate);
     const endDate = new Date(campaign.config.endDate);
-    
+
     if (startDate >= endDate) {
       errors.push('La fecha de fin debe ser posterior a la fecha de inicio');
     }
-    
+
     const durationDays = (endDate - startDate) / (1000 * 60 * 60 * 24);
     if (durationDays < VALIDATION_RULES.MIN_DURATION_DAYS) {
       errors.push(`La duración mínima es ${VALIDATION_RULES.MIN_DURATION_DAYS} día(s)`);
     }
-    
+
     if (durationDays > VALIDATION_RULES.MAX_DURATION_DAYS) {
       errors.push(`La duración máxima es ${VALIDATION_RULES.MAX_DURATION_DAYS} días`);
     }
   }
-  
+
   // Validar configuraciÃ³n de evaluadores
   if (campaign.config.requiredEvaluators) {
     const config = campaign.config.requiredEvaluators;
-    
+
     // Validar pares
     if (config.peers && config.peers.min > config.peers.max) {
       errors.push('Mínimo de pares no puede ser mayor al máximo');
     }
-    
+
     if (config.peers && config.peers.min < VALIDATION_RULES.MIN_EVALUATORS.peer) {
       errors.push(`Mínimo de pares debe ser al menos ${VALIDATION_RULES.MIN_EVALUATORS.peer}`);
     }
-    
+
     // Validar subordinados
     if (config.subordinates && config.subordinates.min < 0) {
       errors.push('Mínimo de subordinados no puede ser negativo');
     }
   }
-  
+
+
+  // NOTA: Validación de filtros de evaluados comentada para permitir
+  // el modelo "Container First" donde se crea la campaña primero y luego
+  // se agregan evaluados en una pantalla dedicada
+  /*
   // Validar filtros de evaluados
   if (campaign.evaluateeFilters) {
     const jobFamilyIds = campaign.evaluateeFilters.jobFamilyIds || [];
@@ -274,7 +279,8 @@ export const validateCampaign = (campaign) => {
     // Si no hay evaluateeFilters definido, es un error
     errors.push('Debe seleccionar al menos un filtro de evaluados');
   }
-  
+  */
+
   return {
     isValid: errors.length === 0,
     errors
@@ -286,30 +292,30 @@ export const validateCampaign = (campaign) => {
  */
 export const validateEvaluation360Session = (session) => {
   const errors = [];
-  
+
   // Validaciones bÃ¡sicas
   if (!session.evaluateeId) {
     errors.push('ID del evaluado requerido');
   }
-  
+
   if (!session.testId) {
     errors.push('ID del test requerido');
   }
-  
+
   // Validar configuraciÃ³n de evaluadores
   if (session.evaluatorConfig) {
     const config = session.evaluatorConfig;
-    
+
     // Validar que se cumplan los mÃ­nimos requeridos
     if (config.peers.required.min > 0 && config.peers.assigned.length < config.peers.required.min) {
       errors.push(`Se requieren al menos ${config.peers.required.min} evaluadores pares`);
     }
-    
+
     if (config.subordinates.required.min > 0 && config.subordinates.assigned.length < config.subordinates.required.min) {
       errors.push(`Se requieren al menos ${config.subordinates.required.min} evaluadores subordinados`);
     }
   }
-  
+
   return {
     isValid: errors.length === 0,
     errors
@@ -361,27 +367,27 @@ export const getCampaignTypeLabel = (type) => {
  */
 export const canActivateCampaign = (campaign) => {
   const issues = [];
-  
+
   if (!campaign.title || campaign.title.trim().length < VALIDATION_RULES.MIN_TITLE_LENGTH) {
     issues.push('Título requerido');
   }
-  
+
   if (!campaign.config.startDate || !campaign.config.endDate) {
     issues.push('Fechas de inicio y fin requeridas');
   }
-  
+
   const hasEvaluatees = campaign.evaluateeFilters.jobFamilyIds.length > 0 ||
-                       campaign.evaluateeFilters.areaIds.length > 0 ||
-                       campaign.evaluateeFilters.userIds.length > 0;
-  
+    campaign.evaluateeFilters.areaIds.length > 0 ||
+    campaign.evaluateeFilters.userIds.length > 0;
+
   if (!hasEvaluatees) {
     issues.push('Debe seleccionar evaluados');
   }
-  
+
   if (Object.keys(campaign.testAssignments).length === 0) {
     issues.push('Debe asignar tests a los evaluados');
   }
-  
+
   return {
     canActivate: issues.length === 0,
     issues
@@ -395,18 +401,18 @@ export const calculateCampaignStats = (campaign, sessions) => {
   const totalSessions = sessions.length;
   const completedSessions = sessions.filter(s => s.status === 'completed').length;
   const completionRate = totalSessions > 0 ? (completedSessions / totalSessions) * 100 : 0;
-  
+
   // Calcular total de invitaciones (suma de todos los evaluadores asignados)
   const totalInvitations = sessions.reduce((total, session) => {
     const config = session.evaluatorConfig;
-    return total + 
-           (config.self.assigned ? 1 : 0) +
-           config.manager.assigned.length +
-           config.peers.assigned.length +
-           config.subordinates.assigned.length +
-           config.external.assigned.length;
+    return total +
+      (config.self.assigned ? 1 : 0) +
+      config.manager.assigned.length +
+      config.peers.assigned.length +
+      config.subordinates.assigned.length +
+      config.external.assigned.length;
   }, 0);
-  
+
   return {
     totalEvaluatees: totalSessions,
     totalInvitations,
@@ -428,20 +434,20 @@ export const generateEvaluatorConfigFromJobFamily = (jobFamily) => {
       external: { required: { min: 0 } }
     };
   }
-  
+
   return {
     self: { required: jobFamily.evaluatorConfig.requireSelf },
     manager: { required: jobFamily.evaluatorConfig.requireManager },
-    peers: { 
-      required: { 
-        min: jobFamily.evaluatorConfig.peersMin, 
-        max: jobFamily.evaluatorConfig.peersMax 
-      } 
+    peers: {
+      required: {
+        min: jobFamily.evaluatorConfig.peersMin,
+        max: jobFamily.evaluatorConfig.peersMax
+      }
     },
-    subordinates: { 
-      required: { 
-        min: jobFamily.evaluatorConfig.subordinatesMin 
-      } 
+    subordinates: {
+      required: {
+        min: jobFamily.evaluatorConfig.subordinatesMin
+      }
     },
     external: { required: { min: 0 } }
   };

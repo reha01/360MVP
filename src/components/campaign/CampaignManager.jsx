@@ -19,32 +19,32 @@ import './CampaignManager.css';
 const CampaignManager = () => {
   const { currentOrgId } = useMultiTenant();
   const { user } = useAuth();
-  
+
   // Estado
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [campaigns, setCampaigns] = useState([]);
   const [overview, setOverview] = useState(null);
-  
+
   // UI State
   const [activeTab, setActiveTab] = useState('all');
   const [showCampaignWizard, setShowCampaignWizard] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   // Memoizar loadData para evitar recreaciones
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const [campaignsData, overviewData] = await Promise.all([
         campaignService.getOrgCampaigns(currentOrgId),
         campaignService.getCampaignsOverview(currentOrgId)
       ]);
-      
+
       setCampaigns(campaignsData);
       setOverview(overviewData);
-      
+
       console.log('[CampaignManager] Data loaded:', {
         campaigns: campaignsData.length
       });
@@ -55,14 +55,14 @@ const CampaignManager = () => {
       setLoading(false);
     }
   }, [currentOrgId]);
-  
+
   // Cargar datos iniciales
   useEffect(() => {
     if (currentOrgId) {
       loadData();
     }
   }, [currentOrgId, loadData]);
-  
+
   // Handlers
   const handleCreateCampaign = async (campaignData) => {
     try {
@@ -73,7 +73,7 @@ const CampaignManager = () => {
       setError(err.message);
     }
   };
-  
+
   const handleActivateCampaign = async (campaignId) => {
     try {
       await campaignService.activateCampaign(currentOrgId, campaignId, user.uid);
@@ -82,7 +82,7 @@ const CampaignManager = () => {
       setError(err.message);
     }
   };
-  
+
   const handleCloseCampaign = async (campaignId) => {
     try {
       await campaignService.closeCampaign(currentOrgId, campaignId, user.uid);
@@ -91,7 +91,19 @@ const CampaignManager = () => {
       setError(err.message);
     }
   };
-  
+
+  const handleDeleteCampaign = async (campaignId) => {
+    try {
+      console.log('[CampaignManager] Deleting campaign:', campaignId);
+      await campaignService.deleteCampaign(currentOrgId, campaignId);
+      console.log('[CampaignManager] Campaign deleted successfully');
+      await loadData();
+    } catch (err) {
+      console.error('[CampaignManager] Error deleting campaign:', err);
+      setError(`Error al eliminar: ${err.message}`);
+    }
+  };
+
   // Filtrar campañas por búsqueda
   const filteredCampaigns = campaigns.filter(campaign => {
     if (!searchTerm) return true;
@@ -100,13 +112,13 @@ const CampaignManager = () => {
     const description = (campaign.description || '').toLowerCase();
     return title.includes(searchLower) || description.includes(searchLower);
   });
-  
+
   // Agrupar por estado
   const campaignsByStatus = Object.values(CAMPAIGN_STATUS).reduce((acc, status) => {
     acc[status] = filteredCampaigns.filter(campaign => (campaign.status || 'draft') === status);
     return acc;
   }, {});
-  
+
   // Renderizar badge de estado
   const renderStatusBadge = (status) => {
     const statusClass = {
@@ -114,14 +126,14 @@ const CampaignManager = () => {
       'active': 'status-active',
       'closed': 'status-closed'
     }[status] || 'status-default';
-    
+
     return (
       <span className={`status-badge ${statusClass}`}>
         {getCampaignStatusLabel(status)}
       </span>
     );
   };
-  
+
   if (loading) {
     return (
       <div className="loading-container">
@@ -130,7 +142,7 @@ const CampaignManager = () => {
       </div>
     );
   }
-  
+
   return (
     <div className="campaign-manager-container">
       {/* Header */}
@@ -141,7 +153,7 @@ const CampaignManager = () => {
             Gestiona campañas de evaluación 360° para tu organización
           </p>
         </div>
-        
+
         <button
           className="btn-primary"
           onClick={() => setShowCampaignWizard(true)}
@@ -149,7 +161,7 @@ const CampaignManager = () => {
           ➕ Nueva Campaña
         </button>
       </div>
-      
+
       {/* Alertas */}
       {error && (
         <div className="alert alert-error">
@@ -157,7 +169,7 @@ const CampaignManager = () => {
           <button className="alert-close" onClick={() => setError(null)}>×</button>
         </div>
       )}
-      
+
       {/* Estadísticas */}
       {overview && (
         <div className="stats-grid">
@@ -169,7 +181,7 @@ const CampaignManager = () => {
               <br />💡 Incluye borradores, activas y cerradas
             </div>
           </div>
-          
+
           <div className="stat-card" title="Campañas actualmente activas y en ejecución">
             <div className="stat-label">Activas</div>
             <div className="stat-value">{overview.byStatus.active || 0}</div>
@@ -178,7 +190,7 @@ const CampaignManager = () => {
               <br />💡 Los evaluadores pueden completar evaluaciones
             </div>
           </div>
-          
+
           <div className="stat-card" title="Total de personas evaluadas en todas las campañas">
             <div className="stat-label">Evaluados</div>
             <div className="stat-value">{overview.totalEvaluatees}</div>
@@ -187,7 +199,7 @@ const CampaignManager = () => {
               <br />💡 Personas que han recibido evaluaciones 360°
             </div>
           </div>
-          
+
           <div className="stat-card" title="Porcentaje promedio de completitud de evaluaciones">
             <div className="stat-label">Completitud</div>
             <div className="stat-value">{overview.averageCompletionRate}%</div>
@@ -198,7 +210,7 @@ const CampaignManager = () => {
           </div>
         </div>
       )}
-      
+
       {/* Búsqueda y filtros */}
       <div className="search-section">
         <label>Buscar campañas</label>
@@ -209,8 +221,8 @@ const CampaignManager = () => {
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
-        
-        <select 
+
+        <select
           className="filter-select"
           value={activeTab}
           onChange={(e) => setActiveTab(e.target.value)}
@@ -221,7 +233,7 @@ const CampaignManager = () => {
           <option value="closed">Cerradas</option>
         </select>
       </div>
-      
+
       {/* Contenido de tabs */}
       <div className="tabs-container">
         <div className="tabs-list">
@@ -250,7 +262,7 @@ const CampaignManager = () => {
             Cerradas
           </button>
         </div>
-        
+
         <div className="tabs-content">
           {/* Tab: Todas */}
           {activeTab === 'all' && (
@@ -261,7 +273,7 @@ const CampaignManager = () => {
                     <CampaignCard
                       key={campaign.id}
                       campaign={campaign}
-                      onActivate={handleActivateCampaign}
+                      onDelete={handleDeleteCampaign}
                       onClose={handleCloseCampaign}
                     />
                   ))}
@@ -283,7 +295,7 @@ const CampaignManager = () => {
               )}
             </>
           )}
-          
+
           {/* Tab: Por estado */}
           {activeTab !== 'all' && (
             <>
@@ -305,7 +317,7 @@ const CampaignManager = () => {
                     No hay campañas {getCampaignStatusLabel(activeTab).toLowerCase()}
                   </h3>
                   <p className="empty-state-description">
-                    {activeTab === CAMPAIGN_STATUS.DRAFT 
+                    {activeTab === CAMPAIGN_STATUS.DRAFT
                       ? 'Crea una nueva campaña para comenzar'
                       : `No hay campañas en estado ${getCampaignStatusLabel(activeTab).toLowerCase()}`
                     }
@@ -324,7 +336,7 @@ const CampaignManager = () => {
           )}
         </div>
       </div>
-      
+
       {/* Campaign Wizard */}
       {showCampaignWizard && (
         <CampaignWizard
