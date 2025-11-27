@@ -1,0 +1,540 @@
+// src/hooks/useMemberManagement.js
+import { useState, useEffect, useCallback } from 'react';
+import { doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../services/firebase';
+import { getOrgUsers } from '../services/orgStructureServiceWrapper';
+import { getOrgRoles } from '../services/roleService';
+import { getOrgAreas } from '../services/orgStructureService';
+import jobFamilyService from '../services/jobFamilyService';
+import * as XLSX from 'xlsx';
+import {
+  uploadMemberCsv,
+  subscribeToImportJobs
+} from '../services/memberImportService';
+
+/**
+ * Custom hook for managing members state and operations
+ * @param {string} activeOrgId - Active organization ID
+ * @param {object} user - Current user object
+ * @returns {object} Member management state and functions
+ */
+export const useMemberManagement = (activeOrgId, user) => {
+  // ==================== STATE ====================
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [importJobs, setImportJobs] = useState([]);
+  
+  // Editing state
+  const [editingMember, setEditingMember] = useState(null);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState(null);
+  
+  // Delete state
+  const [deletingMember, setDeletingMember] = useState(null);
+  const [deleteConfirming, setDeleteConfirming] = useState(false);
+  
+  // Reference data
+  const [orgRoles, setOrgRoles] = useState(['member', 'admin', 'owner', 'manager']);
+  const [jobFamilies, setJobFamilies] = useState([]);
+  const [areas, setAreas] = useState([]);
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // ==================== LOAD MEMBERS ====================
+  const loadMembers = useCallback(async () => {
+    if (!activeOrgId) {
+      console.log('[useMemberManagement] No activeOrgId, skipping load');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      console.log('[useMemberManagement] Loading members for org:', activeOrgId);
+      const users = await getOrgUsers(activeOrgId);
+      console.log('[useMemberManagement] Loaded users:', users);
+      setMembers(users || []);
+    } catch (err) {
+      console.error('[useMemberManagement] Error loading members:', err);
+      setError(err.message || 'Error al cargar miembros');
+    } finally {
+      setLoading(false);
+    }
+  }, [activeOrgId]);
+
+  // ==================== EFFECTS ====================
+  
+  // Load members on mount/activeOrgId change
+  useEffect(() => {
+    loadMembers();
+  }, [loadMembers]);
+
+  // Load org roles
+  useEffect(() => {
+    const loadOrgRoles = async () => {
+      if (!activeOrgId) return;
+      try {
+        const roles = await getOrgRoles(activeOrgId);
+        setOrgRoles(roles);
+      } catch (error) {
+        console.error('[useMemberManagement] Error loading org roles:', error);
+      }
+    };
+    loadOrgRoles();
+  }, [activeOrgId]);
+
+  // Load reference data (JobFamilies, Areas)
+  useEffect(() => {
+    const loadReferenceData = async () => {
+      if (!activeOrgId) return;
+      try {
+        const [jobFamiliesData, areasData] = await Promise.allSettled([
+          jobFamilyService.getOrgJobFamilies(activeOrgId).catch(() => []),
+          getOrgAreas(activeOrgId).catch(() => [])
+        ]);
+
+        setJobFamilies(jobFamiliesData.status === 'fulfilled' ? jobFamiliesData.value : []);
+        setAreas(areasData.status === 'fulfilled' ? areasData.value : []);
+
+        console.log('[useMemberManagement] Loaded reference data:', {
+          jobFamilies: jobFamiliesData.status === 'fulfilled' ? jobFamiliesData.value.length : 0,
+          areas: areasData.status === 'fulfilled' ? areasData.value.length : 0
+        });
+      } catch (error) {
+        console.error('[useMemberManagement] Error loading reference data:', error);
+      }
+    };
+    loadReferenceData();
+  }, [activeOrgId]);
+
+  // Listen to import jobs
+  useEffect(() => {
+    if (!activeOrgId) return;
+
+    try {
+      const unsubscribe = subscribeToImportJobs(
+        activeOrgId,
+        (jobs) => {
+          console.log('[useMemberManagement] Import jobs updated:', jobs);
+          if (jobs && jobs.length > 0) {
+            const latestJob = jobs[0];
+            console.log('[useMemberManagement] Latest job details:', {
+              id: latestJob.id,
+              status: latestJob.status,
+              summary: latestJob.summary,
+              hasErrors: latestJob.hasErrors,
+              failedRows: latestJob.failedRows
+            });
+          }
+          setImportJobs(jobs || []);
+        },
+        5
+      );
+
+      return () => unsubscribe();
+    } catch (error) {
+      console.error('[useMemberManagement] Error setting up import jobs listener:', error);
+    }
+  }, [activeOrgId]);
+
+  // ==================== CRUD FUNCTIONS ====================
+
+  /**
+   * Open edit modal for a member
+   */
+  const handleEditMember = useCallback((member) => {
+    setEditingMember(member);
+    setEditError(null);
+  }, []);
+
+  /**
+   * Close edit modal
+   */
+  const handleCloseEditModal = useCallback(() => {
+    setEditingMember(null);
+    setEditError(null);
+    setEditSaving(false);
+  }, []);
+
+  /**
+   * Save member changes to Firestore
+   */
+  const handleSaveMember = useCallback(async (editForm) => {
+    if (!editingMember || !activeOrgId) return;
+
+    const name = editForm.name.trim();
+    const lastNamePaternal = editForm.lastNamePaternal.trim();
+    const lastNameMaternal = editForm.lastNameMaternal.trim();
+    const email = editForm.email.trim();
+
+    if (!email || !email.includes('@')) {
+      setEditError('Email es requerido y debe ser válido');
+      return false;
+    }
+
+    setEditSaving(true);
+    setEditError(null);
+
+    try {
+      const fullLastName = [lastNamePaternal, lastNameMaternal].filter(Boolean).join(' ');
+      const displayName = [name, fullLastName].filter(Boolean).join(' ') || email;
+
+      // Get job family and area names for compatibility
+      const selectedJobFamily = jobFamilies.find(jf => jf.id === editForm.jobFamilyId);
+      const selectedArea = areas.find(a => a.id === editForm.areaId);
+
+      // Update member in Firestore
+      const memberRef = doc(db, 'members', editingMember.id);
+      const updateData = {
+        name: name || null,
+        lastName: lastNamePaternal || null,
+        lastNamePaternal: lastNamePaternal || null,
+        lastNameMaternal: lastNameMaternal || null,
+        fullLastName: fullLastName,
+        displayName,
+        fullName: displayName,
+        email,
+        role: editForm.role,
+        memberRole: editForm.role,
+        cargo: editForm.cargo || null,
+        jobTitle: editForm.cargo || null,
+        jobFamilyId: editForm.jobFamilyId || null,
+        jobFamilyIds: editForm.jobFamilyId ? [editForm.jobFamilyId] : [],
+        jobFamilyName: selectedJobFamily?.name || null,
+        areaId: editForm.areaId || null,
+        area: selectedArea?.name || null,
+        managerIds: editForm.managerIds || [],
+        isActive: editForm.isActive,
+        updatedAt: serverTimestamp(),
+        updatedBy: user?.email || user?.uid || 'member-manager',
+      };
+
+      await updateDoc(memberRef, updateData);
+
+      // Update local state optimistically
+      setMembers(prevMembers =>
+        prevMembers.map(member =>
+          member.id === editingMember.id
+            ? {
+              ...member,
+              name,
+              lastName: lastNamePaternal,
+              lastNamePaternal,
+              lastNameMaternal,
+              fullLastName,
+              displayName,
+              fullName: displayName,
+              email,
+              role: editForm.role,
+              memberRole: editForm.role,
+              cargo: editForm.cargo,
+              jobTitle: editForm.cargo,
+              jobFamilyId: editForm.jobFamilyId,
+              jobFamilyIds: editForm.jobFamilyId ? [editForm.jobFamilyId] : [],
+              jobFamilyName: selectedJobFamily?.name,
+              areaId: editForm.areaId,
+              area: selectedArea?.name,
+              managerIds: editForm.managerIds || [],
+              isActive: editForm.isActive,
+            }
+            : member
+        )
+      );
+
+      console.log('[useMemberManagement] Member updated successfully:', displayName);
+      setEditingMember(null);
+      setEditSaving(false);
+      return true;
+
+    } catch (err) {
+      console.error('[useMemberManagement] Error updating member:', err);
+      setEditError(err.message || 'Error al actualizar el miembro');
+      setEditSaving(false);
+      return false;
+    }
+  }, [editingMember, activeOrgId, user, jobFamilies, areas]);
+
+  /**
+   * Open delete confirmation modal
+   */
+  const handleDeleteMember = useCallback((member) => {
+    setDeletingMember(member);
+  }, []);
+
+  /**
+   * Confirm and execute member deletion (soft delete)
+   */
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deletingMember || !activeOrgId) return;
+
+    setDeleteConfirming(true);
+    setError(null);
+
+    try {
+      console.log('[useMemberManagement] Deleting member:', {
+        id: deletingMember.id,
+        name: deletingMember.displayName,
+        email: deletingMember.email
+      });
+
+      // Delete member from Firestore
+      const memberRef = doc(db, 'members', deletingMember.id);
+      await deleteDoc(memberRef);
+
+      // Update local state optimistically
+      setMembers(prevMembers =>
+        prevMembers.filter(member => member.id !== deletingMember.id)
+      );
+
+      console.log('[useMemberManagement] Member deleted successfully:', deletingMember.displayName);
+
+      // Close modal and reset states
+      setDeletingMember(null);
+      setDeleteConfirming(false);
+
+    } catch (err) {
+      console.error('[useMemberManagement] Error deleting member:', err);
+      setError(`Error al eliminar ${deletingMember.displayName}: ${err.message}`);
+
+      // Close modal even on error
+      setDeletingMember(null);
+      setDeleteConfirming(false);
+    }
+  }, [deletingMember, activeOrgId]);
+
+  /**
+   * Cancel delete operation
+   */
+  const handleCancelDelete = useCallback(() => {
+    setDeletingMember(null);
+    setDeleteConfirming(false);
+  }, []);
+
+  // ==================== CSV FUNCTIONS ====================
+
+  /**
+   * Handle CSV file upload
+   */
+  const handleFileUpload = useCallback(async (event) => {
+    const file = event.target.files?.[0];
+    if (!file || !activeOrgId) return;
+
+    setUploading(true);
+    setError(null);
+
+    try {
+      await uploadMemberCsv(file, activeOrgId);
+      console.log('[useMemberManagement] CSV upload initiated successfully');
+      event.target.value = '';
+    } catch (err) {
+      console.error('[useMemberManagement] Error uploading CSV:', err);
+      setError(err.message || 'Error al subir el archivo CSV');
+    } finally {
+      setUploading(false);
+    }
+  }, [activeOrgId]);
+
+  /**
+   * Download CSV template with reference data
+   */
+  const downloadTemplate = useCallback(async () => {
+    if (!activeOrgId) return;
+
+    try {
+      // Get valid roles, areas, and job families
+      const [validRoles, areas, jobFamilies] = await Promise.allSettled([
+        getOrgRoles(activeOrgId).catch(() => []),
+        getOrgAreas(activeOrgId).catch(() => []),
+        jobFamilyService.getOrgJobFamilies(activeOrgId).catch(() => [])
+      ]);
+
+      const roles = validRoles.status === 'fulfilled' ? validRoles.value : [];
+      const areasList = areas.status === 'fulfilled' ? areas.value : [];
+      const jobFamiliesList = jobFamilies.status === 'fulfilled' ? jobFamilies.value : [];
+
+      // Create workbook
+      const workbook = XLSX.utils.book_new();
+
+      // SHEET 1: Template
+      const templateData = [
+        ['Email', 'Nombre', 'Apellido Paterno', 'Apellido Materno', 'Cargo', 'Job Family', 'Área'],
+        ['juan@empresa.com', 'Juan', 'Pérez', 'González', 'Gerente de Ventas', jobFamiliesList[0]?.name || '', areasList[0]?.name || 'Ventas'],
+        ['maria@empresa.com', 'María', 'García', 'López', 'Directora de Operaciones', jobFamiliesList[1]?.name || '', areasList[1]?.name || ''],
+        ['carlos@empresa.com', 'Carlos', 'López', 'Martínez', 'Analista de Marketing', jobFamiliesList[0]?.name || '', areasList[2]?.name || 'Marketing']
+      ];
+
+      const templateSheet = XLSX.utils.aoa_to_sheet(templateData);
+      templateSheet['!cols'] = [
+        { wch: 30 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 30 }, { wch: 25 }, { wch: 25 }
+      ];
+
+      XLSX.utils.book_append_sheet(workbook, templateSheet, 'Plantilla');
+
+      // SHEET 2: Reference data
+      const referenceData = [
+        ['=== ROLES VÁLIDOS ==='],
+        ['Todos los miembros importados tendrán el rol "member" por defecto.'],
+        [''],
+        ['=== ÁREAS DISPONIBLES ==='],
+        ['Nombre de Área']
+      ];
+
+      if (areasList.length > 0) {
+        areasList.forEach(area => referenceData.push([area.name]));
+      } else {
+        referenceData.push(['(No hay áreas configuradas)']);
+      }
+
+      referenceData.push(['']);
+      referenceData.push(['=== JOB FAMILIES (CARGOS) DISPONIBLES ===']);
+      referenceData.push(['Nombre del Cargo']);
+
+      if (jobFamiliesList.length > 0) {
+        jobFamiliesList.forEach(family => referenceData.push([family.name]));
+      } else {
+        referenceData.push(['(No hay cargos configurados)']);
+      }
+
+      referenceData.push(['']);
+      referenceData.push(['NOTA IMPORTANTE:']);
+      referenceData.push(['Todos los miembros importados tendrán el rol "member" por defecto.']);
+      referenceData.push(['Solo Super Admins pueden cambiar roles posteriormente.']);
+
+      const referenceSheet = XLSX.utils.aoa_to_sheet(referenceData);
+      referenceSheet['!cols'] = [{ wch: 50 }];
+
+      XLSX.utils.book_append_sheet(workbook, referenceSheet, 'Referencia');
+
+      // Generate and download
+      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array', cellStyles: true });
+      const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Plantilla_Miembros.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      console.log('[useMemberManagement] Template downloaded');
+    } catch (error) {
+      console.error('[useMemberManagement] Error generating template:', error);
+      setError('Error al generar la plantilla. Por favor, intenta nuevamente.');
+    }
+  }, [activeOrgId]);
+
+  /**
+   * Export members to Excel
+   */
+  const exportMembersToExcel = useCallback(async () => {
+    try {
+      const validRoles = await getOrgRoles(activeOrgId);
+      const headers = ['Email', 'Nombre', 'Apellido Paterno', 'Apellido Materno', 'Rol', 'Cargo', 'Área', 'Estado'];
+
+      const rows = members.map(member => {
+        const fullName = [
+          member.name,
+          member.lastNamePaternal || member.lastName,
+          member.lastNameMaternal
+        ].filter(Boolean).join(' ');
+
+        return [
+          member.email || member.workEmail || '',
+          member.name || '',
+          member.lastNamePaternal || member.lastName || '',
+          member.lastNameMaternal || '',
+          member.role || member.memberRole || '',
+          member.cargo || '',
+          member.area || member.unit || member.department || '',
+          member.isActive === false ? 'Inactivo' : 'Activo'
+        ];
+      });
+
+      const csvContent = [
+        `=== ROLES VÁLIDOS ===`,
+        `Los siguientes roles están disponibles:`,
+        ...validRoles.map(r => `- ${r}`),
+        ``,
+        `=== MIEMBROS EXPORTADOS ===`,
+        `Fecha de exportación: ${new Date().toLocaleString('es-CL')}`,
+        `Total de miembros: ${members.length}`,
+        ``,
+        headers.join(';'),
+        ...rows.map(row => row.join(';'))
+      ].join('\n');
+
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+
+      const dateStr = new Date().toISOString().split('T')[0];
+      a.download = `Miembros_Exportados_${dateStr}.csv`;
+
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      console.log(`[useMemberManagement] Exported ${members.length} members to Excel`);
+    } catch (error) {
+      console.error('[useMemberManagement] Error exporting members:', error);
+      setError(`Error al exportar miembros: ${error.message}`);
+    }
+  }, [activeOrgId, members]);
+
+  // ==================== RETURN API ====================
+  return {
+    // State
+    members,
+    setMembers,
+    loading,
+    error,
+    setError,
+    uploading,
+    importJobs,
+    
+    // Edit state
+    editingMember,
+    setEditingMember,
+    editSaving,
+    editError,
+    setEditError,
+    
+    // Delete state
+    deletingMember,
+    setDeletingMember,
+    deleteConfirming,
+    
+    // Reference data
+    orgRoles,
+    jobFamilies,
+    areas,
+    
+    // Pagination
+    currentPage,
+    setCurrentPage,
+    itemsPerPage,
+    setItemsPerPage,
+    
+    // CRUD functions
+    loadMembers,
+    handleEditMember,
+    handleCloseEditModal,
+    handleSaveMember,
+    handleDeleteMember,
+    handleConfirmDelete,
+    handleCancelDelete,
+    
+    // CSV functions
+    handleFileUpload,
+    downloadTemplate,
+    exportMembersToExcel,
+  };
+};
