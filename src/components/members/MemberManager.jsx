@@ -10,6 +10,7 @@ import { getOrgRoles, validateRole, normalizeRole } from '../../services/roleSer
 import { getOrgAreas } from '../../services/orgStructureService';
 import jobFamilyService from '../../services/jobFamilyService';
 import * as XLSX from 'xlsx';
+import MultiManagerSelector from './MultiManagerSelector';
 import './MemberManager.css';
 
 // Función helper para formatear fechas: dd-mm-yy HH:mm (24 horas)
@@ -18,14 +19,14 @@ const formatDateCompact = (dateValue) => {
   try {
     const date = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
     if (isNaN(date.getTime())) return '--';
-    
+
     // Formato: dd-mm-yy HH:mm (24 horas)
     const day = String(date.getDate()).padStart(2, '0');
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const year = String(date.getFullYear()).slice(-2); // Últimos 2 dígitos del año
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
-    
+
     return `${day}-${month}-${year} ${hours}:${minutes}`;
   } catch {
     return '--';
@@ -33,14 +34,14 @@ const formatDateCompact = (dateValue) => {
 };
 
 // Import memberImportService functions individually to avoid issues
-import { 
-  uploadMemberCsv, 
+import {
+  uploadMemberCsv,
   createImportJob,
-  subscribeToImportJobs 
+  subscribeToImportJobs
 } from '../../services/memberImportService';
 // Temporary: Using simple components instead of ui library
 const Alert = ({ variant, children, ...props }) => (
-  <div 
+  <div
     style={{
       padding: '12px',
       borderRadius: '6px',
@@ -168,10 +169,10 @@ const MemberManager = () => {
           jobFamilyService.getOrgJobFamilies(activeOrgId).catch(() => []),
           getOrgAreas(activeOrgId).catch(() => [])
         ]);
-        
+
         setJobFamilies(jobFamiliesData.status === 'fulfilled' ? jobFamiliesData.value : []);
         setAreas(areasData.status === 'fulfilled' ? areasData.value : []);
-        
+
         console.log('[MemberManager] Loaded reference data:', {
           jobFamilies: jobFamiliesData.status === 'fulfilled' ? jobFamiliesData.value.length : 0,
           areas: areasData.status === 'fulfilled' ? areasData.value.length : 0
@@ -226,7 +227,7 @@ const MemberManager = () => {
       // Read and parse CSV file
       const csvText = await file.text();
       const lines = csvText.split('\n').filter(line => line.trim());
-      
+
       if (lines.length < 2) {
         throw new Error('El archivo CSV debe tener al menos una fila de datos además del encabezado');
       }
@@ -239,12 +240,12 @@ const MemberManager = () => {
           break;
         }
       }
-      
+
       // Parse header and data
       const headers = lines[headerLineIndex].split(';').map(h => h.trim().toLowerCase());
       const expectedHeaders = ['email', 'nombre', 'apellido paterno'];
       const optionalHeaders = ['apellido materno', 'área', 'area', 'cargo', 'job family', 'jobfamily', 'rol']; // Rol es opcional e ignorado
-      
+
       // Validate headers (Rol ya no es requerido)
       const missingHeaders = expectedHeaders.filter(h => !headers.includes(h));
       if (missingHeaders.length > 0) {
@@ -256,14 +257,14 @@ const MemberManager = () => {
         jobFamilyService.getOrgJobFamilies(activeOrgId).catch(() => []),
         getOrgAreas(activeOrgId).catch(() => [])
       ]);
-      
+
       const availableJobFamilies = jobFamiliesData.status === 'fulfilled' ? jobFamiliesData.value : [];
       const availableAreas = areasData.status === 'fulfilled' ? areasData.value : [];
 
       // Parse data rows (empezar después de la línea de headers)
       const members = [];
       const errors = [];
-      
+
       for (let i = headerLineIndex + 1; i < lines.length; i++) {
         const values = lines[i].split(';').map(v => v.trim());
         if (values.length < headers.length) continue;
@@ -288,7 +289,7 @@ const MemberManager = () => {
         const cargo = memberData['cargo'] || ''; // Job Title (texto libre)
         const jobFamilyName = memberData['job family'] || memberData['jobfamily'] || '';
         const areaName = memberData['área'] || memberData['area'] || '';
-        
+
         // Hacer match de Job Family por nombre
         let jobFamilyId = null;
         let jobFamilyIds = [];
@@ -304,7 +305,7 @@ const MemberManager = () => {
             continue;
           }
         }
-        
+
         // Hacer match de Área por nombre
         let areaId = null;
         let areaDisplayName = null;
@@ -320,10 +321,10 @@ const MemberManager = () => {
             continue;
           }
         }
-        
+
         const fullLastName = [apellidoPaterno, apellidoMaterno].filter(Boolean).join(' ');
         const displayName = [memberData.nombre, fullLastName].filter(Boolean).join(' ') || memberData.email;
-        
+
         members.push({
           orgId: activeOrgId,
           email: memberData.email,
@@ -355,7 +356,7 @@ const MemberManager = () => {
       }
 
       console.log(`[MemberManager] Parsed ${members.length} members, ${errors.length} errors`);
-      
+
       if (errors.length > 0) {
         const errorMessage = `Errores encontrados:\n${errors.join('\n')}`;
         console.warn('[MemberManager] CSV parsing errors:', errors);
@@ -413,14 +414,14 @@ const MemberManager = () => {
         getOrgAreas(activeOrgId).catch(() => []),
         jobFamilyService.getOrgJobFamilies(activeOrgId).catch(() => [])
       ]);
-      
+
       const roles = validRoles.status === 'fulfilled' ? validRoles.value : [];
       const areasList = areas.status === 'fulfilled' ? areas.value : [];
       const jobFamiliesList = jobFamilies.status === 'fulfilled' ? jobFamilies.value : [];
-      
+
       // Crear workbook de Excel
       const workbook = XLSX.utils.book_new();
-      
+
       // HOJA 1: Plantilla de Miembros (sin columna Rol - todos serán 'member' por defecto)
       const templateData = [
         // Encabezados
@@ -430,9 +431,9 @@ const MemberManager = () => {
         ['maria@empresa.com', 'María', 'García', 'López', 'Directora de Operaciones', jobFamiliesList[1]?.name || '', areasList[1]?.name || ''],
         ['carlos@empresa.com', 'Carlos', 'López', 'Martínez', 'Analista de Marketing', jobFamiliesList[0]?.name || '', areasList[2]?.name || 'Marketing']
       ];
-      
+
       const templateSheet = XLSX.utils.aoa_to_sheet(templateData);
-      
+
       // Ajustar ancho de columnas
       templateSheet['!cols'] = [
         { wch: 30 }, // Email
@@ -443,9 +444,9 @@ const MemberManager = () => {
         { wch: 25 }, // Job Family
         { wch: 25 }  // Área
       ];
-      
+
       XLSX.utils.book_append_sheet(workbook, templateSheet, 'Plantilla');
-      
+
       // HOJA 2: Referencia (Áreas y Job Families)
       const referenceData = [
         // Encabezado
@@ -454,7 +455,7 @@ const MemberManager = () => {
         ['=== ÁREAS DISPONIBLES ==='],
         ['Nombre de Área']
       ];
-      
+
       // Agregar áreas
       if (areasList.length > 0) {
         areasList.forEach(area => {
@@ -463,11 +464,11 @@ const MemberManager = () => {
       } else {
         referenceData.push(['(No hay áreas configuradas)']);
       }
-      
+
       referenceData.push(['']);
       referenceData.push(['=== JOB FAMILIES (CARGOS) DISPONIBLES ===']);
       referenceData.push(['Nombre del Cargo']);
-      
+
       // Agregar job families
       if (jobFamiliesList.length > 0) {
         jobFamiliesList.forEach(family => {
@@ -476,12 +477,12 @@ const MemberManager = () => {
       } else {
         referenceData.push(['(No hay cargos configurados)']);
       }
-      
+
       referenceData.push(['']);
       referenceData.push(['NOTA IMPORTANTE:']);
       referenceData.push(['Todos los miembros importados tendrán el rol "member" por defecto.']);
       referenceData.push(['Solo el Super Admin puede cambiar el rol de un miembro después de la importación.']);
-      
+
       referenceData.push(['']);
       referenceData.push(['INSTRUCCIONES:']);
       referenceData.push(['1. Cargo (Job Title): Campo de texto libre - puedes escribir cualquier nombre de puesto']);
@@ -492,26 +493,26 @@ const MemberManager = () => {
       referenceData.push(['6. Los nombres deben coincidir EXACTAMENTE (mayúsculas, minúsculas, espacios)']);
       referenceData.push(['7. Si usas un nombre que no existe, el importador mostrará un error']);
       referenceData.push(['8. No incluyas columna "Rol" - todos los miembros serán "member" automáticamente']);
-      
+
       const referenceSheet = XLSX.utils.aoa_to_sheet(referenceData);
-      
+
       // Ajustar ancho de columnas
       referenceSheet['!cols'] = [
         { wch: 50 } // Columna única más ancha
       ];
-      
+
       XLSX.utils.book_append_sheet(workbook, referenceSheet, 'Referencia');
-      
+
       // Generar archivo Excel
-      const excelBuffer = XLSX.write(workbook, { 
-        bookType: 'xlsx', 
+      const excelBuffer = XLSX.write(workbook, {
+        bookType: 'xlsx',
         type: 'array',
         cellStyles: true
       });
-      
+
       // Crear blob y descargar
-      const blob = new Blob([excelBuffer], { 
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      const blob = new Blob([excelBuffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -521,7 +522,7 @@ const MemberManager = () => {
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-      
+
       console.log('[MemberManager] Template downloaded with reference data:', {
         areas: areasList.length,
         jobFamilies: jobFamiliesList.length,
@@ -537,10 +538,10 @@ const MemberManager = () => {
     try {
       // Obtener roles válidos para incluir en el archivo
       const validRoles = await getOrgRoles(activeOrgId);
-      
+
       // Crear encabezados
       const headers = ['Email', 'Nombre', 'Apellido Paterno', 'Apellido Materno', 'Rol', 'Cargo', 'Área', 'Estado'];
-      
+
       // Crear filas de datos
       const rows = members.map(member => {
         const fullName = [
@@ -548,7 +549,7 @@ const MemberManager = () => {
           member.lastNamePaternal || member.lastName,
           member.lastNameMaternal
         ].filter(Boolean).join(' ');
-        
+
         return [
           member.email || member.workEmail || '',
           member.name || '',
@@ -560,7 +561,7 @@ const MemberManager = () => {
           member.isActive === false ? 'Inactivo' : 'Activo'
         ];
       });
-      
+
       // Crear contenido CSV con UTF-8 BOM para Excel
       const csvContent = [
         `=== ROLES VÁLIDOS ===`,
@@ -574,22 +575,22 @@ const MemberManager = () => {
         headers.join(';'),
         ...rows.map(row => row.join(';'))
       ].join('\n');
-      
+
       // Crear blob con UTF-8 BOM
       const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      
+
       // Nombre del archivo con fecha
       const dateStr = new Date().toISOString().split('T')[0];
       a.download = `Miembros_Exportados_${dateStr}.csv`;
-      
+
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-      
+
       console.log(`[MemberManager] Exported ${members.length} members to Excel`);
     } catch (error) {
       console.error('[MemberManager] Error exporting members:', error);
@@ -600,12 +601,12 @@ const MemberManager = () => {
   // Edit member functions
   const handleEditMember = (member) => {
     setEditingMember(member);
-    
+
     // Encontrar jobFamilyId si el miembro tiene jobFamilyIds
-    const memberJobFamilyId = member.jobFamilyIds && member.jobFamilyIds.length > 0 
-      ? member.jobFamilyIds[0] 
+    const memberJobFamilyId = member.jobFamilyIds && member.jobFamilyIds.length > 0
+      ? member.jobFamilyIds[0]
       : '';
-    
+
     // Encontrar areaId buscando por nombre primero, luego por ID
     let memberAreaId = '';
     if (member.areaId) {
@@ -618,7 +619,7 @@ const MemberManager = () => {
         memberAreaId = foundArea.id;
       }
     }
-    
+
     setEditForm({
       name: member.name || '',
       lastNamePaternal: member.lastNamePaternal || member.lastName || '',
@@ -628,6 +629,7 @@ const MemberManager = () => {
       cargo: member.cargo || member.jobTitle || '', // Job Title (texto libre)
       jobFamilyId: memberJobFamilyId, // Job Family ID (select)
       areaId: memberAreaId, // Area ID (select)
+      managerIds: member.managerIds || [], // MULTI-MANAGER
       isActive: member.isActive !== false
     });
     setEditError(null);
@@ -644,6 +646,7 @@ const MemberManager = () => {
       cargo: '',
       jobFamilyId: '',
       areaId: '',
+      managerIds: [], // MULTI-MANAGER
       isActive: true
     });
     setEditError(null);
@@ -673,7 +676,7 @@ const MemberManager = () => {
       // Obtener nombres de Job Family y Área para compatibilidad
       const selectedJobFamily = jobFamilies.find(jf => jf.id === editForm.jobFamilyId);
       const selectedArea = areas.find(a => a.id === editForm.areaId);
-      
+
       // Update member in Firestore
       const memberRef = doc(db, 'members', editingMember.id);
       const updateData = {
@@ -689,16 +692,16 @@ const MemberManager = () => {
         memberRole: editForm.role,
         cargo: editForm.cargo || null, // Job Title (texto libre)
         jobTitle: editForm.cargo || null, // Alias para compatibilidad
-        jobFamilyId: editForm.jobFamilyId || null, // Job Family ID
-        jobFamilyIds: editForm.jobFamilyId ? [editForm.jobFamilyId] : [], // Array para compatibilidad
-        jobFamilyName: selectedJobFamily?.name || null, // Nombre para referencia
-        areaId: editForm.areaId || null, // Area ID
-        area: selectedArea?.name || null, // Nombre para compatibilidad
+        jobFamilyId: editForm.jobFamilyId || null,
+        jobFamilyIds: editForm.jobFamilyId ? [editForm.jobFamilyId] : [],
+        jobFamilyName: selectedJobFamily?.name || null,
+        areaId: editForm.areaId || null,
+        area: selectedArea?.name || null,
+        managerIds: editForm.managerIds || [], // MULTI-MANAGER
         isActive: editForm.isActive,
         updatedAt: serverTimestamp(),
         updatedBy: user?.email || user?.uid || 'member-manager',
       };
-      
       await updateDoc(memberRef, updateData);
 
       // Update local state optimistically
@@ -706,26 +709,27 @@ const MemberManager = () => {
         prevMembers.map(member =>
           member.id === editingMember.id
             ? {
-                ...member,
-                name,
-                lastName: lastNamePaternal,
-                lastNamePaternal,
-                lastNameMaternal,
-                fullLastName,
-                displayName,
-                fullName: displayName,
-                email,
-                role: editForm.role,
-                memberRole: editForm.role,
-                cargo: editForm.cargo,
-                jobTitle: editForm.cargo,
-                jobFamilyId: editForm.jobFamilyId,
-                jobFamilyIds: editForm.jobFamilyId ? [editForm.jobFamilyId] : [],
-                jobFamilyName: selectedJobFamily?.name,
-                areaId: editForm.areaId,
-                area: selectedArea?.name,
-                isActive: editForm.isActive,
-              }
+              ...member,
+              name,
+              lastName: lastNamePaternal,
+              lastNamePaternal,
+              lastNameMaternal,
+              fullLastName,
+              displayName,
+              fullName: displayName,
+              email,
+              role: editForm.role,
+              memberRole: editForm.role,
+              cargo: editForm.cargo,
+              jobTitle: editForm.cargo,
+              jobFamilyId: editForm.jobFamilyId,
+              jobFamilyIds: editForm.jobFamilyId ? [editForm.jobFamilyId] : [],
+              jobFamilyName: selectedJobFamily?.name,
+              areaId: editForm.areaId,
+              area: selectedArea?.name,
+              managerIds: editForm.managerIds || [],
+              isActive: editForm.isActive,
+            }
             : member
         )
       );
@@ -769,7 +773,7 @@ const MemberManager = () => {
       );
 
       console.log('[MemberManager] Member deleted successfully:', deletingMember.displayName);
-      
+
       // Close modal and reset states
       setDeletingMember(null);
       setDeleteConfirming(false);
@@ -777,7 +781,7 @@ const MemberManager = () => {
     } catch (err) {
       console.error('[MemberManager] Error deleting member:', err);
       setError(`Error al eliminar ${deletingMember.displayName}: ${err.message}`);
-      
+
       // Close modal even on error
       setDeletingMember(null);
       setDeleteConfirming(false);
@@ -797,7 +801,7 @@ const MemberManager = () => {
 
   const latestJob = importJobs[0];
   // Only show "importing" for a limited time to avoid stuck indicator
-  const isImporting = latestJob && 
+  const isImporting = latestJob &&
     ['pending', 'processing'].includes(latestJob.status) &&
     latestJob.createdAt &&
     (Date.now() - latestJob.createdAt.toMillis()) < 60000; // Max 60 seconds
@@ -922,61 +926,62 @@ const MemberManager = () => {
                 const startIndex = shouldPaginate ? (currentPage - 1) * itemsPerPage : 0;
                 const endIndex = shouldPaginate ? startIndex + itemsPerPage : members.length;
                 const paginatedMembers = shouldPaginate ? members.slice(startIndex, endIndex) : members;
-                
+
                 return paginatedMembers.map((member) => {
-                // Construir nombre completo
-                const fullName = [
-                  member.name,
-                  member.lastNamePaternal || member.lastName,
-                  member.lastNameMaternal
-                ].filter(Boolean).join(' ') || '--';
-                
-                // Obtener nombre de Job Family
-                const jobFamilyName = member.jobFamilyName || 
-                  (member.jobFamilyId && jobFamilies.find(jf => jf.id === member.jobFamilyId)?.name) ||
-                  (member.jobFamilyIds && member.jobFamilyIds.length > 0 && jobFamilies.find(jf => jf.id === member.jobFamilyIds[0])?.name) ||
-                  '--';
-                
-                return (
-                  <tr key={member.id}>
-                    <td>{fullName}</td>
-                    <td>{member.email || member.workEmail || '--'}</td>
-                    <td>{member.role || member.memberRole || '--'}</td>
-                    <td>{member.cargo || member.jobTitle || '--'}</td>
-                    <td>{jobFamilyName}</td>
-                    <td>{member.area || member.areaName || member.unit || member.department || '--'}</td>
-                    <td>
-                      {member.isActive === false ? (
-                        <span className="status-badge status-expired">Inactivo</span>
-                      ) : (
-                        <span className="status-badge status-completed">Activo</span>
-                      )}
-                    </td>
-                    <td>
-                      <div className="action-buttons-cell">
-                        <button
-                          onClick={() => handleEditMember(member)}
-                          className="btn-action-minimal btn-edit-minimal"
-                          title="Editar miembro"
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          onClick={() => handleDeleteMember(member)}
-                          className="btn-action-minimal btn-delete-minimal"
-                          title="Eliminar miembro"
-                        >
-                          🗑️
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })})()}
+                  // Construir nombre completo
+                  const fullName = [
+                    member.name,
+                    member.lastNamePaternal || member.lastName,
+                    member.lastNameMaternal
+                  ].filter(Boolean).join(' ') || '--';
+
+                  // Obtener nombre de Job Family
+                  const jobFamilyName = member.jobFamilyName ||
+                    (member.jobFamilyId && jobFamilies.find(jf => jf.id === member.jobFamilyId)?.name) ||
+                    (member.jobFamilyIds && member.jobFamilyIds.length > 0 && jobFamilies.find(jf => jf.id === member.jobFamilyIds[0])?.name) ||
+                    '--';
+
+                  return (
+                    <tr key={member.id}>
+                      <td>{fullName}</td>
+                      <td>{member.email || member.workEmail || '--'}</td>
+                      <td>{member.role || member.memberRole || '--'}</td>
+                      <td>{member.cargo || member.jobTitle || '--'}</td>
+                      <td>{jobFamilyName}</td>
+                      <td>{member.area || member.areaName || member.unit || member.department || '--'}</td>
+                      <td>
+                        {member.isActive === false ? (
+                          <span className="status-badge status-expired">Inactivo</span>
+                        ) : (
+                          <span className="status-badge status-completed">Activo</span>
+                        )}
+                      </td>
+                      <td>
+                        <div className="action-buttons-cell">
+                          <button
+                            onClick={() => handleEditMember(member)}
+                            className="btn-action-minimal btn-edit-minimal"
+                            title="Editar miembro"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            onClick={() => handleDeleteMember(member)}
+                            className="btn-action-minimal btn-delete-minimal"
+                            title="Eliminar miembro"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              })()}
             </tbody>
           </table>
         )}
-        
+
         {/* Paginación - Solo mostrar si hay más de 10 miembros */}
         {members.length > 10 && (
           <div style={{
@@ -1012,7 +1017,7 @@ const MemberManager = () => {
                 de {members.length} miembros
               </span>
             </div>
-            
+
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button
                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
@@ -1190,7 +1195,15 @@ const MemberManager = () => {
                   Área organizacional (debe estar creada en /gestion/estructura)
                 </small>
               </div>
-
+              {/* MULTI-MANAGER SELECTOR */}
+              <div style={{ marginTop: '16px', marginBottom: '16px' }}>
+                <MultiManagerSelector
+                  users={members}
+                  selectedIds={editForm.managerIds || []}
+                  onChange={(newIds) => setEditForm(prev => ({ ...prev, managerIds: newIds }))}
+                  currentMemberId={editingMember?.id}
+                />
+              </div>
               <div className="form-group">
                 <label className="form-checkbox-group">
                   <input
@@ -1230,10 +1243,10 @@ const MemberManager = () => {
         <div className="modal-overlay">
           <div className="modal-content">
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-              <div style={{ 
-                width: '48px', 
-                height: '48px', 
-                borderRadius: '50%', 
+              <div style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '50%',
                 backgroundColor: '#fef2f2',
                 display: 'flex',
                 alignItems: 'center',
