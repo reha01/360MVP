@@ -362,11 +362,11 @@ export const useMemberManagement = (activeOrgId, user) => {
 
       // SHEET 1: Template
       const templateData = [
-        ['Email', 'Nombre', 'Apellido Paterno', 'Apellido Materno', 'Cargo', 'Job Family', 'Área', 'Jefes'],
+        ['Email', 'Nombre', 'Apellido Paterno', 'Apellido Materno', 'Cargo', 'Job Family', 'Área', 'Email Jefatura'],
         ['ceo@empresa.com', 'CEO', 'Empresa', '', 'Director Ejecutivo', jobFamiliesList[0]?.name || '', '', ''],
         ['juan@empresa.com', 'Juan', 'Pérez', 'González', 'Gerente de Ventas', jobFamiliesList[0]?.name || '', areasList[0]?.name || 'Ventas', 'ceo@empresa.com'],
         ['maria@empresa.com', 'María', 'García', 'López', 'Directora de Operaciones', jobFamiliesList[1]?.name || '', areasList[1]?.name || '', 'ceo@empresa.com'],
-        ['carlos@empresa.com', 'Carlos', 'López', 'Martínez', 'Analista de Marketing', jobFamiliesList[0]?.name || '', areasList[2]?.name || 'Marketing', 'juan@empresa.com, maria@empresa.com']
+        ['carlos@empresa.com', 'Carlos', 'López', 'Martínez', 'Analista de Marketing', jobFamiliesList[0]?.name || '', areasList[2]?.name || 'Marketing', 'juan@empresa.com; maria@empresa.com']
       ];
 
       const templateSheet = XLSX.utils.aoa_to_sheet(templateData);
@@ -402,11 +402,11 @@ export const useMemberManagement = (activeOrgId, user) => {
       }
 
       referenceData.push(['']);
-      referenceData.push(['=== JEFES (OPCIONAL) ===']);
-      referenceData.push(['Formato: email del jefe o emails separados por comas']);
+      referenceData.push(['=== EMAIL JEFATURA (OPCIONAL) ===']);
+      referenceData.push(['Formato: email del jefe o múltiples emails separados por punto y coma (;)']);
       referenceData.push(['Ejemplos:']);
-      referenceData.push(['Un solo jefe: ceo@em presa.com']);
-      referenceData.push(['Múltiples jefes: ceo@empresa.com, gerente@empresa.com']);
+      referenceData.push(['Un solo jefe: ceo@empresa.com']);
+      referenceData.push(['Múltiples jefes: ceo@empresa.com; gerente@empresa.com']);
       referenceData.push(['Sin jefes: dejar vacío']);
       referenceData.push(['']);
       referenceData.push(['IMPORTANTE: Los jefes deben existir como miembros.']);
