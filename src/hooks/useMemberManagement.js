@@ -328,7 +328,7 @@ export const useMemberManagement = (activeOrgId, user) => {
     setError(null);
 
     try {
-      await uploadMemberCsv(file, activeOrgId);
+      await uploadMemberCsv(activeOrgId, file);
       console.log('[useMemberManagement] CSV upload initiated successfully');
       event.target.value = '';
     } catch (err) {
