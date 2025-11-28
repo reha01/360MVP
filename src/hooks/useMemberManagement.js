@@ -25,21 +25,21 @@ export const useMemberManagement = (activeOrgId, user) => {
   const [error, setError] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [importJobs, setImportJobs] = useState([]);
-  
+
   // Editing state
   const [editingMember, setEditingMember] = useState(null);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState(null);
-  
+
   // Delete state
   const [deletingMember, setDeletingMember] = useState(null);
   const [deleteConfirming, setDeleteConfirming] = useState(false);
-  
+
   // Reference data
   const [orgRoles, setOrgRoles] = useState(['member', 'admin', 'owner', 'manager']);
   const [jobFamilies, setJobFamilies] = useState([]);
   const [areas, setAreas] = useState([]);
-  
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -68,7 +68,7 @@ export const useMemberManagement = (activeOrgId, user) => {
   }, [activeOrgId]);
 
   // ==================== EFFECTS ====================
-  
+
   // Load members on mount/activeOrgId change
   useEffect(() => {
     loadMembers();
@@ -435,7 +435,7 @@ export const useMemberManagement = (activeOrgId, user) => {
   const exportMembersToExcel = useCallback(async () => {
     try {
       const validRoles = await getOrgRoles(activeOrgId);
-      const headers = ['Email', 'Nombre', 'Apellido Paterno', 'Apellido Materno', 'Rol', 'Cargo', 'Área', 'Estado'];
+      const headers = ['Email', 'Nombre', 'Apellido Paterno', 'Apellido Materno', 'Rol', 'Cargo', 'Job Family', 'Área', 'Jefes', 'Estado'];
 
       const rows = members.map(member => {
         const fullName = [
@@ -444,6 +444,31 @@ export const useMemberManagement = (activeOrgId, user) => {
           member.lastNameMaternal
         ].filter(Boolean).join(' ');
 
+        // Get Job Family name
+        const jobFamilyName = member.jobFamilyName ||
+          (member.jobFamilyId && jobFamilies.find(jf => jf.id === member.jobFamilyId)?.name) ||
+          (member.jobFamilyIds && member.jobFamilyIds.length > 0 && jobFamilies.find(jf => jf.id === member.jobFamilyIds[0])?.name) ||
+          '';
+
+        // Get Manager names
+        let managerNames = '';
+        if (member.managerIds && member.managerIds.length > 0) {
+          const managersList = member.managerIds
+            .map(managerId => {
+              const manager = members.find(m => m.id === managerId);
+              if (manager) {
+                return [
+                  manager.name,
+                  manager.lastNamePaternal || manager.lastName,
+                  manager.lastNameMaternal
+                ].filter(Boolean).join(' ') || manager.email;
+              }
+              return null;
+            })
+            .filter(Boolean);
+          managerNames = managersList.join(', ');
+        }
+
         return [
           member.email || member.workEmail || '',
           member.name || '',
@@ -451,7 +476,9 @@ export const useMemberManagement = (activeOrgId, user) => {
           member.lastNameMaternal || '',
           member.role || member.memberRole || '',
           member.cargo || '',
+          jobFamilyName,
           member.area || member.unit || member.department || '',
+          managerNames,
           member.isActive === false ? 'Inactivo' : 'Activo'
         ];
       });
@@ -487,7 +514,7 @@ export const useMemberManagement = (activeOrgId, user) => {
       console.error('[useMemberManagement] Error exporting members:', error);
       setError(`Error al exportar miembros: ${error.message}`);
     }
-  }, [activeOrgId, members]);
+  }, [activeOrgId, members, jobFamilies]);
 
   // ==================== RETURN API ====================
   return {
@@ -499,30 +526,30 @@ export const useMemberManagement = (activeOrgId, user) => {
     setError,
     uploading,
     importJobs,
-    
+
     // Edit state
     editingMember,
     setEditingMember,
     editSaving,
     editError,
     setEditError,
-    
+
     // Delete state
     deletingMember,
     setDeletingMember,
     deleteConfirming,
-    
+
     // Reference data
     orgRoles,
     jobFamilies,
     areas,
-    
+
     // Pagination
     currentPage,
     setCurrentPage,
     itemsPerPage,
     setItemsPerPage,
-    
+
     // CRUD functions
     loadMembers,
     handleEditMember,
@@ -531,7 +558,7 @@ export const useMemberManagement = (activeOrgId, user) => {
     handleDeleteMember,
     handleConfirmDelete,
     handleCancelDelete,
-    
+
     // CSV functions
     handleFileUpload,
     downloadTemplate,
