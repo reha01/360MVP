@@ -85,7 +85,7 @@ const findExistingMemberDoc = async (membersCollection, email, emailLower, authU
     if (directSnap.exists) {
       return directSnap;
     }
-    
+
     // Fallback: try authUid alone (legacy format)
     const legacyRef = membersCollection.doc(authUid);
     const legacySnap = await legacyRef.get();
@@ -121,6 +121,7 @@ const upsertMember = async ({
   jobFamilyName = null,
   areaId = null,
   area = null,
+  managerEmails = '', // NUEVO: emails separados por coma
   membersCollection,
   uploadedBy,
   uploaderEmail,
@@ -192,6 +193,7 @@ const upsertMember = async ({
     organizationId: orgId,
     isActive: true,
     importJobId: jobId,
+    managerEmails: managerEmails || null, // Guardar temporalmente para Phase 2
     updatedAt: now,
     updatedBy: uploaderEmail || uploadedBy || 'member-import',
     source: 'member-import',
@@ -217,7 +219,7 @@ const memberImportProcessor = functions
   .object()
   .onFinalize(async (object) => {
     console.log('[Worker] Function triggered for file:', object.name, 'in bucket:', object.bucket);
-    
+
     const filePath = object?.name;
 
     if (!filePath || !filePath.includes(MEMBER_IMPORT_SEGMENT)) {
@@ -227,7 +229,7 @@ const memberImportProcessor = functions
 
     const metadata = object.metadata || {};
     const orgId = metadata.orgId || metadata.organizationId;
-    
+
     console.log('[Worker] Processing member import:', { filePath, orgId, metadata });
     const jobId = metadata.jobId;
     const uploadedBy = metadata.uploadedBy || '';
@@ -287,6 +289,7 @@ const memberImportProcessor = functions
         const cargo = row.cargo || row.jobtitle || ''; // Job Title (texto libre)
         const jobFamilyName = row.jobfamily || row['job family'] || '';
         const areaName = row.area || row.área || '';
+        const managerEmails = row.jefes || row.managers || ''; // Emails de jefes separados por coma
         // Ignorar cualquier columna de rol del CSV - siempre será 'member'
         // const role = row.role || row.rol || ''; // Ya no se usa
 
@@ -341,12 +344,12 @@ const memberImportProcessor = functions
           try {
             const jobFamiliesRef = db.collection('organizations').doc(orgId).collection('jobFamilies');
             const jobFamiliesSnapshot = await jobFamiliesRef.where('isActive', '==', true).get();
-            
+
             const foundJobFamily = jobFamiliesSnapshot.docs.find(doc => {
               const data = doc.data();
               return data.name && data.name.trim().toLowerCase() === jobFamilyName.trim().toLowerCase();
             });
-            
+
             if (foundJobFamily) {
               jobFamilyId = foundJobFamily.id;
               jobFamilyIds = [foundJobFamily.id];
@@ -379,12 +382,12 @@ const memberImportProcessor = functions
           try {
             const areasRef = db.collection('organizations').doc(orgId).collection('orgStructure');
             const areasSnapshot = await areasRef.where('isActive', '==', true).get();
-            
+
             const foundArea = areasSnapshot.docs.find(doc => {
               const data = doc.data();
               return data.name && data.name.trim().toLowerCase() === areaName.trim().toLowerCase();
             });
-            
+
             if (foundArea) {
               areaId = foundArea.id;
               areaDisplayName = foundArea.data().name;
@@ -424,6 +427,7 @@ const memberImportProcessor = functions
             jobFamilyName: jobFamilyNameStored,
             areaId: areaId,
             area: areaDisplayName,
+            managerEmails: managerEmails, // NUEVO
             membersCollection,
             uploadedBy,
             uploaderEmail,
@@ -452,15 +456,97 @@ const memberImportProcessor = functions
         }
       }
 
+      // ==================== PHASE 2: RESOLVE MANAGER EMAILS ====================
+      functions.logger.info('[MemberImport] Phase 2: Resolving manager emails', logContext(orgId, jobId));
+
+      // Load all members from this org to build email-to-ID map
+      const allMembersSnapshot = await membersCollection
+        .where('orgId', '==', orgId)
+        .where('isActive', '==', true)
+        .get();
+
+      const emailToIdMap = {};
+      allMembersSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        if (data.email) {
+          emailToIdMap[data.email.toLowerCase()] = doc.id;
+        }
+        if (data.emailLower) {
+          emailToIdMap[data.emailLower] = doc.id;
+        }
+      });
+
+      let managersResolved = 0;
+      let managersNotFound = 0;
+      const managersNotFoundList = [];
+
+      // Process each member that has managerEmails
+      for (const doc of allMembersSnapshot.docs) {
+        const data = doc.data();
+
+        // Only process members from this import job
+        if (data.importJobId !== jobId || !data.managerEmails) {
+          continue;
+        }
+
+        const managerEmails = data.managerEmails
+          .split(',')
+          .map(e => e.trim().toLowerCase())
+          .filter(Boolean);
+
+        const managerIds = [];
+        const notFound = [];
+
+        for (const managerEmail of managerEmails) {
+          // Skip self-reference
+          if (managerEmail === data.emailLower || managerEmail === data.email.toLowerCase()) {
+            continue;
+          }
+
+          const managerId = emailToIdMap[managerEmail];
+          if (managerId) {
+            managerIds.push(managerId);
+            managersResolved++;
+          } else {
+            notFound.push(managerEmail);
+            managersNotFound++;
+          }
+        }
+
+        // Track not found for summary
+        if (notFound.length > 0 && managersNotFoundList.length < 20) {
+          managersNotFoundList.push({
+            member: data.email,
+            notFoundManagers: notFound
+          });
+        }
+
+        // Update member with resolved managerIds
+        if (managerIds.length > 0 || data.managerEmails) {
+          await doc.ref.update({
+            managerIds: managerIds,
+            managerEmails: FieldValue.delete(), // Remove temporary field
+            updatedAt: FieldValue.serverTimestamp()
+          });
+        }
+      }
+
+      functions.logger.info('[MemberImport] Phase 2 completed', logContext(orgId, jobId, { managersResolved, managersNotFound }));
+
       const truncatedFailedRows = failedRows.slice(0, MAX_FAILED_ROWS_RECORDED);
 
       await markJob(orgId, jobId, {
         status: 'completed',
         finishedAt: FieldValue.serverTimestamp(),
-        summary,
+        summary: {
+          ...summary,
+          managersResolved,
+          managersNotFound,
+        },
+        managersNotFoundList: managersNotFoundList.length > 0 ? managersNotFoundList : null,
         failedRows: truncatedFailedRows,
         errorsRecorded: truncatedFailedRows.length,
-        hasErrors: summary.failed > 0,
+        hasErrors: summary.failed > 0 || managersNotFound > 0,
       });
 
       functions.logger.info('[MemberImport] Worker completed', logContext(orgId, jobId, summary));

@@ -362,15 +362,16 @@ export const useMemberManagement = (activeOrgId, user) => {
 
       // SHEET 1: Template
       const templateData = [
-        ['Email', 'Nombre', 'Apellido Paterno', 'Apellido Materno', 'Cargo', 'Job Family', 'Área'],
-        ['juan@empresa.com', 'Juan', 'Pérez', 'González', 'Gerente de Ventas', jobFamiliesList[0]?.name || '', areasList[0]?.name || 'Ventas'],
-        ['maria@empresa.com', 'María', 'García', 'López', 'Directora de Operaciones', jobFamiliesList[1]?.name || '', areasList[1]?.name || ''],
-        ['carlos@empresa.com', 'Carlos', 'López', 'Martínez', 'Analista de Marketing', jobFamiliesList[0]?.name || '', areasList[2]?.name || 'Marketing']
+        ['Email', 'Nombre', 'Apellido Paterno', 'Apellido Materno', 'Cargo', 'Job Family', 'Área', 'Jefes'],
+        ['ceo@empresa.com', 'CEO', 'Empresa', '', 'Director Ejecutivo', jobFamiliesList[0]?.name || '', '', ''],
+        ['juan@empresa.com', 'Juan', 'Pérez', 'González', 'Gerente de Ventas', jobFamiliesList[0]?.name || '', areasList[0]?.name || 'Ventas', 'ceo@empresa.com'],
+        ['maria@empresa.com', 'María', 'García', 'López', 'Directora de Operaciones', jobFamiliesList[1]?.name || '', areasList[1]?.name || '', 'ceo@empresa.com'],
+        ['carlos@empresa.com', 'Carlos', 'López', 'Martínez', 'Analista de Marketing', jobFamiliesList[0]?.name || '', areasList[2]?.name || 'Marketing', 'juan@empresa.com, maria@empresa.com']
       ];
 
       const templateSheet = XLSX.utils.aoa_to_sheet(templateData);
       templateSheet['!cols'] = [
-        { wch: 30 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 30 }, { wch: 25 }, { wch: 25 }
+        { wch: 30 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 30 }, { wch: 25 }, { wch: 25 }, { wch: 40 }
       ];
 
       XLSX.utils.book_append_sheet(workbook, templateSheet, 'Plantilla');
@@ -399,6 +400,17 @@ export const useMemberManagement = (activeOrgId, user) => {
       } else {
         referenceData.push(['(No hay cargos configurados)']);
       }
+
+      referenceData.push(['']);
+      referenceData.push(['=== JEFES (OPCIONAL) ===']);
+      referenceData.push(['Formato: email del jefe o emails separados por comas']);
+      referenceData.push(['Ejemplos:']);
+      referenceData.push(['Un solo jefe: ceo@em presa.com']);
+      referenceData.push(['Múltiples jefes: ceo@empresa.com, gerente@empresa.com']);
+      referenceData.push(['Sin jefes: dejar vacío']);
+      referenceData.push(['']);
+      referenceData.push(['IMPORTANTE: Los jefes deben existir como miembros.']);
+      referenceData.push(['Si un email no existe, será ignorado.']);
 
       referenceData.push(['']);
       referenceData.push(['NOTA IMPORTANTE:']);
