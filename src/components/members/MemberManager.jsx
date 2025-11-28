@@ -102,6 +102,7 @@ const MemberManager = () => {
                 <th>Cargo</th>
                 <th>Job Family</th>
                 <th>Área</th>
+                <th>Dependientes</th>
                 <th>Superiores</th>
                 <th>Pares</th>
                 <th>Estado</th>
@@ -127,6 +128,11 @@ const MemberManager = () => {
                     (member.jobFamilyIds && member.jobFamilyIds.length > 0 && jobFamilies.find(jf => jf.id === member.jobFamilyIds[0])?.name) ||
                     '--';
 
+                  // Count dependents (members who have this member as manager)
+                  const dependentsCount = members.filter(m =>
+                    m.managerIds && m.managerIds.includes(member.id)
+                  ).length;
+
                   // Count peers with same Job Family (excluding self)
                   const memberJobFamilyId = member.jobFamilyId || (member.jobFamilyIds && member.jobFamilyIds[0]) || null;
                   const peersCount = memberJobFamilyId
@@ -144,6 +150,22 @@ const MemberManager = () => {
                       <td>{member.cargo || member.jobTitle || '--'}</td>
                       <td>{jobFamilyName}</td>
                       <td>{member.area || member.areaName || member.unit || member.department || '--'}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        {dependentsCount > 0 ? (
+                          <span style={{
+                            backgroundColor: '#D1FAE5',
+                            color: '#059669',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            fontSize: '12px',
+                            fontWeight: '600'
+                          }}>
+                            {dependentsCount}
+                          </span>
+                        ) : (
+                          <span style={{ color: '#9CA3AF' }}>0</span>
+                        )}
+                      </td>
                       <td style={{ textAlign: 'center' }}>
                         {member.managerIds && member.managerIds.length > 0 ? (
                           <span style={{
