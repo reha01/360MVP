@@ -103,6 +103,7 @@ const MemberManager = () => {
                 <th>Job Family</th>
                 <th>Área</th>
                 <th>Superiores</th>
+                <th>Pares</th>
                 <th>Estado</th>
                 <th>Acciones</th>
               </tr>
@@ -126,6 +127,15 @@ const MemberManager = () => {
                     (member.jobFamilyIds && member.jobFamilyIds.length > 0 && jobFamilies.find(jf => jf.id === member.jobFamilyIds[0])?.name) ||
                     '--';
 
+                  // Count peers with same Job Family (excluding self)
+                  const memberJobFamilyId = member.jobFamilyId || (member.jobFamilyIds && member.jobFamilyIds[0]) || null;
+                  const peersCount = memberJobFamilyId
+                    ? members.filter(m => {
+                      const mJobFamilyId = m.jobFamilyId || (m.jobFamilyIds && m.jobFamilyIds[0]) || null;
+                      return mJobFamilyId === memberJobFamilyId && m.id !== member.id;
+                    }).length
+                    : 0;
+
                   return (
                     <tr key={member.id}>
                       <td>{fullName}</td>
@@ -145,6 +155,22 @@ const MemberManager = () => {
                             fontWeight: '600'
                           }}>
                             {member.managerIds.length}
+                          </span>
+                        ) : (
+                          <span style={{ color: '#9CA3AF' }}>0</span>
+                        )}
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        {peersCount > 0 ? (
+                          <span style={{
+                            backgroundColor: '#FEF3C7',
+                            color: '#D97706',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            fontSize: '12px',
+                            fontWeight: '600'
+                          }}>
+                            {peersCount}
                           </span>
                         ) : (
                           <span style={{ color: '#9CA3AF' }}>0</span>
