@@ -355,23 +355,17 @@ const memberImportProcessor = functions
               jobFamilyIds = [foundJobFamily.id];
               jobFamilyNameStored = foundJobFamily.data().name;
             } else {
-              summary.failed += 1;
+              // WARN instead of FAIL
               recordFailedRow({
                 row: rowNumber,
                 email: originalEmail,
-                reason: `Job Family "${jobFamilyName}" no encontrada. Verifica que exista en /gestion/job-families`,
+                reason: `Advertencia: Job Family "${jobFamilyName}" no encontrada. Se importó sin asignar cargo.`,
               });
-              continue;
+              // Continue processing
             }
           } catch (error) {
             functions.logger.warn('[MemberImport] Error matching job family', logContext(orgId, jobId, { error: error.message }));
-            summary.failed += 1;
-            recordFailedRow({
-              row: rowNumber,
-              email: originalEmail,
-              reason: `Error al buscar Job Family: ${error.message}`,
-            });
-            continue;
+            // Continue processing
           }
         }
 
@@ -392,24 +386,29 @@ const memberImportProcessor = functions
               areaId = foundArea.id;
               areaDisplayName = foundArea.data().name;
             } else {
-              summary.failed += 1;
+              // WARN instead of FAIL
               recordFailedRow({
                 row: rowNumber,
                 email: originalEmail,
-                reason: `Área "${areaName}" no encontrada. Verifica que exista en /gestion/estructura`,
+                reason: `Advertencia: Área "${areaName}" no encontrada. Se importó sin asignar área.`,
               });
-              continue;
+              // Continue processing
             }
           } catch (error) {
             functions.logger.warn('[MemberImport] Error matching area', logContext(orgId, jobId, { error: error.message }));
-            summary.failed += 1;
-            recordFailedRow({
-              row: rowNumber,
-              email: originalEmail,
-              reason: `Error al buscar Área: ${error.message}`,
-            });
-            continue;
+            // Continue processing
           }
+        }
+
+        // DEBUG: Log row keys to check column names
+        if (index === 0) {
+          functions.logger.info('[MemberImport] First row keys:', Object.keys(row));
+          functions.logger.info('[MemberImport] Manager emails raw:', {
+            emailjefatura: row.emailjefatura,
+            jefes: row.jefes,
+            managers: row.managers,
+            final: managerEmails
+          });
         }
 
         try {
