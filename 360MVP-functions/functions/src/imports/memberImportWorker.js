@@ -289,7 +289,7 @@ const memberImportProcessor = functions
         const cargo = row.cargo || row.jobtitle || ''; // Job Title (texto libre)
         const jobFamilyName = row.jobfamily || row['job family'] || '';
         const areaName = row.area || row.área || '';
-        const managerEmails = row.jefes || row.managers || ''; // Emails de jefes separados por coma
+        const managerEmails = row.emailjefatura || row.jefes || row.managers || ''; // Emails de jefes separados por ; o ,
         // Ignorar cualquier columna de rol del CSV - siempre será 'member'
         // const role = row.role || row.rol || ''; // Ya no se usa
 
@@ -489,8 +489,9 @@ const memberImportProcessor = functions
           continue;
         }
 
+        // Split by semicolon first, then by comma (support both formats)
         const managerEmails = data.managerEmails
-          .split(',')
+          .split(/[;,]/)  // Split by semicolon OR comma
           .map(e => e.trim().toLowerCase())
           .filter(Boolean);
 
