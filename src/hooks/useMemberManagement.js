@@ -276,30 +276,38 @@ export const useMemberManagement = (activeOrgId, user) => {
     setError(null);
 
     try {
-      console.log('[useMemberManagement] Deleting member:', {
+      console.log('[useMemberManagement] Deactivating member (Soft Delete):', {
         id: deletingMember.id,
         name: deletingMember.displayName,
         email: deletingMember.email
       });
 
-      // Delete member from Firestore
+      // Soft Delete: Update isActive to false instead of deleting
       const memberRef = doc(db, 'members', deletingMember.id);
-      await deleteDoc(memberRef);
+      await updateDoc(memberRef, {
+        isActive: false,
+        updatedAt: serverTimestamp(),
+        updatedBy: user?.email || user?.uid || 'member-manager-delete'
+      });
 
       // Update local state optimistically
       setMembers(prevMembers =>
-        prevMembers.filter(member => member.id !== deletingMember.id)
+        prevMembers.map(member =>
+          member.id === deletingMember.id
+            ? { ...member, isActive: false }
+            : member
+        )
       );
 
-      console.log('[useMemberManagement] Member deleted successfully:', deletingMember.displayName);
+      console.log('[useMemberManagement] Member deactivated successfully:', deletingMember.displayName);
 
       // Close modal and reset states
       setDeletingMember(null);
       setDeleteConfirming(false);
 
     } catch (err) {
-      console.error('[useMemberManagement] Error deleting member:', err);
-      setError(`Error al eliminar ${deletingMember.displayName}: ${err.message}`);
+      console.error('[useMemberManagement] Error deactivating member:', err);
+      setError(`Error al desactivar ${deletingMember.displayName}: ${err.message}`);
 
       // Close modal even on error
       setDeletingMember(null);
