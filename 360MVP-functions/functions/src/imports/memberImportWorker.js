@@ -485,7 +485,12 @@ const memberImportProcessor = functions
         const data = doc.data();
 
         // Only process members from this import job
-        if (data.importJobId !== jobId || !data.managerEmails) {
+        if (data.importJobId !== jobId) {
+          continue;
+        }
+
+        // Skip if no manager emails or invalid value
+        if (!data.managerEmails || typeof data.managerEmails !== 'string' || !data.managerEmails.trim()) {
           continue;
         }
 
