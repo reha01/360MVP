@@ -102,6 +102,7 @@ const MemberManager = () => {
                 <th>Cargo</th>
                 <th>Job Family</th>
                 <th>Área</th>
+                <th>Superiores</th>
                 <th>Estado</th>
                 <th>Acciones</th>
               </tr>
@@ -133,6 +134,22 @@ const MemberManager = () => {
                       <td>{member.cargo || member.jobTitle || '--'}</td>
                       <td>{jobFamilyName}</td>
                       <td>{member.area || member.areaName || member.unit || member.department || '--'}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        {member.managerIds && member.managerIds.length > 0 ? (
+                          <span style={{
+                            backgroundColor: '#E0F2FE',
+                            color: '#0369A1',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            fontSize: '12px',
+                            fontWeight: '600'
+                          }}>
+                            {member.managerIds.length}
+                          </span>
+                        ) : (
+                          <span style={{ color: '#9CA3AF' }}>0</span>
+                        )}
+                      </td>
                       <td>
                         {member.isActive === false ? (
                           <span className="status-badge status-expired">Inactivo</span>
