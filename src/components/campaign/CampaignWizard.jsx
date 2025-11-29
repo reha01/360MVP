@@ -196,9 +196,24 @@ const CampaignWizard = ({ isOpen, onClose, onSuccess }) => {
       console.log('Creating campaign:', campaignData);
 
       // Preparar payload
+      const initialStats = {
+        totalEvaluatees: campaignData.selectedUsers?.length || 0,
+        totalInvitations: 0,
+        completionRate: 0,
+        selfCompleted: 0,
+        selfTotal: campaignData.evaluatorRules?.self ? (campaignData.selectedUsers?.length || 0) : 0,
+        peersCompleted: 0,
+        peersTotal: 0, // Se calculará al lanzar
+        subordinatesCompleted: 0,
+        subordinatesTotal: 0, // Se calculará al lanzar
+        managerCompleted: 0,
+        managerTotal: 0 // Se calculará al lanzar
+      };
+
       const payload = {
         ...campaignData,
         status: CAMPAIGN_STATUS.DRAFT,
+        stats: initialStats,
         // Asegurar que evaluateeFilters tenga la estructura correcta
         evaluateeFilters: campaignData.audienceFilters
       };
