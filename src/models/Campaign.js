@@ -110,6 +110,16 @@ export const createCampaignModel = (data) => {
       userIds: data.evaluateeFilters?.userIds || []
     },
 
+    // Estrategia y Reglas
+    selectedStrategy: data.selectedStrategy || null,
+    evaluatorRules: data.evaluatorRules || {
+      self: false,
+      manager: false,
+      peers: false,
+      subordinates: false,
+      external: false
+    },
+
     // Tests asignados
     testAssignments: data.testAssignments || {}, // { userId: { testId, version, reason } }
 
@@ -120,12 +130,21 @@ export const createCampaignModel = (data) => {
     activatedAt: data.activatedAt || null,
     closedAt: data.closedAt || null,
 
-    // EstadÃ­sticas
+    // Estadísticas
     stats: {
       totalEvaluatees: data.stats?.totalEvaluatees || 0,
       totalInvitations: data.stats?.totalInvitations || 0,
       completionRate: data.stats?.completionRate || 0,
-      lastUpdated: data.stats?.lastUpdated || now
+      lastUpdated: data.stats?.lastUpdated || now,
+      // Detailed breakdown
+      selfCompleted: data.stats?.selfCompleted || 0,
+      selfTotal: data.stats?.selfTotal || 0,
+      peersCompleted: data.stats?.peersCompleted || 0,
+      peersTotal: data.stats?.peersTotal || 0,
+      subordinatesCompleted: data.stats?.subordinatesCompleted || 0,
+      subordinatesTotal: data.stats?.subordinatesTotal || 0,
+      managerCompleted: data.stats?.managerCompleted || 0,
+      managerTotal: data.stats?.managerTotal || 0
     }
   };
 };
