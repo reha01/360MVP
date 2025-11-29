@@ -7,6 +7,13 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCampaignStatusLabel, getCampaignTypeLabel } from '../../models/Campaign';
 
+const STRATEGY_LABELS = {
+  'SELF_ONLY': 'Autoevaluación',
+  'TEAM_EVALUATION': 'Evaluación de Equipo',
+  'LEADERSHIP_180': '180° (Liderazgo)',
+  'FULL_360': '360° (Integral)'
+};
+
 const ProgressRow = ({ label, isActive, completed = 0, total = 0 }) => {
   if (!isActive) {
     return (
@@ -105,7 +112,7 @@ const CampaignCard = ({ campaign, onDelete, onClose }) => {
       <div style={{ marginBottom: '12px', fontSize: '13px', color: '#6c757d' }}>
         <span>Tipo: </span>
         <span style={{ fontWeight: 500, color: '#212529' }}>
-          {getCampaignTypeLabel(campaign.type)}
+          {STRATEGY_LABELS[campaign.selectedStrategy] || getCampaignTypeLabel(campaign.type)}
         </span>
       </div>
 
