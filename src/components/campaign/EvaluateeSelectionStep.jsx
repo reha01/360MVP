@@ -7,6 +7,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useMultiTenant } from '../../hooks/useMultiTenant';
 import jobFamilyService from '../../services/jobFamilyService';
 import orgStructureService from '../../services/orgStructureService';
+import { getOrgUsers } from '../../services/orgStructureServiceWrapper';
 
 const EvaluateeSelectionStep = ({
   filters: controlledFilters = { jobFamilyIds: [], areaIds: [], userIds: [] },
@@ -49,7 +50,7 @@ const EvaluateeSelectionStep = ({
         const [jfData, areasData, usersData] = await Promise.all([
           jobFamilyService.getOrgJobFamilies(currentOrgId).catch(() => []),
           orgStructureService.getOrgAreas(currentOrgId).catch(() => []),
-          orgStructureService.getOrgUsers(currentOrgId).catch(() => [])
+          getOrgUsers(currentOrgId).catch(() => [])
         ]);
 
         setLocalJobFamilies(jfData);
