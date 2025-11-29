@@ -138,7 +138,7 @@ const ConnectionRulesStep = ({
                 <h4 className="connection-subsection-title">Asignación de Tests</h4>
 
                 {/* Mode Switch */}
-                {userGroups.groups.length > 0 && (
+                {selectedUsers.length > 0 && (
                     <div className="mode-switch-container" style={{ marginBottom: '16px' }}>
                         <label className="connection-checkbox-label">
                             <input
