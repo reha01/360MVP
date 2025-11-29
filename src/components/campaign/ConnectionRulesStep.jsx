@@ -1,17 +1,25 @@
 /**
  * Paso 4: Reglas de Conexión
  * Selección de test y opciones dinámicas según la estrategia
+ * Soporta asignación segmentada por Job Family
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import './ConnectionRulesStep.css';
 
 const ConnectionRulesStep = ({
     data,
+    selectedUsers = [], // Recibimos la audiencia seleccionada
     availableTests = [],
     onChange
 }) => {
-    const [selectedTestId, setSelectedTestId] = useState(data.selectedTestId || '');
+    // Estado local para la configuración de tests
+    const [testConfig, setTestConfig] = useState(data.testConfiguration || {
+        mode: 'unified', // 'unified' | 'segmented'
+        defaultTestId: data.selectedTestId || '', // Fallback para compatibilidad
+        assignments: {} // { jobFamilyId: testId }
+    });
+
     const [allowMultipleManagers, setAllowMultipleManagers] = useState(
         data.connectionRules?.allowMultipleManagers || false
     );
@@ -19,23 +27,89 @@ const ConnectionRulesStep = ({
         data.connectionRules?.restrictPeersToArea || true
     );
 
+    // Agrupar usuarios por Job Family
+    const userGroups = useMemo(() => {
+        const groups = {};
+        let noJobFamilyCount = 0;
+
+        selectedUsers.forEach(user => {
+            if (user.jobFamilyIds && user.jobFamilyIds.length > 0) {
+                // Asumimos que el primer ID es el principal para agrupación simple
+                // O podríamos crear grupos para cada combinación, pero simplifiquemos por ahora
+                const jfId = user.jobFamilyIds[0];
+                // Necesitamos el nombre, idealmente vendría en el objeto user o tendríamos que buscarlo
+                // Si user tiene jobFamilyNames, genial. Si no, usamos el ID.
+                const jfName = user.jobFamilyNames ? user.jobFamilyNames[0] : `Job Family ${jfId}`;
+
+                if (!groups[jfId]) {
+                    groups[jfId] = {
+                        id: jfId,
+                        name: jfName,
+                        count: 0,
+                        users: []
+                    };
+                }
+                groups[jfId].count++;
+                groups[jfId].users.push(user);
+            } else {
+                noJobFamilyCount++;
+            }
+        });
+
+        return {
+            groups: Object.values(groups),
+            noJobFamilyCount
+        };
+    }, [selectedUsers]);
+
     // Determinar si las opciones dinámicas deben mostrarse según la estrategia
     const showManagerOptions = data.evaluatorRules?.manager === true;
     const showPeerOptions = data.evaluatorRules?.peers === true;
 
+    // Propagar cambios
     useEffect(() => {
-        // Propagate changes to parent
         onChange({
-            selectedTestId,
+            selectedTestId: testConfig.defaultTestId, // Mantener compatibilidad
+            testConfiguration: testConfig,
             connectionRules: {
                 allowMultipleManagers,
                 restrictPeersToArea
             }
         });
-    }, [selectedTestId, allowMultipleManagers, restrictPeersToArea]);
+    }, [testConfig, allowMultipleManagers, restrictPeersToArea]);
 
-    const handleTestChange = (e) => {
-        setSelectedTestId(e.target.value);
+    const handleModeChange = (isUnified) => {
+        setTestConfig(prev => ({
+            ...prev,
+            mode: isUnified ? 'unified' : 'segmented'
+        }));
+    };
+
+    const handleDefaultTestChange = (e) => {
+        setTestConfig(prev => ({
+            ...prev,
+            defaultTestId: e.target.value
+        }));
+    };
+
+    const handleAssignmentChange = (jobFamilyId, testId) => {
+        setTestConfig(prev => ({
+            ...prev,
+            assignments: {
+                ...prev.assignments,
+                [jobFamilyId]: testId
+            }
+        }));
+    };
+
+    const handleNoJobFamilyAssignmentChange = (testId) => {
+        setTestConfig(prev => ({
+            ...prev,
+            assignments: {
+                ...prev.assignments,
+                'no_job_family': testId
+            }
+        }));
     };
 
     return (
@@ -47,28 +121,99 @@ const ConnectionRulesStep = ({
                 </p>
             </div>
 
-            {/* Test Selection */}
+            {/* Test Selection Section */}
             <div className="connection-section">
-                <label className="connection-label">
-                    <span className="label-text">Test a Utilizar</span>
-                    <span className="label-required">*</span>
-                </label>
-                <select
-                    className="connection-select"
-                    value={selectedTestId}
-                    onChange={handleTestChange}
-                >
-                    <option value="">Selecciona un test...</option>
-                    {availableTests.map(test => (
-                        <option key={test.id} value={test.id}>
-                            {test.name || test.title} {test.version ? `(v${test.version})` : ''}
-                        </option>
-                    ))}
-                </select>
-                {!selectedTestId && (
-                    <p className="connection-hint">
-                        Selecciona el cuestionario que utilizarán los evaluadores
-                    </p>
+                <h4 className="connection-subsection-title">Asignación de Tests</h4>
+
+                {/* Mode Switch */}
+                {userGroups.groups.length > 0 && (
+                    <div className="mode-switch-container" style={{ marginBottom: '16px' }}>
+                        <label className="connection-checkbox-label">
+                            <input
+                                type="checkbox"
+                                checked={testConfig.mode === 'unified'}
+                                onChange={(e) => handleModeChange(e.target.checked)}
+                                className="connection-checkbox"
+                            />
+                            <div className="checkbox-content">
+                                <span className="checkbox-title">Usar el mismo test para todos</span>
+                                <span className="checkbox-description">
+                                    Aplica el mismo cuestionario a todos los {selectedUsers.length} evaluados
+                                </span>
+                            </div>
+                        </label>
+                    </div>
+                )}
+
+                {/* Unified Mode Selector */}
+                {testConfig.mode === 'unified' && (
+                    <div className="test-selector-group">
+                        <label className="connection-label">
+                            <span className="label-text">Test General</span>
+                            <span className="label-required">*</span>
+                        </label>
+                        <select
+                            className="connection-select"
+                            value={testConfig.defaultTestId}
+                            onChange={handleDefaultTestChange}
+                        >
+                            <option value="">Selecciona un test...</option>
+                            {availableTests.map(test => (
+                                <option key={test.id} value={test.id}>
+                                    {test.name || test.title} {test.version ? `(v${test.version})` : ''}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+
+                {/* Segmented Mode Selectors */}
+                {testConfig.mode === 'segmented' && (
+                    <div className="segmented-selectors">
+                        <p className="connection-hint" style={{ marginBottom: '12px' }}>
+                            Asigna un test específico para cada grupo de cargos:
+                        </p>
+
+                        {userGroups.groups.map(group => (
+                            <div key={group.id} className="test-selector-group" style={{ marginBottom: '12px', paddingLeft: '12px', borderLeft: '3px solid #e5e7eb' }}>
+                                <label className="connection-label" style={{ fontSize: '14px' }}>
+                                    <span className="label-text">{group.name} ({group.count} personas)</span>
+                                </label>
+                                <select
+                                    className="connection-select"
+                                    value={testConfig.assignments[group.id] || ''}
+                                    onChange={(e) => handleAssignmentChange(group.id, e.target.value)}
+                                >
+                                    <option value="">Selecciona un test...</option>
+                                    {availableTests.map(test => (
+                                        <option key={test.id} value={test.id}>
+                                            {test.name || test.title} {test.version ? `(v${test.version})` : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        ))}
+
+                        {userGroups.noJobFamilyCount > 0 && (
+                            <div className="test-selector-group" style={{ marginBottom: '12px', paddingLeft: '12px', borderLeft: '3px solid #e5e7eb' }}>
+                                <label className="connection-label" style={{ fontSize: '14px' }}>
+                                    <span className="label-text">Sin Cargo Asignado ({userGroups.noJobFamilyCount} personas)</span>
+                                </label>
+                                <select
+                                    className="connection-select"
+                                    value={testConfig.assignments['no_job_family'] || ''}
+                                    onChange={(e) => handleNoJobFamilyAssignmentChange(e.target.value)}
+                                >
+                                    <option value="">Selecciona un test...</option>
+                                    {availableTests.map(test => (
+                                        <option key={test.id} value={test.id}>
+                                            {test.name || test.title} {test.version ? `(v${test.version})` : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                    </div>
                 )}
             </div>
 
@@ -118,35 +263,27 @@ const ConnectionRulesStep = ({
                 <h4>Resumen de Configuración</h4>
                 <ul>
                     <li>
-                        <strong>Test:</strong>{' '}
-                        {selectedTestId ? (
-                            availableTests.find(t => t.id === selectedTestId)?.name ||
-                            availableTests.find(t => t.id === selectedTestId)?.title ||
-                            'Test seleccionado'
-                        ) : (
-                            <span className="text-muted">No seleccionado</span>
-                        )}
+                        <strong>Modo de Test:</strong>{' '}
+                        {testConfig.mode === 'unified' ? 'Unificado' : 'Segmentado por Cargo'}
                     </li>
-                    {showManagerOptions && (
+                    {testConfig.mode === 'unified' && (
                         <li>
-                            <strong>Múltiples jefes:</strong>{' '}
-                            {allowMultipleManagers ? 'Sí' : 'No'}
+                            <strong>Test:</strong>{' '}
+                            {testConfig.defaultTestId ? (
+                                availableTests.find(t => t.id === testConfig.defaultTestId)?.name || 'Test seleccionado'
+                            ) : (
+                                <span className="text-muted">No seleccionado</span>
+                            )}
                         </li>
                     )}
-                    {showPeerOptions && (
+                    {testConfig.mode === 'segmented' && (
                         <li>
-                            <strong>Pares restringidos a área:</strong>{' '}
-                            {restrictPeersToArea ? 'Sí' : 'No'}
+                            <strong>Asignaciones:</strong>{' '}
+                            {Object.keys(testConfig.assignments).length} grupos configurados
                         </li>
                     )}
                 </ul>
             </div>
-
-            {!selectedTestId && (
-                <div className="connection-warning">
-                    ⚠️ Debes seleccionar un test antes de continuar
-                </div>
-            )}
         </div>
     );
 };

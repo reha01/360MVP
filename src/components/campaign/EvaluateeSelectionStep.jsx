@@ -11,6 +11,7 @@ import orgStructureService from '../../services/orgStructureService';
 const EvaluateeSelectionStep = ({
   filters: controlledFilters = { jobFamilyIds: [], areaIds: [], userIds: [] },
   onFilterChange,
+  onSelectionChange, // NUEVO
   jobFamilies: propJobFamilies = [],
   areas: propAreas = [],
   users: propUsers = [],
@@ -24,7 +25,25 @@ const EvaluateeSelectionStep = ({
   const [localUsers, setLocalUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedUsers, setSelectedUsers] = useState(new Set());
+  const [selectedUsers, setSelectedUsers] = useState(new Set(controlledFilters.userIds || []));
+
+  // Auto-sync selection to parent
+  useEffect(() => {
+    // Sync filters
+    if (onFilterChange) {
+      onFilterChange({
+        ...controlledFilters,
+        userIds: Array.from(selectedUsers)
+      });
+    }
+
+    // Sync full user objects
+    if (onSelectionChange) {
+      const sourceUsers = propUsers.length > 0 ? propUsers : localUsers;
+      const selectedUserObjects = sourceUsers.filter(u => selectedUsers.has(u.id));
+      onSelectionChange(selectedUserObjects);
+    }
+  }, [selectedUsers, onFilterChange, onSelectionChange, propUsers, localUsers]);
 
   // Usar datos de props si existen, sino cargar directamente
   const jobFamilies = propJobFamilies.length > 0 ? propJobFamilies : localJobFamilies;
@@ -102,6 +121,15 @@ const EvaluateeSelectionStep = ({
 
     if (onFilterChange) {
       onFilterChange(newFilters);
+    }
+
+    // NUEVO: Devolver objetos completos de usuario si se requiere
+    if (onSelectionChange) {
+      // Buscar los objetos completos de los usuarios seleccionados
+      // Buscamos en 'users' (prop) o 'localUsers' (estado)
+      const sourceUsers = propUsers.length > 0 ? propUsers : localUsers;
+      const selectedUserObjects = sourceUsers.filter(u => selectedUsers.has(u.id));
+      onSelectionChange(selectedUserObjects);
     }
   };
 
