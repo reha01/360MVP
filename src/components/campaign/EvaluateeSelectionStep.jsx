@@ -81,6 +81,16 @@ const EvaluateeSelectionStep = ({
           };
         });
 
+        console.log('[EvaluateeSelectionStep] Enhanced users:', enhancedUsers);
+        if (enhancedUsers.length > 0) {
+          console.log('[EvaluateeSelectionStep] Sample user counts:', {
+            name: enhancedUsers[0].name,
+            dependents: enhancedUsers[0].dependentsCount,
+            peers: enhancedUsers[0].peersCount,
+            superiors: enhancedUsers[0].superiorsCount
+          });
+        }
+
         setLocalJobFamilies(jfData);
         setLocalAreas(areasData);
         setLocalUsers(enhancedUsers);
