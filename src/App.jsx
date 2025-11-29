@@ -25,7 +25,7 @@ import MemberManager from './components/members/MemberManager';
 import BulkActionsManager from './components/bulk/BulkActionsManager';
 import AlertManager from './components/alerts/AlertManager';
 import CampaignManager from './components/campaign/CampaignManager';
-import CampaignDashboard from './pages/campaign/CampaignDashboard';
+import CampaignDashboard from './components/campaign/CampaignDashboard';
 import OrganizationManager from './components/organization/OrganizationManager';
 import OrgManager from './pages/super-admin/OrgManager';
 // Note: Using temporary placeholders for other components due to build issues
