@@ -230,43 +230,24 @@ const ConnectionRulesStep = ({
             </div>
 
             {/* Dynamic Options based on Strategy */}
-            {(showManagerOptions || showPeerOptions) && (
+            {showPeerOptions && (
                 <div className="connection-section">
                     <h4 className="connection-subsection-title">Opciones de Evaluación</h4>
 
-                    {showManagerOptions && (
-                        <label className="connection-checkbox-label">
-                            <input
-                                type="checkbox"
-                                checked={allowMultipleManagers}
-                                onChange={(e) => setAllowMultipleManagers(e.target.checked)}
-                                className="connection-checkbox"
-                            />
-                            <div className="checkbox-content">
-                                <span className="checkbox-title">Permitir múltiples jefes</span>
-                                <span className="checkbox-description">
-                                    Un evaluado puede ser evaluado por más de un manager (matriz organizacional)
-                                </span>
-                            </div>
-                        </label>
-                    )}
-
-                    {showPeerOptions && (
-                        <label className="connection-checkbox-label">
-                            <input
-                                type="checkbox"
-                                checked={restrictPeersToArea}
-                                onChange={(e) => setRestrictPeersToArea(e.target.checked)}
-                                className="connection-checkbox"
-                            />
-                            <div className="checkbox-content">
-                                <span className="checkbox-title">Restringir pares a la misma Área</span>
-                                <span className="checkbox-description">
-                                    Los evaluadores pares solo se seleccionarán dentro de la misma área organizacional
-                                </span>
-                            </div>
-                        </label>
-                    )}
+                    <label className="connection-checkbox-label">
+                        <input
+                            type="checkbox"
+                            checked={restrictPeersToArea}
+                            onChange={(e) => setRestrictPeersToArea(e.target.checked)}
+                            className="connection-checkbox"
+                        />
+                        <div className="checkbox-content">
+                            <span className="checkbox-title">Restringir pares a la misma Área</span>
+                            <span className="checkbox-description">
+                                Los evaluadores pares solo se seleccionarán dentro de la misma área organizacional
+                            </span>
+                        </div>
+                    </label>
                 </div>
             )}
 
@@ -276,7 +257,7 @@ const ConnectionRulesStep = ({
                 <ul>
                     <li>
                         <strong>Modo de Test:</strong>{' '}
-                        {testConfig.mode === 'unified' ? 'Unificado' : 'Segmentado por Cargo'}
+                        {testConfig.mode === 'unified' ? 'Unificado' : 'Segmentado por Job Family'}
                     </li>
                     {testConfig.mode === 'unified' && (
                         <li>
