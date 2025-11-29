@@ -336,20 +336,23 @@ const MemberManager = () => {
               </div>
               <div>
                 <h3 className="modal-header" style={{ margin: 0 }}>
-                  Confirmar eliminación
+                  Confirmar desactivación
                 </h3>
                 <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#6c757d' }}>
-                  Esta acción no se puede deshacer
+                  El usuario pasará a estado Inactivo
                 </p>
               </div>
             </div>
 
             <div style={{ marginBottom: '20px', padding: '12px', backgroundColor: '#f9fafb', borderRadius: '6px' }}>
               <p style={{ margin: 0, fontSize: '14px', color: '#374151' }}>
-                ¿Estás seguro de que deseas eliminar a{' '}
+                ¿Estás seguro de que deseas desactivar a{' '}
                 <strong>{deletingMember.displayName || deletingMember.email}</strong>?
               </p>
-              <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: '#6c757d' }}>
+              <p style={{ margin: '8px 0 0 0', fontSize: '13px', color: '#4b5563' }}>
+                ℹ️ <strong>Nota:</strong> Sus evaluaciones y datos históricos <strong>se conservarán</strong> en el sistema.
+              </p>
+              <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#6c757d' }}>
                 Email: {deletingMember.email}
               </p>
             </div>
@@ -368,7 +371,7 @@ const MemberManager = () => {
                 className="btn-modal btn-modal-danger"
               >
                 {deleteConfirming && <div className="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px', display: 'inline-block', marginRight: '8px' }}></div>}
-                {deleteConfirming ? 'Eliminando...' : '🗑️ Eliminar'}
+                {deleteConfirming ? 'Desactivando...' : '🚫 Desactivar'}
               </button>
             </div>
           </div>
