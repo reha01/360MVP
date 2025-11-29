@@ -200,8 +200,8 @@ const CampaignWizard = ({ isOpen, onClose, onSuccess }) => {
       const selectedUsers = campaignData.selectedUsers || [];
 
       const potentialPeers = selectedUsers.reduce((acc, user) => acc + (user.peersCount || 0), 0);
-      const potentialSubordinates = selectedUsers.reduce((acc, user) => acc + (user.dependientesCount || 0), 0);
-      const potentialManagers = selectedUsers.reduce((acc, user) => acc + (user.superioresCount || 0), 0);
+      const potentialSubordinates = selectedUsers.reduce((acc, user) => acc + (user.dependentsCount || 0), 0);
+      const potentialManagers = selectedUsers.reduce((acc, user) => acc + (user.superiorsCount || 0), 0);
 
       const initialStats = {
         totalEvaluatees: selectedUsers.length,
