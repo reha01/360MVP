@@ -167,19 +167,19 @@ const App = () => {
                 />
 
                 <Route
-                  path="/gestion/campanas"
+                  path="/gestion/campanas/:campaignId"
                   element={
                     <WorkspaceProtectedRoute>
-                      <CampaignManager />
+                      <CampaignDashboard />
                     </WorkspaceProtectedRoute>
                   }
                 />
 
                 <Route
-                  path="/gestion/campanas/:campaignId"
+                  path="/gestion/campanas"
                   element={
                     <WorkspaceProtectedRoute>
-                      <CampaignDashboard />
+                      <CampaignManager />
                     </WorkspaceProtectedRoute>
                   }
                 />
