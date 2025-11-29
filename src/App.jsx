@@ -45,6 +45,10 @@ const WorkspaceProtectedRoute = ({ children, requireActiveOrg = true, allowedRol
 };
 
 const App = () => {
+  useEffect(() => {
+    console.log('>>> APP VERSION: 2.0.1 - FIXED DASHBOARD <<<');
+  }, []);
+
   return (
     <AuthProvider>
       <Router>
