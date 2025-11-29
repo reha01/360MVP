@@ -53,9 +53,37 @@ const EvaluateeSelectionStep = ({
           getOrgUsers(currentOrgId).catch(() => [])
         ]);
 
+        // Calculate relationship counts for each user
+        const enhancedUsers = usersData.map(user => {
+          // Dependents: Users who have this user as a manager
+          const dependentsCount = usersData.filter(u =>
+            u.managerIds && u.managerIds.includes(user.id)
+          ).length;
+
+          // Peers: Users in the same Job Family (excluding self)
+          // Handle both jobFamilyId (single) and jobFamilyIds (array)
+          const userJfId = user.jobFamilyId || (user.jobFamilyIds && user.jobFamilyIds[0]);
+          const peersCount = userJfId
+            ? usersData.filter(u => {
+              const uJfId = u.jobFamilyId || (u.jobFamilyIds && u.jobFamilyIds[0]);
+              return uJfId === userJfId && u.id !== user.id;
+            }).length
+            : 0;
+
+          // Superiors: Number of managers assigned
+          const superiorsCount = user.managerIds?.length || 0;
+
+          return {
+            ...user,
+            dependentsCount,
+            peersCount,
+            superiorsCount
+          };
+        });
+
         setLocalJobFamilies(jfData);
         setLocalAreas(areasData);
-        setLocalUsers(usersData);
+        setLocalUsers(enhancedUsers);
       } catch (err) {
         console.error('[Step2] Error loading:', err);
       } finally {

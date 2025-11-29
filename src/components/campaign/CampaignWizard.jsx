@@ -196,18 +196,25 @@ const CampaignWizard = ({ isOpen, onClose, onSuccess }) => {
       console.log('Creating campaign:', campaignData);
 
       // Preparar payload
+      // Calculate potential evaluations based on selected users' relationships
+      const selectedUsers = campaignData.selectedUsers || [];
+
+      const potentialPeers = selectedUsers.reduce((acc, user) => acc + (user.peersCount || 0), 0);
+      const potentialSubordinates = selectedUsers.reduce((acc, user) => acc + (user.dependientesCount || 0), 0);
+      const potentialManagers = selectedUsers.reduce((acc, user) => acc + (user.superioresCount || 0), 0);
+
       const initialStats = {
-        totalEvaluatees: campaignData.selectedUsers?.length || 0,
+        totalEvaluatees: selectedUsers.length,
         totalInvitations: 0,
         completionRate: 0,
         selfCompleted: 0,
-        selfTotal: campaignData.evaluatorRules?.self ? (campaignData.selectedUsers?.length || 0) : 0,
+        selfTotal: campaignData.evaluatorRules?.self ? selectedUsers.length : 0,
         peersCompleted: 0,
-        peersTotal: 0, // Se calculará al lanzar
+        peersTotal: campaignData.evaluatorRules?.peers ? potentialPeers : 0,
         subordinatesCompleted: 0,
-        subordinatesTotal: 0, // Se calculará al lanzar
+        subordinatesTotal: campaignData.evaluatorRules?.subordinates ? potentialSubordinates : 0,
         managerCompleted: 0,
-        managerTotal: 0 // Se calculará al lanzar
+        managerTotal: campaignData.evaluatorRules?.manager ? potentialManagers : 0
       };
 
       const payload = {
