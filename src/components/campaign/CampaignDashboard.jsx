@@ -5,7 +5,6 @@ import { useAuth } from '../../context/AuthContext';
 import { getCampaign, updateCampaign } from '../../services/campaignService';
 import { getOrgUsers } from '../../services/orgStructureServiceWrapper';
 import { CAMPAIGN_STATUS } from '../../models/Campaign';
-import './CampaignDashboard.css'; // We'll create this later or use inline styles for now
 
 const CampaignDashboard = () => {
     const { campaignId } = useParams();
