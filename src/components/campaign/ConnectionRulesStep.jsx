@@ -5,6 +5,8 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useMultiTenant } from '../../hooks/useMultiTenant';
+import jobFamilyService from '../../services/jobFamilyService';
 import './ConnectionRulesStep.css';
 
 const ConnectionRulesStep = ({
@@ -27,6 +29,17 @@ const ConnectionRulesStep = ({
         data.connectionRules?.restrictPeersToArea || true
     );
 
+    const { currentOrgId } = useMultiTenant();
+    const [jobFamilies, setJobFamilies] = useState([]);
+
+    // Cargar Job Families para resolver nombres
+    useEffect(() => {
+        if (!currentOrgId) return;
+        jobFamilyService.getOrgJobFamilies(currentOrgId)
+            .then(data => setJobFamilies(data))
+            .catch(err => console.error('Error loading job families:', err));
+    }, [currentOrgId]);
+
     // Agrupar usuarios por Job Family
     const userGroups = useMemo(() => {
         const groups = {};
@@ -34,12 +47,11 @@ const ConnectionRulesStep = ({
 
         selectedUsers.forEach(user => {
             if (user.jobFamilyIds && user.jobFamilyIds.length > 0) {
-                // Asumimos que el primer ID es el principal para agrupación simple
-                // O podríamos crear grupos para cada combinación, pero simplifiquemos por ahora
                 const jfId = user.jobFamilyIds[0];
-                // Necesitamos el nombre, idealmente vendría en el objeto user o tendríamos que buscarlo
-                // Si user tiene jobFamilyNames, genial. Si no, usamos el ID.
-                const jfName = user.jobFamilyNames ? user.jobFamilyNames[0] : `Job Family ${jfId}`;
+
+                // Buscar nombre en la lista cargada
+                const family = jobFamilies.find(f => f.id === jfId);
+                const jfName = family ? family.name : (user.jobFamilyNames ? user.jobFamilyNames[0] : `Job Family ${jfId}`);
 
                 if (!groups[jfId]) {
                     groups[jfId] = {
@@ -60,7 +72,7 @@ const ConnectionRulesStep = ({
             groups: Object.values(groups),
             noJobFamilyCount
         };
-    }, [selectedUsers]);
+    }, [selectedUsers, jobFamilies]);
 
     // Determinar si las opciones dinámicas deben mostrarse según la estrategia
     const showManagerOptions = data.evaluatorRules?.manager === true;
