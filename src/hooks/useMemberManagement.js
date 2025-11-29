@@ -290,6 +290,48 @@ export const useMemberManagement = (activeOrgId, user) => {
         updatedBy: user?.email || user?.uid || 'member-manager-delete'
       });
 
+      // SYNC: Update organization_members status to 'inactive'
+      // This ensures OrgContext blocks access immediately
+      try {
+        const orgMembersRef = collection(db, 'organization_members');
+        // Try to find by userId (new schema) or user_id (legacy)
+        const q1 = query(
+          orgMembersRef,
+          where('orgId', '==', activeOrgId),
+          where('userId', '==', deletingMember.id) // member.id is usually the auth uid
+        );
+
+        // Also try legacy field just in case
+        const q2 = query(
+          orgMembersRef,
+          where('org_id', '==', activeOrgId),
+          where('user_id', '==', deletingMember.id)
+        );
+
+        const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)]);
+        const docsToUpdate = [...snap1.docs, ...snap2.docs];
+
+        // Deduplicate by ID
+        const uniqueDocs = new Map();
+        docsToUpdate.forEach(d => uniqueDocs.set(d.id, d));
+
+        if (uniqueDocs.size > 0) {
+          console.log(`[useMemberManagement] Syncing inactive status to ${uniqueDocs.size} organization_members docs`);
+          const updatePromises = Array.from(uniqueDocs.values()).map(d =>
+            updateDoc(doc(db, 'organization_members', d.id), {
+              status: 'inactive',
+              updatedAt: serverTimestamp()
+            })
+          );
+          await Promise.all(updatePromises);
+        } else {
+          console.warn('[useMemberManagement] No matching organization_members document found to sync status');
+        }
+      } catch (syncErr) {
+        console.error('[useMemberManagement] Error syncing organization_members status:', syncErr);
+        // Don't fail the main operation if sync fails, but log it
+      }
+
       // Update local state optimistically
       setMembers(prevMembers =>
         prevMembers.map(member =>

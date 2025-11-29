@@ -37,11 +37,11 @@ function isCacheValid(cacheEntry) {
 // Helper: Create personal workspace
 async function createPersonalWorkspace(uid, userEmail) {
   debugLog('Creating personal workspace', { uid });
-  
+
   try {
     const orgId = `org_personal_${uid}`;
     const orgRef = doc(db, 'organizations', orgId);
-    
+
     // Create organization
     await setDoc(orgRef, {
       id: orgId,
@@ -51,7 +51,7 @@ async function createPersonalWorkspace(uid, userEmail) {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
-    
+
     // Create membership
     const memberRef = doc(collection(db, 'organization_members'));
     await setDoc(memberRef, {
@@ -65,9 +65,9 @@ async function createPersonalWorkspace(uid, userEmail) {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
-    
+
     debugLog('Personal workspace created successfully', { orgId });
-    
+
     return {
       id: memberRef.id,
       orgId: orgId,
@@ -105,14 +105,14 @@ async function createPersonalWorkspace(uid, userEmail) {
 // Main fetch function with all fallbacks
 async function fetchUserMemberships(uid, userEmail) {
   debugLog('Fetching memberships', { uid });
-  
+
   // Check for demo configuration in localStorage first
   const demoConfig = localStorage.getItem('demo_user_config');
   if (demoConfig && userEmail === 'demo@360mvp.com') {
     try {
       const config = JSON.parse(demoConfig);
       debugLog('Using demo configuration from localStorage', config);
-      
+
       // Return demo membership
       return [{
         id: config.orgId,
@@ -131,17 +131,18 @@ async function fetchUserMemberships(uid, userEmail) {
       debugLog('Error parsing demo config', { error: error.message });
     }
   }
-  
+
   try {
     const col = collection(db, 'organization_members');
     let memberships = [];
-    
+
     // Try multiple field combinations
+    // SECURITY: Strictly filter for status == 'active' to block access for inactive users
     const queries = [
       query(col, where('user_id', '==', uid), where('status', '==', 'active')),
       query(col, where('userId', '==', uid), where('status', '==', 'active')),
     ];
-    
+
     for (const q of queries) {
       try {
         const snapshot = await getDocs(q);
@@ -157,14 +158,14 @@ async function fetchUserMemberships(uid, userEmail) {
         debugLog('Query failed', { error: err.message });
       }
     }
-    
+
     // If no memberships found, create personal workspace
     if (memberships.length === 0) {
       debugLog('No memberships found, creating personal workspace');
       const personalMembership = await createPersonalWorkspace(uid, userEmail);
       memberships = [personalMembership];
     }
-    
+
     // Enrich with organization data
     const enrichedMemberships = memberships.map(m => {
       // Ensure we have both field variations for compatibility
@@ -181,11 +182,11 @@ async function fetchUserMemberships(uid, userEmail) {
         }
       };
     });
-    
+
     // Load organization metadata concurrently
     const orgIds = enrichedMemberships.map(m => m.orgId).filter(Boolean);
     const orgMetaMap = await getMultipleOrgMeta(orgIds);
-    
+
     // Enrich memberships with organization metadata
     const finalMemberships = enrichedMemberships.map(m => {
       const orgMeta = orgMetaMap.get(m.orgId);
@@ -202,16 +203,16 @@ async function fetchUserMemberships(uid, userEmail) {
         orgMeta
       };
     });
-    
-    debugLog('Memberships enriched with org metadata', { 
+
+    debugLog('Memberships enriched with org metadata', {
       total: finalMemberships.length,
-      withMeta: finalMemberships.filter(m => m.orgMeta).length 
+      withMeta: finalMemberships.filter(m => m.orgMeta).length
     });
-    
+
     return finalMemberships;
   } catch (error) {
     console.error('[OrgContext] Critical error fetching memberships:', error);
-    
+
     // Emergency fallback - return mock membership
     return [{
       id: `emergency_${uid}`,
@@ -234,7 +235,7 @@ export const OrgProvider = ({ children }) => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   // Component state
   const [status, setStatus] = useState('idle'); // idle | loading | success | error | unauthenticated
   const [memberships, setMemberships] = useState([]);
@@ -242,13 +243,13 @@ export const OrgProvider = ({ children }) => {
   const [activeOrg, setActiveOrg] = useState(null);
   const [organizations, setOrganizations] = useState([]);
   const [error, setError] = useState(null);
-  
+
   // Refs for preventing loops
   const mountedRef = useRef(true);
   const loadingRef = useRef(false);
   const navigationRef = useRef(false);
   const renderCount = useRef(0);
-  
+
   // Debug render tracking
   useEffect(() => {
     renderCount.current++;
@@ -256,20 +257,20 @@ export const OrgProvider = ({ children }) => {
       dwarn('[OrgContext] Excessive renders detected:', renderCount.current);
     }
   }, []);
-  
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       mountedRef.current = false;
     };
   }, []);
-  
+
   // Storage helpers
   const getStoredOrgId = useCallback(() => {
     if (!user?.uid) return null;
     return localStorage.getItem(`selectedOrgId_${user.uid}`);
   }, [user?.uid]);
-  
+
   const storeOrgId = useCallback((orgId) => {
     if (!user?.uid) return;
     if (orgId) {
@@ -278,11 +279,11 @@ export const OrgProvider = ({ children }) => {
       localStorage.removeItem(`selectedOrgId_${user.uid}`);
     }
   }, [user?.uid]);
-  
+
   // Main loading effect with strict guards
   useEffect(() => {
     const uid = user?.uid;
-    
+
     // Guard 1: No user - set unauthenticated state
     if (!uid) {
       debugLog('No user, setting unauthenticated state');
@@ -296,13 +297,13 @@ export const OrgProvider = ({ children }) => {
       navigationRef.current = false;
       return;
     }
-    
+
     // Guard 2: Auth still loading
     if (authLoading) {
       debugLog('Auth still loading, waiting...');
       return;
     }
-    
+
     // Guard 3: Kill switch check (only in development)
     const killSwitch = import.meta.env.DEV && localStorage.getItem('ORGCTX_KILL') === '1';
     if (killSwitch) {
@@ -328,13 +329,13 @@ export const OrgProvider = ({ children }) => {
       setStatus('success');
       return;
     }
-    
+
     // Guard 4: Already loading
     if (loadingRef.current) {
       debugLog('Already loading, skipping');
       return;
     }
-    
+
     // Guard 5: Check cache first
     const cached = globalCache.get(uid);
     if (isCacheValid(cached)) {
@@ -342,11 +343,11 @@ export const OrgProvider = ({ children }) => {
       setMemberships(cached.memberships);
       setOrganizations(cached.organizations);
       setStatus('success');
-      
+
       // Restore active org - prioritize pilot-org-santiago
       const storedOrgId = getStoredOrgId();
       const pilotOrg = cached.memberships.find(m => m.orgId === 'pilot-org-santiago');
-      
+
       if (pilotOrg) {
         // If user is in pilot org, always set it as active
         setActiveOrgIdState(pilotOrg.orgId);
@@ -364,7 +365,7 @@ export const OrgProvider = ({ children }) => {
       }
       return;
     }
-    
+
     // Guard 6: Check if already loading globally
     if (loadingStates.has(uid)) {
       debugLog('Another instance is loading, waiting...');
@@ -376,23 +377,23 @@ export const OrgProvider = ({ children }) => {
       });
       return;
     }
-    
+
     // Start loading
     loadingRef.current = true;
     setStatus('loading');
     debugLog('Starting fresh load');
-    
+
     const loadPromise = (async () => {
       try {
         const memberships = await fetchUserMemberships(uid, user.email);
-        
+
         const organizations = memberships
           .map(m => m.organization)
           .filter(Boolean)
-          .filter((org, index, self) => 
+          .filter((org, index, self) =>
             self.findIndex(o => o?.id === org?.id) === index
           );
-        
+
         // Cache the result
         const cacheEntry = {
           memberships,
@@ -401,18 +402,18 @@ export const OrgProvider = ({ children }) => {
           status: 'success'
         };
         globalCache.set(uid, cacheEntry);
-        
+
         // Update state if still mounted
         if (mountedRef.current) {
           setMemberships(memberships);
           setOrganizations(organizations);
           setStatus('success');
           setError(null);
-          
+
           // Set active org - prioritize pilot-org-santiago
           const storedOrgId = getStoredOrgId();
           const pilotOrg = memberships.find(m => m.orgId === 'pilot-org-santiago');
-          
+
           if (pilotOrg) {
             // If user is in pilot org, always set it as active
             setActiveOrgIdState(pilotOrg.orgId);
@@ -429,11 +430,11 @@ export const OrgProvider = ({ children }) => {
             storeOrgId(firstOrg.orgId);
           }
         }
-        
+
         return cacheEntry;
       } catch (error) {
         console.error('[OrgContext] Load failed:', error);
-        
+
         // Create emergency fallback
         const fallbackMembership = {
           id: `error_${uid}`,
@@ -449,16 +450,16 @@ export const OrgProvider = ({ children }) => {
             type: 'personal'
           }
         };
-        
+
         const cacheEntry = {
           memberships: [fallbackMembership],
           organizations: [fallbackMembership.organization],
           timestamp: Date.now(),
           status: 'error'
         };
-        
+
         globalCache.set(uid, cacheEntry);
-        
+
         if (mountedRef.current) {
           setMemberships([fallbackMembership]);
           setOrganizations([fallbackMembership.organization]);
@@ -467,25 +468,25 @@ export const OrgProvider = ({ children }) => {
           setStatus('success'); // Set to success even on error to prevent loops
           setError(error.message);
         }
-        
+
         return cacheEntry;
       } finally {
         loadingRef.current = false;
         loadingStates.delete(uid);
       }
     })();
-    
+
     loadingStates.set(uid, loadPromise);
-    
+
   }, [user?.uid, user?.email, authLoading]); // âœ… CORREGIDO: Remover funciones de dependencias
-  
+
   // Navigation effect - only navigate when truly needed AND user is authenticated
   useEffect(() => {
     // Don't navigate if user is not authenticated
     if (status === 'unauthenticated' || !user) {
       return;
     }
-    
+
     if (status === 'success' && memberships.length === 0 && !navigationRef.current) {
       if (location.pathname !== '/select-workspace') {
         navigationRef.current = true;
@@ -494,7 +495,7 @@ export const OrgProvider = ({ children }) => {
       }
     }
   }, [status, memberships.length, user?.uid]); // âœ… CORREGIDO: Remover navigate y location.pathname
-  
+
   // Actions
   const setActiveOrgId = useCallback((orgId) => {
     if (!orgId) {
@@ -503,35 +504,35 @@ export const OrgProvider = ({ children }) => {
       storeOrgId(null);
       return true;
     }
-    
+
     const membership = memberships.find(m => m.orgId === orgId || m.org_id === orgId);
     if (!membership) {
       console.warn('[OrgContext] Invalid org selection:', orgId);
       return false;
     }
-    
+
     setActiveOrgIdState(orgId);
     setActiveOrg(membership.organization);
     storeOrgId(orgId);
-    
+
     if (telemetry?.trackOrgSwitch) {
       telemetry.trackOrgSwitch(orgId, 'manual');
     }
-    
+
     debugLog('Active org changed', { orgId });
     return true;
   }, [memberships]); // âœ… CORREGIDO: Remover storeOrgId de dependencias
-  
+
   const refreshMemberships = useCallback(() => {
     if (!user?.uid) return;
-    
+
     debugLog('Refreshing memberships');
     globalCache.delete(user.uid);
     loadingStates.delete(user.uid);
     loadingRef.current = false;
     setStatus('idle');
   }, [user?.uid]);
-  
+
   const clearWorkspace = useCallback(() => {
     setActiveOrgIdState(null);
     setActiveOrg(null);
@@ -539,14 +540,14 @@ export const OrgProvider = ({ children }) => {
     navigationRef.current = false;
     debugLog('Workspace cleared');
   }, []); // âœ… CORREGIDO: Sin dependencias innecesarias
-  
+
   // Computed values
   const isPersonalWorkspace = activeOrg?.type === 'personal';
   const canSwitchWorkspace = memberships.length > 1;
-  const activeMembership = memberships.find(m => 
+  const activeMembership = memberships.find(m =>
     (m.orgId === activeOrgId || m.org_id === activeOrgId)
   );
-  
+
   // Create organizationsById map for easy lookup
   const organizationsById = memberships.reduce((acc, membership) => {
     if (membership.orgId && membership.orgMeta) {
@@ -554,7 +555,7 @@ export const OrgProvider = ({ children }) => {
     }
     return acc;
   }, {});
-  
+
   // Context value
   const value = {
     // State
@@ -565,24 +566,24 @@ export const OrgProvider = ({ children }) => {
     organizationsById,
     status,
     error,
-    
+
     // Computed
     isPersonalWorkspace,
     canSwitchWorkspace,
     activeMembership,
     loading: status === 'loading',
     isReady: status === 'success' && activeOrgId !== null, // âœ… NUEVO: indica si estÃ¡ listo para feature flags
-    
+
     // Actions
     setActiveOrg: setActiveOrgId,
     setActiveOrgId,
     refreshMemberships,
     clearWorkspace,
-    
+
     // Legacy compatibility
     getActiveOrgId: () => activeOrgId
   };
-  
+
   return (
     <OrgContext.Provider value={value}>
       {children}
@@ -615,31 +616,31 @@ export const getActiveOrgIdFromContext = () => {
   }
 };
 
-  // Debug helper (only available in debug mode)
-  if (typeof window !== 'undefined' && isDebug()) {
-    window.__debugOrgContext = {
-      cache: globalCache,
-      loadingStates,
-      debugOnly: () => isDebug(),
-      forceReset: () => {
-        globalCache.clear();
-        loadingStates.clear();
-        localStorage.removeItem('selectedOrgId');
-        localStorage.removeItem('ORGCTX_KILL');
-        localStorage.removeItem('DEBUG');
-        console.log('[OrgContext] Debug state cleared, reloading...');
-        location.reload();
-      },
-      enableDebug: () => {
-        localStorage.setItem('DEBUG', '1');
-        console.log('[OrgContext] Debug mode enabled, reload to see logs');
-      },
-      disableDebug: () => {
-        localStorage.removeItem('DEBUG');
-        console.log('[OrgContext] Debug mode disabled, reload to hide logs');
-      }
-    };
-  
+// Debug helper (only available in debug mode)
+if (typeof window !== 'undefined' && isDebug()) {
+  window.__debugOrgContext = {
+    cache: globalCache,
+    loadingStates,
+    debugOnly: () => isDebug(),
+    forceReset: () => {
+      globalCache.clear();
+      loadingStates.clear();
+      localStorage.removeItem('selectedOrgId');
+      localStorage.removeItem('ORGCTX_KILL');
+      localStorage.removeItem('DEBUG');
+      console.log('[OrgContext] Debug state cleared, reloading...');
+      location.reload();
+    },
+    enableDebug: () => {
+      localStorage.setItem('DEBUG', '1');
+      console.log('[OrgContext] Debug mode enabled, reload to see logs');
+    },
+    disableDebug: () => {
+      localStorage.removeItem('DEBUG');
+      console.log('[OrgContext] Debug mode disabled, reload to hide logs');
+    }
+  };
+
   console.log('ðŸ”§ OrgContext debug tools available:');
   console.log('  __debugOrgContext.forceReset() - Clear all state');
   console.log('  __debugOrgContext.enableDebug() - Enable debug logs');
