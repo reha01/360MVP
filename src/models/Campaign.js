@@ -144,8 +144,12 @@ export const createCampaignModel = (data) => {
       subordinatesCompleted: data.stats?.subordinatesCompleted || 0,
       subordinatesTotal: data.stats?.subordinatesTotal || 0,
       managerCompleted: data.stats?.managerCompleted || 0,
+      managerCompleted: data.stats?.managerCompleted || 0,
       managerTotal: data.stats?.managerTotal || 0
-    }
+    },
+
+    // Usuarios seleccionados (Evaluados)
+    selectedUsers: data.selectedUsers || []
   };
 };
 

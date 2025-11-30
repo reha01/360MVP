@@ -193,23 +193,12 @@ const CampaignWizard = ({ isOpen, onClose, onSuccess }) => {
     setLoading(true);
     setError(null);
     try {
-      console.log('Creating campaign:', campaignData);
-
-      // Preparar payload
       // Calculate potential evaluations based on selected users' relationships
       const selectedUsers = campaignData.selectedUsers || [];
-
-      console.log('[CampaignWizard] Selected Users for Stats:', selectedUsers);
 
       const potentialPeers = selectedUsers.reduce((acc, user) => acc + (user.peersCount || 0), 0);
       const potentialSubordinates = selectedUsers.reduce((acc, user) => acc + (user.dependentsCount || 0), 0);
       const potentialManagers = selectedUsers.reduce((acc, user) => acc + (user.superiorsCount || 0), 0);
-
-      console.log('[CampaignWizard] Calculated Potentials:', {
-        potentialPeers,
-        potentialSubordinates,
-        potentialManagers
-      });
 
       const initialStats = {
         totalEvaluatees: selectedUsers.length,
@@ -256,176 +245,176 @@ const CampaignWizard = ({ isOpen, onClose, onSuccess }) => {
       setLoading(false);
     }
   };
-};
 
-// Reset wizard
-const resetWizard = useCallback(() => {
-  setCurrentStep(1);
-  setError(null);
-  setCampaignData({
-    selectedStrategy: null,
-    evaluatorRules: {
-      self: false,
-      manager: false,
-      peers: false,
-      subordinates: false,
-      external: false
-    },
-    title: '',
-    description: '',
-    type: CAMPAIGN_TYPE.CUSTOM,
-    config: {
-      startDate: null,
-      endDate: null,
-      timezone: 'UTC',
-      reminderSchedule: [3, 7, 14]
-    },
-    selectedUsers: [],
-    audienceFilters: {
-      jobFamilyIds: [],
-      areaIds: [],
-      userIds: []
-    },
-    selectedTestId: null,
-    testConfiguration: {
-      mode: 'unified',
-      defaultTestId: null,
-      assignments: {}
-    },
-    connectionRules: {
-      allowMultipleManagers: false,
-      restrictPeersToArea: true
+
+  // Reset wizard
+  const resetWizard = useCallback(() => {
+    setCurrentStep(1);
+    setError(null);
+    setCampaignData({
+      selectedStrategy: null,
+      evaluatorRules: {
+        self: false,
+        manager: false,
+        peers: false,
+        subordinates: false,
+        external: false
+      },
+      title: '',
+      description: '',
+      type: CAMPAIGN_TYPE.CUSTOM,
+      config: {
+        startDate: null,
+        endDate: null,
+        timezone: 'UTC',
+        reminderSchedule: [3, 7, 14]
+      },
+      selectedUsers: [],
+      audienceFilters: {
+        jobFamilyIds: [],
+        areaIds: [],
+        userIds: []
+      },
+      selectedTestId: null,
+      testConfiguration: {
+        mode: 'unified',
+        defaultTestId: null,
+        assignments: {}
+      },
+      connectionRules: {
+        allowMultipleManagers: false,
+        restrictPeersToArea: true
+      }
+    });
+  }, []);
+
+  // Reset al cerrar
+  useEffect(() => {
+    if (!isOpen) {
+      resetWizard();
     }
-  });
-}, []);
+  }, [isOpen, resetWizard]);
 
-// Reset al cerrar
-useEffect(() => {
-  if (!isOpen) {
-    resetWizard();
-  }
-}, [isOpen, resetWizard]);
-
-// Renderizar paso actual
-const renderStep = () => {
-  switch (currentStep) {
-    case 1:
-      return (
-        <StrategySelectionStep
-          selectedStrategy={campaignData.selectedStrategy}
-          onChange={handleStep1Change}
-        />
-      );
-    case 2:
-      return (
-        <CampaignInfoStep
-          data={campaignData}
-          onChange={handleStep2Change}
-        />
-      );
-    case 3:
-      return (
-        <EvaluateeSelectionStep
-          filters={campaignData.audienceFilters}
-          // Importante: EvaluateeSelectionStep debe soportar onFilterChange
-          // y idealmente devolver los usuarios seleccionados.
-          // Si no devuelve usuarios, ConnectionRulesStep tendrá que calcularlos o 
-          // EvaluateeSelectionStep necesita un prop para notificar selección.
-          onFilterChange={handleAudienceFilterChange}
-          // Pasamos un prop extra por si el componente lo soporta o lo agregamos después
-          onSelectionChange={(users) => setCampaignData(prev => ({ ...prev, selectedUsers: users }))}
-        />
-      );
-    case 4:
-      return (
-        <ConnectionRulesStep
-          data={campaignData}
-          selectedUsers={campaignData.selectedUsers} // PASAMOS LA AUDIENCIA
-          availableTests={availableTests}
-          onChange={handleStep4Change}
-        />
-      );
-    default:
-      return null;
-  }
-};
-
-if (!isOpen) return null;
-
-return (
-  <div className="campaign-wizard-overlay" onClick={(e) => {
-    if (e.target.classList.contains('campaign-wizard-overlay')) {
-      onClose();
+  // Renderizar paso actual
+  const renderStep = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <StrategySelectionStep
+            selectedStrategy={campaignData.selectedStrategy}
+            onChange={handleStep1Change}
+          />
+        );
+      case 2:
+        return (
+          <CampaignInfoStep
+            data={campaignData}
+            onChange={handleStep2Change}
+          />
+        );
+      case 3:
+        return (
+          <EvaluateeSelectionStep
+            filters={campaignData.audienceFilters}
+            // Importante: EvaluateeSelectionStep debe soportar onFilterChange
+            // y idealmente devolver los usuarios seleccionados.
+            // Si no devuelve usuarios, ConnectionRulesStep tendrá que calcularlos o 
+            // EvaluateeSelectionStep necesita un prop para notificar selección.
+            onFilterChange={handleAudienceFilterChange}
+            // Pasamos un prop extra por si el componente lo soporta o lo agregamos después
+            onSelectionChange={(users) => setCampaignData(prev => ({ ...prev, selectedUsers: users }))}
+          />
+        );
+      case 4:
+        return (
+          <ConnectionRulesStep
+            data={campaignData}
+            selectedUsers={campaignData.selectedUsers} // PASAMOS LA AUDIENCIA
+            availableTests={availableTests}
+            onChange={handleStep4Change}
+          />
+        );
+      default:
+        return null;
     }
-  }}>
-    <div className="campaign-wizard-modal modern">
-      {/* Header */}
-      <div className="campaign-wizard-header modern">
-        <h2>Crear Nueva Campaña de Evaluación</h2>
-        <button className="campaign-wizard-close" onClick={onClose}>×</button>
-      </div>
+  };
 
-      {/* Modern Stepper */}
-      <WizardStepper currentStep={currentStep} steps={stepDefinitions} />
+  if (!isOpen) return null;
 
-      {/* Error Display */}
-      {error && (
-        <div className="alert alert-error modern">
-          {error}
-          <button onClick={() => setError(null)}>×</button>
+  return (
+    <div className="campaign-wizard-overlay" onClick={(e) => {
+      if (e.target.classList.contains('campaign-wizard-overlay')) {
+        onClose();
+      }
+    }}>
+      <div className="campaign-wizard-modal modern">
+        {/* Header */}
+        <div className="campaign-wizard-header modern">
+          <h2>Crear Nueva Campaña de Evaluación</h2>
+          <button className="campaign-wizard-close" onClick={onClose}>×</button>
         </div>
-      )}
 
-      {/* Step Content */}
-      <div className="campaign-wizard-content modern">
-        {renderStep()}
-      </div>
+        {/* Modern Stepper */}
+        <WizardStepper currentStep={currentStep} steps={stepDefinitions} />
 
-      {/* Footer */}
-      <div className="campaign-wizard-footer modern">
-        <button
-          className="btn-wizard btn-secondary"
-          onClick={handleBack}
-          disabled={currentStep === 1 || loading}
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-          </svg>
-          Anterior
-        </button>
+        {/* Error Display */}
+        {error && (
+          <div className="alert alert-error modern">
+            {error}
+            <button onClick={() => setError(null)}>×</button>
+          </div>
+        )}
 
-        <button
-          className="btn-wizard btn-primary"
-          onClick={handleNext}
-          disabled={loading}
-        >
-          {currentStep === stepDefinitions.length ? (
-            loading ? (
-              <>
-                <span className="spinner"></span>
-                Generando...
-              </>
+        {/* Step Content */}
+        <div className="campaign-wizard-content modern">
+          {renderStep()}
+        </div>
+
+        {/* Footer */}
+        <div className="campaign-wizard-footer modern">
+          <button
+            className="btn-wizard btn-secondary"
+            onClick={handleBack}
+            disabled={currentStep === 1 || loading}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            </svg>
+            Anterior
+          </button>
+
+          <button
+            className="btn-wizard btn-primary"
+            onClick={handleNext}
+            disabled={loading}
+          >
+            {currentStep === stepDefinitions.length ? (
+              loading ? (
+                <>
+                  <span className="spinner"></span>
+                  Generando...
+                </>
+              ) : (
+                <>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M13.3337 4L6.00033 11.3333L2.66699 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                  </svg>
+                  Crear Borrador
+                </>
+              )
             ) : (
               <>
+                Siguiente
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                  <path d="M13.3337 4L6.00033 11.3333L2.66699 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                  <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
                 </svg>
-                Crear Borrador
               </>
-            )
-          ) : (
-            <>
-              Siguiente
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-              </svg>
-            </>
-          )}
-        </button>
+            )}
+          </button>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
 };
 
 export default CampaignWizard;
