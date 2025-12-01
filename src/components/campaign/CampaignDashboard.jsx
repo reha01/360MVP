@@ -5,6 +5,8 @@ import { useAuth } from '../../context/AuthContext';
 import { getCampaign, updateCampaign } from '../../services/campaignService';
 import { getOrgUsers } from '../../services/orgStructureServiceWrapper';
 import { CAMPAIGN_STATUS } from '../../models/Campaign';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 import './CampaignDashboard.css';
 import EvaluatorAssignmentModal from './EvaluatorAssignmentModal';
 import AddParticipantModal from './AddParticipantModal';
@@ -146,32 +148,41 @@ const CampaignDashboard = () => {
         setIsModalOpen(true);
     };
 
+
     const handleSaveEvaluators = async (updatedEvaluatee) => {
         try {
             const customEvaluators = {
-                managers: updatedEvaluatee.managerIds,
-                peers: updatedEvaluatee.peerIds,
-                subordinates: updatedEvaluatee.dependentIds
+                managers: updatedEvaluatee.managerIds || [],
+                peers: updatedEvaluatee.peerIds || [],
+                subordinates: updatedEvaluatee.dependentIds || []
             };
 
-            const updatedSelectedUsers = campaign.selectedUsers.map(u =>
-                u.id === updatedEvaluatee.id ? {
-                    ...u,
-                    customEvaluators,
-                    skipManagerEvaluation: updatedEvaluatee.skipManagerEvaluation,
-                    // Update counts to keep consistency
-                    peersCount: updatedEvaluatee.peerIds?.length || 0,
-                    dependentsCount: updatedEvaluatee.dependentIds?.length || 0,
-                    superiorsCount: updatedEvaluatee.managerIds?.length || 0
-                } : u
-            );
+            const updatedSelectedUsers = campaign.selectedUsers.map(u => {
+                if (u.id === updatedEvaluatee.id) {
+                    // Only keep serializable properties, exclude any DOM refs or complex objects
+                    return {
+                        id: u.id,
+                        name: u.name,
+                        email: u.email,
+                        jobTitle: u.jobTitle,
+                        customEvaluators,
+                        skipManagerEvaluation: updatedEvaluatee.skipManagerEvaluation || false,
+                        peersCount: (updatedEvaluatee.peerIds || []).length,
+                        dependentsCount: (updatedEvaluatee.dependentIds || []).length,
+                        superiorsCount: (updatedEvaluatee.managerIds || []).length
+                    };
+                }
+                return u;
+            });
 
             setCampaign(prev => ({
                 ...prev,
                 selectedUsers: updatedSelectedUsers
             }));
 
-            await updateCampaign(currentOrgId, campaign.id, {
+            // Use direct Firestore updateDoc to avoid validation issues with partial updates
+            const campaignRef = doc(db, 'organizations', currentOrgId, 'campaigns', campaign.id);
+            await updateDoc(campaignRef, {
                 selectedUsers: updatedSelectedUsers
             });
 
@@ -182,6 +193,7 @@ const CampaignDashboard = () => {
             alert('Error al guardar los cambios: ' + err.message);
         }
     };
+
 
     const handleAddParticipant = async (user) => {
         try {
