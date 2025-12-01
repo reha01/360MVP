@@ -5,6 +5,7 @@ const EvaluatorAssignmentModal = ({ isOpen, onClose, evaluatee, allUsers, onSave
     const [managers, setManagers] = useState([]);
     const [peers, setPeers] = useState([]);
     const [subordinates, setSubordinates] = useState([]);
+    const [skipManagerEvaluation, setSkipManagerEvaluation] = useState(false);
 
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedRole, setSelectedRole] = useState('peer'); // 'manager', 'peer', 'subordinate'
@@ -15,6 +16,7 @@ const EvaluatorAssignmentModal = ({ isOpen, onClose, evaluatee, allUsers, onSave
             setManagers(evaluatee.managerIds || []);
             setPeers(evaluatee.peerIds || []);
             setSubordinates(evaluatee.dependentIds || []);
+            setSkipManagerEvaluation(evaluatee.skipManagerEvaluation || false);
         }
     }, [evaluatee]);
 
@@ -61,6 +63,7 @@ const EvaluatorAssignmentModal = ({ isOpen, onClose, evaluatee, allUsers, onSave
             managerIds: managers,
             peerIds: peers,
             dependentIds: subordinates,
+            skipManagerEvaluation: skipManagerEvaluation,
             // Update counts as well to keep consistency if the UI relies on them
             peersCount: peers.length,
             dependentsCount: subordinates.length,
@@ -95,6 +98,22 @@ const EvaluatorAssignmentModal = ({ isOpen, onClose, evaluatee, allUsers, onSave
                                 </div>
                             ))}
                             {managers.length === 0 && <span className="empty-text">Sin superiores asignados</span>}
+                        </div>
+                        <div style={{ marginTop: '8px' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#495057' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={skipManagerEvaluation}
+                                    onChange={(e) => setSkipManagerEvaluation(e.target.checked)}
+                                    style={{ cursor: 'pointer' }}
+                                />
+                                <span>Este usuario no tiene superior (CEO, Dueño, etc.)</span>
+                            </label>
+                            {skipManagerEvaluation && (
+                                <div style={{ marginTop: '4px', fontSize: '12px', color: '#6c757d', fontStyle: 'italic' }}>
+                                    ℹ️ No se requerirá evaluación de manager para este usuario.
+                                </div>
+                            )}
                         </div>
                     </div>
 

@@ -7,6 +7,7 @@ import { getOrgUsers } from '../../services/orgStructureServiceWrapper';
 import { CAMPAIGN_STATUS } from '../../models/Campaign';
 import './CampaignDashboard.css';
 import EvaluatorAssignmentModal from './EvaluatorAssignmentModal';
+import AddParticipantModal from './AddParticipantModal';
 
 const CampaignDashboard = () => {
     const { campaignId } = useParams();
@@ -29,6 +30,9 @@ const CampaignDashboard = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedEvaluatee, setSelectedEvaluatee] = useState(null);
 
+    // Add Participant Modal State
+    const [isAddParticipantModalOpen, setIsAddParticipantModalOpen] = useState(false);
+
     useEffect(() => {
         if (!currentOrgId || !campaignId) return;
 
@@ -43,7 +47,6 @@ const CampaignDashboard = () => {
                 setCampaign(campaignData);
                 setEditedTitle(campaignData.title);
                 setAllUsers(usersData);
-                console.log('[CampaignDashboard] Campaign loaded:', campaignData);
 
                 const map = {};
                 usersData.forEach(u => {
@@ -152,7 +155,15 @@ const CampaignDashboard = () => {
             };
 
             const updatedSelectedUsers = campaign.selectedUsers.map(u =>
-                u.id === updatedEvaluatee.id ? { ...u, customEvaluators } : u
+                u.id === updatedEvaluatee.id ? {
+                    ...u,
+                    customEvaluators,
+                    skipManagerEvaluation: updatedEvaluatee.skipManagerEvaluation,
+                    // Update counts to keep consistency
+                    peersCount: updatedEvaluatee.peerIds?.length || 0,
+                    dependentsCount: updatedEvaluatee.dependentIds?.length || 0,
+                    superiorsCount: updatedEvaluatee.managerIds?.length || 0
+                } : u
             );
 
             setCampaign(prev => ({
@@ -169,6 +180,37 @@ const CampaignDashboard = () => {
         } catch (err) {
             console.error('Error saving evaluators:', err);
             alert('Error al guardar los cambios: ' + err.message);
+        }
+    };
+
+    const handleAddParticipant = async (user) => {
+        try {
+            const liveUser = usersMap[user.id];
+            const newParticipant = {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                jobTitle: user.jobTitle,
+                peersCount: 0,
+                dependentsCount: 0,
+                superiorsCount: liveUser?.managerIds?.length || 0,
+            };
+
+            const updatedSelectedUsers = [...campaign.selectedUsers, newParticipant];
+
+            setCampaign(prev => ({
+                ...prev,
+                selectedUsers: updatedSelectedUsers
+            }));
+
+            await updateCampaign(currentOrgId, campaign.id, {
+                selectedUsers: updatedSelectedUsers
+            });
+
+            alert(`${user.name} ha sido agregado a la campaña.`);
+        } catch (err) {
+            console.error('Error adding participant:', err);
+            alert('Error al agregar participante: ' + err.message);
         }
     };
 
@@ -196,7 +238,8 @@ const CampaignDashboard = () => {
         const effectiveManagers = getEffectiveEvaluators(user, 'manager');
         let error = null;
 
-        if (campaign.evaluatorRules?.manager && effectiveManagers.length === 0) {
+        // Rule: If Manager evaluation is required AND user is not exempt, must have at least 1 manager
+        if (campaign.evaluatorRules?.manager && !user.skipManagerEvaluation && effectiveManagers.length === 0) {
             error = 'Falta Superior';
         }
 
@@ -288,8 +331,18 @@ const CampaignDashboard = () => {
             {/* Matrix Table */}
             <div className="table-container">
                 <div className="table-header">
-                    <h3 className="table-title">Matriz de Evaluación</h3>
-                    <p className="table-subtitle">Revisa y calibra los evaluadores para cada participante.</p>
+                    <div>
+                        <h3 className="table-title">Matriz de Evaluación</h3>
+                        <p className="table-subtitle">Revisa y calibra los evaluadores para cada participante.</p>
+                    </div>
+                    <button
+                        onClick={() => setIsAddParticipantModalOpen(true)}
+                        className="btn btn-outline"
+                        disabled={campaign.status !== CAMPAIGN_STATUS.DRAFT}
+                        title={campaign.status !== CAMPAIGN_STATUS.DRAFT ? 'Solo se pueden agregar participantes a borradores' : 'Agregar un nuevo participante a esta campaña'}
+                    >
+                        + Agregar Participante
+                    </button>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -301,7 +354,7 @@ const CampaignDashboard = () => {
                                 <th scope="col">Superior</th>
                                 <th scope="col">Pares</th>
                                 <th scope="col">Equipo</th>
-                                <th scope="col" className="text-right">Acciones</th>
+                                <th const="col" className="text-right">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -336,7 +389,9 @@ const CampaignDashboard = () => {
                                         <td>
                                             <div className="manager-list">
                                                 {campaign.evaluatorRules?.manager ? (
-                                                    effectiveManagers.length > 0 ? (
+                                                    user.skipManagerEvaluation ? (
+                                                        <span className="badge-exempt">Exento (CEO/Dueño)</span>
+                                                    ) : effectiveManagers.length > 0 ? (
                                                         effectiveManagers.map(mgrId => (
                                                             <div key={mgrId} className="manager-item">
                                                                 {getUserName(mgrId)}
@@ -416,6 +471,15 @@ const CampaignDashboard = () => {
                 evaluatee={selectedEvaluatee}
                 allUsers={allUsers}
                 onSave={handleSaveEvaluators}
+            />
+
+            {/* Add Participant Modal */}
+            <AddParticipantModal
+                isOpen={isAddParticipantModalOpen}
+                onClose={() => setIsAddParticipantModalOpen(false)}
+                allUsers={allUsers}
+                existingParticipantIds={campaign.selectedUsers?.map(u => u.id) || []}
+                onAdd={handleAddParticipant}
             />
         </div>
     );
