@@ -7,8 +7,9 @@ import { getOrgUsers } from '../../services/orgStructureServiceWrapper';
 import { CAMPAIGN_STATUS } from '../../models/Campaign';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
+import * as XLSX from 'xlsx';
 import './CampaignDashboard.css';
-import EvaluatorAssignmentModal from './EvaluatorAssignmentModal';
+import EvaluatorManagementModal from './EvaluatorManagementModal';
 import AddParticipantModal from './AddParticipantModal';
 
 const CampaignDashboard = () => {
@@ -24,15 +25,10 @@ const CampaignDashboard = () => {
     const [error, setError] = useState(null);
     const [processing, setProcessing] = useState(false);
 
-    // Editable Title State
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [editedTitle, setEditedTitle] = useState('');
-
-    // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedEvaluatee, setSelectedEvaluatee] = useState(null);
-
-    // Add Participant Modal State
     const [isAddParticipantModalOpen, setIsAddParticipantModalOpen] = useState(false);
 
     useEffect(() => {
@@ -67,16 +63,46 @@ const CampaignDashboard = () => {
         loadData();
     }, [currentOrgId, campaignId]);
 
+    const handleExportExcel = () => {
+        if (!campaign?.selectedUsers) return;
+
+        const excelData = campaign.selectedUsers.map(user => {
+            const effectiveManagers = getEffectiveEvaluators(user, 'manager');
+            const effectivePeers = getEffectiveEvaluators(user, 'peer');
+            const effectiveSubordinates = getEffectiveEvaluators(user, 'subordinate');
+            const workLoad = effectiveManagers.length + effectivePeers.length + effectiveSubordinates.length;
+
+            return {
+                'Nombre': user.name,
+                'Email': user.email,
+                'Cargo': user.jobTitle || usersMap[user.id]?.jobTitle || 'Sin cargo',
+                'Auto': campaign.evaluatorRules?.self ? 'Sí' : '-',
+                'Jefes': effectiveManagers.length,
+                'Pares': effectivePeers.length,
+                'Equipo': effectiveSubordinates.length,
+                'Carga de Trabajo': workLoad,
+                'Estado': 'Pendiente'
+            };
+        });
+
+        const ws = XLSX.utils.json_to_sheet(excelData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Campaña');
+
+        const fileName = `${campaign.title || 'Campaña'}_${new Date().toISOString().split('T')[0]}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+    };
+
     const handleLaunchCampaign = async () => {
         if (!campaign) return;
 
         const hasErrors = campaign.selectedUsers?.some(user => checkMissingEvaluators(user).hasError);
         if (hasErrors) {
-            alert('No se puede lanzar la campaña porque hay usuarios con evaluadores obligatorios faltantes. Por favor revisa las filas marcadas en rojo.');
+            alert('No se puede lanzar la campaña porque hay usuarios con evaluadores obligatorios faltantes.');
             return;
         }
 
-        if (!window.confirm('¿Estás seguro de que deseas lanzar esta campaña? Esto enviará las invitaciones.')) {
+        if (!window.confirm('¿Estás seguro de que deseas lanzar esta campaña?')) {
             return;
         }
 
@@ -102,7 +128,7 @@ const CampaignDashboard = () => {
     };
 
     const handleDeleteCampaign = async () => {
-        if (!window.confirm('¿Estás seguro de que deseas ELIMINAR este borrador? Esta acción no se puede deshacer.')) {
+        if (!window.confirm('¿Estás seguro de que deseas ELIMINAR este borrador?')) {
             return;
         }
 
@@ -148,10 +174,9 @@ const CampaignDashboard = () => {
         setIsModalOpen(true);
     };
 
-
     const handleSaveEvaluators = async (updatedEvaluatee) => {
         try {
-            const customEvaluators = {
+            const finalCustomEvaluators = {
                 managers: updatedEvaluatee.managerIds || [],
                 peers: updatedEvaluatee.peerIds || [],
                 subordinates: updatedEvaluatee.dependentIds || []
@@ -159,17 +184,13 @@ const CampaignDashboard = () => {
 
             const updatedSelectedUsers = campaign.selectedUsers.map(u => {
                 if (u.id === updatedEvaluatee.id) {
-                    // Only keep serializable properties, exclude any DOM refs or complex objects
                     return {
                         id: u.id,
                         name: u.name,
                         email: u.email,
                         jobTitle: u.jobTitle,
-                        customEvaluators,
+                        customEvaluators: finalCustomEvaluators,
                         skipManagerEvaluation: updatedEvaluatee.skipManagerEvaluation || false,
-                        peersCount: (updatedEvaluatee.peerIds || []).length,
-                        dependentsCount: (updatedEvaluatee.dependentIds || []).length,
-                        superiorsCount: (updatedEvaluatee.managerIds || []).length
                     };
                 }
                 return u;
@@ -180,7 +201,6 @@ const CampaignDashboard = () => {
                 selectedUsers: updatedSelectedUsers
             }));
 
-            // Use direct Firestore updateDoc to avoid validation issues with partial updates
             const campaignRef = doc(db, 'organizations', currentOrgId, 'campaigns', campaign.id);
             await updateDoc(campaignRef, {
                 selectedUsers: updatedSelectedUsers
@@ -194,18 +214,13 @@ const CampaignDashboard = () => {
         }
     };
 
-
     const handleAddParticipant = async (user) => {
         try {
-            const liveUser = usersMap[user.id];
             const newParticipant = {
                 id: user.id,
                 name: user.name,
                 email: user.email,
                 jobTitle: user.jobTitle,
-                peersCount: 0,
-                dependentsCount: 0,
-                superiorsCount: liveUser?.managerIds?.length || 0,
             };
 
             const updatedSelectedUsers = [...campaign.selectedUsers, newParticipant];
@@ -250,7 +265,6 @@ const CampaignDashboard = () => {
         const effectiveManagers = getEffectiveEvaluators(user, 'manager');
         let error = null;
 
-        // Rule: If Manager evaluation is required AND user is not exempt, must have at least 1 manager
         if (campaign.evaluatorRules?.manager && !user.skipManagerEvaluation && effectiveManagers.length === 0) {
             error = 'Falta Superior';
         }
@@ -263,28 +277,46 @@ const CampaignDashboard = () => {
         return new Date(dateString).toLocaleDateString();
     };
 
-    if (loading) return <div className="dashboard-container"><div className="text-center p-5">Cargando campaña...</div></div>;
-    if (error) return <div className="dashboard-container"><div className="alert alert-error">Error: {error}</div></div>;
-    if (!campaign) return <div className="dashboard-container"><div className="text-center p-5">No se encontró la campaña</div></div>;
+    const calculateWorkLoad = (user) => {
+        const autoEval = campaign.evaluatorRules?.self ? 1 : 0;
+        const managers = getEffectiveEvaluators(user, 'manager');
+        const peers = getEffectiveEvaluators(user, 'peer');
+        const subordinates = getEffectiveEvaluators(user, 'subordinate');
+        return autoEval + managers.length + peers.length + subordinates.length;
+    };
+
+    const getWorkloadTooltip = (user) => {
+        const autoEval = campaign.evaluatorRules?.self ? 1 : 0;
+        const managers = getEffectiveEvaluators(user, 'manager').length;
+        const peers = getEffectiveEvaluators(user, 'peer').length;
+        const subordinates = getEffectiveEvaluators(user, 'subordinate').length;
+
+        const parts = [];
+        if (autoEval) parts.push(`${autoEval} Auto`);
+        if (managers) parts.push(`${managers} Jefe${managers > 1 ? 's' : ''}`);
+        if (peers) parts.push(`${peers} Par${peers > 1 ? 'es' : ''}`);
+        if (subordinates) parts.push(`${subordinates} Equipo`);
+
+        return parts.join(' + ');
+    };
+
+    const getNamesForTooltip = (userIds) => {
+        return userIds.map(id => getUserName(id)).join(', ') || 'Ninguno';
+    };
+
+    if (loading) return <div className="dashboard-compact"><div className="loading-state">Cargando campaña...</div></div>;
+    if (error) return <div className="dashboard-compact"><div className="error-state">Error: {error}</div></div>;
+    if (!campaign) return <div className="dashboard-compact"><div className="empty-state">No se encontró la campaña</div></div>;
 
     return (
-        <div className="dashboard-container">
-            {/* Alert Banner */}
-            <div className="dashboard-alert">
-                <span className="dashboard-alert-icon">ℹ️</span>
-                <div>
-                    <strong>Calibración de Evaluadores:</strong> Los cambios que realices en esta tabla (asignar jefes o pares)
-                    solo aplicarán para esta campaña vigente. <strong>No afectarán el organigrama oficial de la empresa.</strong>
-                </div>
-            </div>
-
+        <div className="dashboard-compact">
             {/* Header */}
-            <div className="dashboard-header">
-                <div style={{ flex: 1 }}>
+            <div className="dashboard-header-compact">
+                <div className="header-left">
                     {isEditingTitle ? (
                         <input
                             type="text"
-                            className="title-edit-input"
+                            className="title-input-compact"
                             value={editedTitle}
                             onChange={(e) => setEditedTitle(e.target.value)}
                             onBlur={handleTitleSave}
@@ -292,192 +324,198 @@ const CampaignDashboard = () => {
                             autoFocus
                         />
                     ) : (
-                        <h1 onClick={() => setIsEditingTitle(true)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            {campaign.title} <span style={{ fontSize: '14px', color: '#adb5bd' }}>✏️</span>
+                        <h1 onClick={() => setIsEditingTitle(true)} className="title-compact">
+                            {campaign.title} <span className="edit-pencil">✏️</span>
                         </h1>
                     )}
-
-                    <div className="flex items-center gap-2 mt-2">
-                        <span className={`status-badge ${campaign.status === CAMPAIGN_STATUS.ACTIVE ? 'active' : 'draft'}`}>
+                    <div className="meta-row">
+                        <span className={`badge-status ${campaign.status === CAMPAIGN_STATUS.ACTIVE ? 'active' : 'draft'}`}>
                             {campaign.status === CAMPAIGN_STATUS.ACTIVE ? 'Activa' : 'Borrador'}
                         </span>
-                        <span className="description" style={{ marginLeft: '8px' }}>
-                            {campaign.selectedUsers?.length || 0} Evaluados
-                        </span>
+                        <span className="meta-item">{campaign.selectedUsers?.length || 0} Evaluados</span>
                         {campaign.config?.startDate && (
-                            <span className="description" style={{ marginLeft: '8px', borderLeft: '1px solid #ccc', paddingLeft: '8px' }}>
+                            <span className="meta-item">
                                 {formatDate(campaign.config.startDate)} - {formatDate(campaign.config.endDate)}
                             </span>
                         )}
                     </div>
                 </div>
 
-                <div className="header-actions">
-                    <button
-                        className="btn btn-outline"
-                        onClick={() => navigate('/gestion/campanas')}
-                    >
+                <div className="header-actions-compact">
+                    <button className="btn-secondary-compact" onClick={() => navigate('/gestion/campanas')}>
                         Volver
+                    </button>
+                    <button
+                        className="btn-export-compact"
+                        onClick={handleExportExcel}
+                        disabled={!campaign.selectedUsers || campaign.selectedUsers.length === 0}
+                    >
+                        📊 Exportar Excel
                     </button>
                     {campaign.status === CAMPAIGN_STATUS.DRAFT && (
                         <>
                             <button
                                 onClick={handleDeleteCampaign}
                                 disabled={processing}
-                                className="btn btn-danger"
+                                className="btn-danger-compact"
                             >
-                                Eliminar Borrador
+                                Eliminar
                             </button>
                             <button
                                 onClick={handleLaunchCampaign}
                                 disabled={processing}
-                                className="btn btn-primary"
+                                className="btn-primary-compact"
                             >
-                                {processing ? 'Lanzando...' : 'Lanzar Campaña'}
+                                {processing ? 'Lanzando...' : '🚀 Lanzar Campaña'}
                             </button>
                         </>
                     )}
                 </div>
             </div>
 
-            {/* Matrix Table */}
-            <div className="table-container">
-                <div className="table-header">
+            {/* Compact Table */}
+            <div className="table-wrapper-compact">
+                <div className="table-actions-bar">
                     <div>
-                        <h3 className="table-title">Matriz de Evaluación</h3>
-                        <p className="table-subtitle">Revisa y calibra los evaluadores para cada participante.</p>
+                        <h2 className="table-title-compact">Matriz de Evaluación</h2>
+                        <p className="table-subtitle-compact">Vista compacta - Badges numéricos</p>
                     </div>
                     <button
                         onClick={() => setIsAddParticipantModalOpen(true)}
-                        className="btn btn-outline"
+                        className="btn-add-compact"
                         disabled={campaign.status !== CAMPAIGN_STATUS.DRAFT}
-                        title={campaign.status !== CAMPAIGN_STATUS.DRAFT ? 'Solo se pueden agregar participantes a borradores' : 'Agregar un nuevo participante a esta campaña'}
                     >
-                        + Agregar Participante
+                        + Agregar
                     </button>
                 </div>
 
-                <div className="overflow-x-auto">
-                    <table className="data-table">
-                        <thead>
-                            <tr>
-                                <th scope="col">Evaluado</th>
-                                <th scope="col" className="text-center">Autoevaluación</th>
-                                <th scope="col">Superior</th>
-                                <th scope="col">Pares</th>
-                                <th scope="col">Equipo</th>
-                                <th const="col" className="text-right">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {campaign.selectedUsers?.map((user) => {
-                                const effectiveManagers = getEffectiveEvaluators(user, 'manager');
-                                const effectivePeers = getEffectiveEvaluators(user, 'peer');
-                                const effectiveSubordinates = getEffectiveEvaluators(user, 'subordinate');
-                                const validation = checkMissingEvaluators(user);
+                <table className="table-compact">
+                    <thead>
+                        <tr>
+                            <th className="col-identity-compact">Evaluado</th>
+                            <th className="col-numeric">Auto</th>
+                            <th className="col-numeric">Superior</th>
+                            <th className="col-numeric">Pares</th>
+                            <th className="col-numeric">Equipo</th>
+                            <th className="col-numeric">Carga Total</th>
+                            <th className="col-actions-compact">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {campaign.selectedUsers?.map((user) => {
+                            const effectiveManagers = getEffectiveEvaluators(user, 'manager');
+                            const effectivePeers = getEffectiveEvaluators(user, 'peer');
+                            const effectiveSubordinates = getEffectiveEvaluators(user, 'subordinate');
+                            const validation = checkMissingEvaluators(user);
+                            const workLoad = calculateWorkLoad(user);
+                            const isArchived = usersMap[user.id]?.status === 'archived';
 
-                                return (
-                                    <tr key={user.id} className={validation.hasError ? 'row-error' : ''}>
-                                        <td>
-                                            <div className="user-cell">
-                                                <div className="user-avatar">
-                                                    {user.name?.charAt(0) || '?'}
-                                                </div>
-                                                <div className="user-info">
-                                                    <div className="user-name">{user.name}</div>
-                                                    <div className="user-role">{user.jobTitle || usersMap[user.id]?.jobTitle || 'Sin cargo'}</div>
-                                                </div>
+                            return (
+                                <tr key={user.id} className={validation.hasError ? 'row-error-compact' : ''}>
+                                    {/* Identity */}
+                                    <td className="cell-identity-compact">
+                                        <div className={`identity-compact ${isArchived ? 'archived' : ''}`}>
+                                            <div className="avatar-compact">
+                                                {user.name?.charAt(0) || '?'}
                                             </div>
-                                        </td>
-
-                                        <td className="text-center">
-                                            {campaign.evaluatorRules?.self ? (
-                                                <span className="badge-required">Requerido</span>
-                                            ) : (
-                                                <span className="dash-icon">-</span>
-                                            )}
-                                        </td>
-
-                                        <td>
-                                            <div className="manager-list">
-                                                {campaign.evaluatorRules?.manager ? (
-                                                    user.skipManagerEvaluation ? (
-                                                        <span className="badge-exempt">Exento (CEO/Dueño)</span>
-                                                    ) : effectiveManagers.length > 0 ? (
-                                                        effectiveManagers.map(mgrId => (
-                                                            <div key={mgrId} className="manager-item">
-                                                                {getUserName(mgrId)}
-                                                            </div>
-                                                        ))
-                                                    ) : (
-                                                        <span className="error-text">⚠️ Falta Superior</span>
-                                                    )
-                                                ) : (
-                                                    <span className="dash-icon">-</span>
-                                                )}
+                                            <div className="identity-text">
+                                                <div className="name-compact">{user.name}</div>
+                                                <div className="email-compact">{user.email}</div>
                                             </div>
-                                        </td>
+                                        </div>
+                                    </td>
 
-                                        <td>
-                                            {campaign.evaluatorRules?.peers ? (
-                                                effectivePeers.length > 0 ? (
-                                                    <div className="manager-list">
-                                                        {effectivePeers.map(peerId => (
-                                                            <div key={peerId} className="manager-item">
-                                                                {getUserName(peerId)}
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    <span title="Los pares se asignarán automáticamente basados en la Familia de Puesto">
-                                                        {user.peersCount || 0} Pares potenciales
-                                                    </span>
-                                                )
-                                            ) : (
-                                                <span className="dash-icon">-</span>
-                                            )}
-                                        </td>
+                                    {/* Auto */}
+                                    <td className="cell-numeric">
+                                        {campaign.evaluatorRules?.self ? (
+                                            <span className="badge-numeric badge-auto">1</span>
+                                        ) : (
+                                            <span className="badge-none">-</span>
+                                        )}
+                                    </td>
 
-                                        <td>
-                                            {campaign.evaluatorRules?.subordinates ? (
-                                                effectiveSubordinates.length > 0 ? (
-                                                    <div className="manager-list">
-                                                        {effectiveSubordinates.length} Reportes
-                                                    </div>
-                                                ) : (
-                                                    <span className="empty-text">0 Reportes</span>
-                                                )
-                                            ) : (
-                                                <span className="dash-icon">-</span>
-                                            )}
-                                        </td>
-
-                                        <td className="text-right">
-                                            <button
-                                                className="btn-action"
-                                                onClick={() => handleOpenModal(user)}
-                                                title="Editar evaluadores"
+                                    {/* Superior */}
+                                    <td className="cell-numeric">
+                                        {user.skipManagerEvaluation ? (
+                                            <span className="badge-exempt-compact">Exento</span>
+                                        ) : effectiveManagers.length > 0 ? (
+                                            <span
+                                                className="badge-numeric badge-manager"
+                                                title={getNamesForTooltip(effectiveManagers)}
                                             >
-                                                ✏️ Editar
-                                            </button>
-                                        </td>
-                                    </tr>
-                                )
-                            })}
-                            {(!campaign.selectedUsers || campaign.selectedUsers.length === 0) && (
-                                <tr>
-                                    <td colSpan="6" className="text-center py-5 text-gray-500">
-                                        No hay usuarios seleccionados en esta campaña.
+                                                {effectiveManagers.length}
+                                            </span>
+                                        ) : campaign.evaluatorRules?.manager ? (
+                                            <span className="badge-error">⚠️</span>
+                                        ) : (
+                                            <span className="badge-zero">0</span>
+                                        )}
+                                    </td>
+
+                                    {/* Pares */}
+                                    <td className="cell-numeric">
+                                        {effectivePeers.length > 0 ? (
+                                            <span
+                                                className="badge-numeric badge-peer"
+                                                title={getNamesForTooltip(effectivePeers)}
+                                            >
+                                                {effectivePeers.length}
+                                            </span>
+                                        ) : (
+                                            <span className="badge-zero">0</span>
+                                        )}
+                                    </td>
+
+                                    {/* Equipo */}
+                                    <td className="cell-numeric">
+                                        {effectiveSubordinates.length > 0 ? (
+                                            <span
+                                                className="badge-numeric badge-team"
+                                                title={getNamesForTooltip(effectiveSubordinates)}
+                                            >
+                                                {effectiveSubordinates.length}
+                                            </span>
+                                        ) : (
+                                            <span className="badge-zero">0</span>
+                                        )}
+                                    </td>
+
+                                    {/* Carga Total */}
+                                    <td className="cell-numeric">
+                                        <span
+                                            className="badge-numeric badge-workload"
+                                            title={getWorkloadTooltip(user)}
+                                        >
+                                            {workLoad}
+                                        </span>
+                                    </td>
+
+                                    {/* Actions */}
+                                    <td className="cell-actions-compact">
+                                        <button
+                                            className="btn-edit-compact"
+                                            onClick={() => handleOpenModal(user)}
+                                            title="Editar evaluadores"
+                                        >
+                                            ✏️
+                                        </button>
                                     </td>
                                 </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                            );
+                        })}
+                        {(!campaign.selectedUsers || campaign.selectedUsers.length === 0) && (
+                            <tr>
+                                <td colSpan="7" className="empty-row">
+                                    No hay usuarios seleccionados en esta campaña.
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
             </div>
 
-            {/* Edit Modal */}
-            <EvaluatorAssignmentModal
+            {/* Modals */}
+            <EvaluatorManagementModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 evaluatee={selectedEvaluatee}
@@ -485,7 +523,6 @@ const CampaignDashboard = () => {
                 onSave={handleSaveEvaluators}
             />
 
-            {/* Add Participant Modal */}
             <AddParticipantModal
                 isOpen={isAddParticipantModalOpen}
                 onClose={() => setIsAddParticipantModalOpen(false)}
