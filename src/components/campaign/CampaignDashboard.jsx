@@ -304,6 +304,43 @@ const CampaignDashboard = () => {
         return userIds.map(id => getUserName(id)).join(', ') || 'Ninguno';
     };
 
+    // Reverse calculation: How many people of each type THIS user must evaluate
+    const calculateOutgoingEvaluations = (userId) => {
+        const toManagers = [];
+        const toPeers = [];
+        const toSubordinates = [];
+
+        // Count how many times this user appears in others' evaluator lists
+        campaign.selectedUsers?.forEach(otherUser => {
+            if (otherUser.id === userId) return; // Skip self
+
+            const otherManagers = getEffectiveEvaluators(otherUser, 'manager');
+            const otherPeers = getEffectiveEvaluators(otherUser, 'peer');
+            const otherSubordinates = getEffectiveEvaluators(otherUser, 'subordinate');
+
+            // If current user is in this person's manager list, they must evaluate their manager
+            if (otherManagers.includes(userId)) {
+                toManagers.push(otherUser.id);
+            }
+
+            // If current user is in this person's peer list, they must evaluate a peer
+            if (otherPeers.includes(userId)) {
+                toPeers.push(otherUser.id);
+            }
+
+            // If current user is in this person's subordinate list, they must evaluate a subordinate
+            if (otherSubordinates.includes(userId)) {
+                toSubordinates.push(otherUser.id);
+            }
+        });
+
+        return {
+            toManagers,
+            toPeers,
+            toSubordinates
+        };
+    };
+
     if (loading) return <div className="dashboard-compact"><div className="loading-state">Cargando campaña...</div></div>;
     if (error) return <div className="dashboard-compact"><div className="error-state">Error: {error}</div></div>;
     if (!campaign) return <div className="dashboard-compact"><div className="empty-state">No se encontró la campaña</div></div>;
@@ -390,15 +427,36 @@ const CampaignDashboard = () => {
                 </div>
 
                 <table className="table-compact">
+                    {/* Column width definitions */}
+                    <colgroup>
+                        <col style={{ width: "30%" }} /> {/* Colaborador */}
+                        <col style={{ width: "8%" }} />  {/* Auto */}
+                        <col style={{ width: "8%" }} />  {/* Jefes */}
+                        <col style={{ width: "8%" }} />  {/* Pares */}
+                        <col style={{ width: "8%" }} />  {/* Equipo */}
+                        <col style={{ width: "9%" }} />  {/* A Jefes */}
+                        <col style={{ width: "9%" }} />  {/* A Pares */}
+                        <col style={{ width: "9%" }} />  {/* A Equipo */}
+                        <col style={{ width: "11%" }} /> {/* Acciones */}
+                    </colgroup>
+
                     <thead>
+                        {/* Fila 1: Super-Headers con color */}
+                        <tr className="grouped-headers">
+                            <th rowSpan="2" className="col-identity-compact group-header">Colaborador</th>
+                            <th colSpan="4" className="header-incoming">📥 RECIBE FEEDBACK DE</th>
+                            <th colSpan="3" className="header-outgoing">📤 DEBE EVALUAR A</th>
+                            <th rowSpan="2" className="col-actions-compact group-header">Acciones</th>
+                        </tr>
+                        {/* Individual Column Headers Row */}
                         <tr>
-                            <th className="col-identity-compact">Evaluado</th>
-                            <th className="col-numeric">Auto</th>
-                            <th className="col-numeric">Superior</th>
+                            <th className="col-numeric border-left-separator">Auto</th>
+                            <th className="col-numeric">Jefes</th>
                             <th className="col-numeric">Pares</th>
                             <th className="col-numeric">Equipo</th>
-                            <th className="col-numeric">Carga Total</th>
-                            <th className="col-actions-compact">Acción</th>
+                            <th className="col-numeric border-left-separator">A Jefes</th>
+                            <th className="col-numeric">A Pares</th>
+                            <th className="col-numeric">A Equipo</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -426,7 +484,7 @@ const CampaignDashboard = () => {
                                     </td>
 
                                     {/* Auto */}
-                                    <td className="cell-numeric">
+                                    <td className="cell-numeric border-left-separator cell-incoming" style={{ backgroundColor: '#f0f9ff' }}>
                                         {campaign.evaluatorRules?.self ? (
                                             <span className="badge-numeric badge-auto">1</span>
                                         ) : (
@@ -435,7 +493,7 @@ const CampaignDashboard = () => {
                                     </td>
 
                                     {/* Superior */}
-                                    <td className="cell-numeric">
+                                    <td className="cell-numeric cell-incoming" style={{ backgroundColor: '#f0f9ff' }}>
                                         {user.skipManagerEvaluation ? (
                                             <span className="badge-exempt-compact">Exento</span>
                                         ) : effectiveManagers.length > 0 ? (
@@ -453,7 +511,7 @@ const CampaignDashboard = () => {
                                     </td>
 
                                     {/* Pares */}
-                                    <td className="cell-numeric">
+                                    <td className="cell-numeric cell-incoming" style={{ backgroundColor: '#f0f9ff' }}>
                                         {effectivePeers.length > 0 ? (
                                             <span
                                                 className="badge-numeric badge-peer"
@@ -467,7 +525,7 @@ const CampaignDashboard = () => {
                                     </td>
 
                                     {/* Equipo */}
-                                    <td className="cell-numeric">
+                                    <td className="cell-numeric cell-incoming" style={{ backgroundColor: '#f0f9ff' }}>
                                         {effectiveSubordinates.length > 0 ? (
                                             <span
                                                 className="badge-numeric badge-team"
@@ -480,15 +538,55 @@ const CampaignDashboard = () => {
                                         )}
                                     </td>
 
-                                    {/* Carga Total */}
-                                    <td className="cell-numeric">
-                                        <span
-                                            className="badge-numeric badge-workload"
-                                            title={getWorkloadTooltip(user)}
-                                        >
-                                            {workLoad}
-                                        </span>
-                                    </td>
+                                    {/* OUTGOING SECTION - Who they must evaluate */}
+                                    {(() => {
+                                        const outgoing = calculateOutgoingEvaluations(user.id);
+                                        return (
+                                            <>
+                                                {/* A Jefes */}
+                                                <td className="cell-numeric border-left-separator cell-outgoing" style={{ backgroundColor: '#fffbeb' }}>
+                                                    {outgoing.toManagers.length > 0 ? (
+                                                        <span
+                                                            className="badge-numeric badge-outgoing-manager"
+                                                            title={getNamesForTooltip(outgoing.toManagers)}
+                                                        >
+                                                            {outgoing.toManagers.length}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="badge-zero">0</span>
+                                                    )}
+                                                </td>
+
+                                                {/* A Pares */}
+                                                <td className="cell-numeric cell-outgoing" style={{ backgroundColor: '#fffbeb' }}>
+                                                    {outgoing.toPeers.length > 0 ? (
+                                                        <span
+                                                            className="badge-numeric badge-outgoing-peer"
+                                                            title={getNamesForTooltip(outgoing.toPeers)}
+                                                        >
+                                                            {outgoing.toPeers.length}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="badge-zero">0</span>
+                                                    )}
+                                                </td>
+
+                                                {/* A Equipo */}
+                                                <td className="cell-numeric cell-outgoing" style={{ backgroundColor: '#fffbeb' }}>
+                                                    {outgoing.toSubordinates.length > 0 ? (
+                                                        <span
+                                                            className="badge-numeric badge-outgoing-team"
+                                                            title={getNamesForTooltip(outgoing.toSubordinates)}
+                                                        >
+                                                            {outgoing.toSubordinates.length}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="badge-zero">0</span>
+                                                    )}
+                                                </td>
+                                            </>
+                                        );
+                                    })()}
 
                                     {/* Actions */}
                                     <td className="cell-actions-compact">
@@ -505,7 +603,7 @@ const CampaignDashboard = () => {
                         })}
                         {(!campaign.selectedUsers || campaign.selectedUsers.length === 0) && (
                             <tr>
-                                <td colSpan="7" className="empty-row">
+                                <td colSpan="9" className="empty-row">
                                     No hay usuarios seleccionados en esta campaña.
                                 </td>
                             </tr>
@@ -530,7 +628,7 @@ const CampaignDashboard = () => {
                 existingParticipantIds={campaign.selectedUsers?.map(u => u.id) || []}
                 onAdd={handleAddParticipant}
             />
-        </div>
+        </div >
     );
 };
 
