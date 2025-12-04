@@ -31,7 +31,6 @@ const CampaignDashboard = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedEvaluatee, setSelectedEvaluatee] = useState(null);
     const [isAddParticipantModalOpen, setIsAddParticipantModalOpen] = useState(false);
-    const [userEvaluationTypes, setUserEvaluationTypes] = useState({});
 
     useEffect(() => {
         if (!currentOrgId || !campaignId) return;
@@ -64,17 +63,6 @@ const CampaignDashboard = () => {
 
         loadData();
     }, [currentOrgId, campaignId]);
-
-    // Initialize user evaluation types from campaign data
-    useEffect(() => {
-        if (campaign?.selectedUsers) {
-            const types = {};
-            campaign.selectedUsers.forEach(user => {
-                types[user.id] = user.evaluationType || campaign.selectedStrategy || 'SELF_ONLY';
-            });
-            setUserEvaluationTypes(types);
-        }
-    }, [campaign]);
 
     const handleExportExcel = () => {
         if (!campaign?.selectedUsers) return;
@@ -265,42 +253,6 @@ const CampaignDashboard = () => {
         } catch (err) {
             console.error('Error adding participant:', err);
             alert('Error al agregar participante: ' + err.message);
-        }
-    };
-
-    const handleEvaluationTypeChange = async (userId, newType) => {
-        try {
-            // Update local state immediately for responsive UI
-            setUserEvaluationTypes(prev => ({
-                ...prev,
-                [userId]: newType
-            }));
-
-            // Update campaign data with new evaluation type
-            const updatedSelectedUsers = campaign.selectedUsers.map(u => {
-                if (u.id === userId) {
-                    return { ...u, evaluationType: newType };
-                }
-                return u;
-            });
-
-            setCampaign(prev => ({
-                ...prev,
-                selectedUsers: updatedSelectedUsers
-            }));
-
-            // Persist to Firestore
-            await updateCampaign(currentOrgId, campaign.id, {
-                selectedUsers: updatedSelectedUsers
-            });
-        } catch (err) {
-            console.error('Error updating evaluation type:', err);
-            alert('Error al cambiar tipo de evaluación: ' + err.message);
-            // Revert local state on error
-            setUserEvaluationTypes(prev => ({
-                ...prev,
-                [userId]: campaign.selectedUsers.find(u => u.id === userId)?.evaluationType || campaign.selectedStrategy
-            }));
         }
     };
 
@@ -560,23 +512,21 @@ const CampaignDashboard = () => {
                 <table className="table-compact">
                     {/* Column width definitions */}
                     <colgroup>
-                        <col style={{ width: "25%" }} /> {/* Colaborador */}
-                        <col style={{ width: "10%" }} /> {/* Tipo */}
-                        <col style={{ width: "7%" }} />  {/* Auto */}
-                        <col style={{ width: "7%" }} />  {/* Jefes */}
-                        <col style={{ width: "7%" }} />  {/* Pares */}
-                        <col style={{ width: "7%" }} />  {/* Equipo */}
-                        <col style={{ width: "8%" }} />  {/* A Jefes */}
-                        <col style={{ width: "8%" }} />  {/* A Pares */}
-                        <col style={{ width: "8%" }} />  {/* A Equipo */}
-                        <col style={{ width: "13%" }} /> {/* Acciones */}
+                        <col style={{ width: "30%" }} /> {/* Colaborador */}
+                        <col style={{ width: "8%" }} />  {/* Auto */}
+                        <col style={{ width: "8%" }} />  {/* Jefes */}
+                        <col style={{ width: "8%" }} />  {/* Pares */}
+                        <col style={{ width: "8%" }} />  {/* Equipo */}
+                        <col style={{ width: "9%" }} />  {/* A Jefes */}
+                        <col style={{ width: "9%" }} />  {/* A Pares */}
+                        <col style={{ width: "9%" }} />  {/* A Equipo */}
+                        <col style={{ width: "11%" }} /> {/* Acciones */}
                     </colgroup>
 
                     <thead>
                         {/* Fila 1: Super-Headers con color */}
                         <tr className="grouped-headers">
                             <th rowSpan="2" className="col-identity-compact group-header">Colaborador</th>
-                            <th rowSpan="2" className="col-eval-type group-header">Tipo</th>
                             <th colSpan="4" className="header-incoming">📥 RECIBE FEEDBACK DE</th>
                             <th colSpan="3" className="header-outgoing">📤 DEBE EVALUAR A</th>
                             <th rowSpan="2" className="col-actions-compact group-header">Acciones</th>
@@ -594,8 +544,8 @@ const CampaignDashboard = () => {
                     </thead>
                     <tbody>
                         {campaign.selectedUsers?.map((user) => {
-                            // Get selected evaluation type for this user
-                            const evalType = userEvaluationTypes[user.id] || campaign.selectedStrategy || 'SELF_ONLY';
+                            // Get campaign-level evaluation type (global for all users)
+                            const evalType = campaign.selectedStrategy || 'SELF_ONLY';
 
                             // Calculate theoretical counts based on eval type
                             const counts = calculateTheoreticalCounts(user, evalType);
@@ -621,21 +571,6 @@ const CampaignDashboard = () => {
                                                 <div className="email-compact">{user.email}</div>
                                             </div>
                                         </div>
-                                    </td>
-
-                                    {/* Evaluation Type Dropdown */}
-                                    <td className="cell-eval-type">
-                                        <select
-                                            value={userEvaluationTypes[user.id] || 'SELF_ONLY'}
-                                            onChange={(e) => handleEvaluationTypeChange(user.id, e.target.value)}
-                                            className="eval-type-select"
-                                        >
-                                            <option value="SELF_ONLY">Auto</option>
-                                            <option value="TOP_DOWN">Top-Down</option>
-                                            <option value="PEER_TO_PEER">Peer</option>
-                                            <option value="LEADERSHIP_180">180º</option>
-                                            <option value="FULL_360">360º</option>
-                                        </select>
                                     </td>
 
                                     {/* Auto */}
