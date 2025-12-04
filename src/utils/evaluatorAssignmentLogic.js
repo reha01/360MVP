@@ -161,14 +161,34 @@ export const getOutgoingEvaluations = (user, campaignType, allUsers) => {
             break;
 
         case EVALUATION_TYPES.LEADERSHIP_180:
-            // Outgoing: SOLO Self (el líder NO evalúa a su equipo)
+            // Outgoing: SOLO Sub-Líderes (subordinados que también son managers) + Self
+            // REGLA DE NEGOCIO CRÍTICA: El líder evalúa solo a su "Equipo Gerencial"
+            // Filtra subordinados que tienen gente a cargo
+            const subLeaders = team.filter(member => {
+                // Verifica si este subordinado tiene gente a su cargo
+                const hasTeam = allUsers.some(u => u.managerId === member.id);
+                return hasTeam;
+            });
+
+            subLeaders.forEach(leader => {
+                outgoing.push({ id: leader.id, relation: RELATION_TYPES.SUBORDINATE });
+            });
             break;
 
         case EVALUATION_TYPES.FULL_360:
-            // Outgoing: Team + Peers + Self (+ Manager si se requiere evaluar hacia arriba)
+            // Outgoing: Manager (NUEVO - Upward Feedback) + Team + Peers + Self
+            // CLAVE: Evalúa a su jefe (feedback ascendente)
+            const manager360 = getManager(user, allUsers);
+            if (manager360) {
+                outgoing.push({ id: manager360.id, relation: RELATION_TYPES.MANAGER });
+            }
+
+            // Evalúa a su equipo
             team.forEach(member => {
                 outgoing.push({ id: member.id, relation: RELATION_TYPES.SUBORDINATE });
             });
+
+            // Evalúa a sus pares
             peers.forEach(peer => {
                 outgoing.push({ id: peer.id, relation: RELATION_TYPES.PEER });
             });

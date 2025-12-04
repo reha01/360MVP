@@ -1165,3 +1165,49 @@
 .cell-outgoing {
     background-color: #fffbeb !important;
 }
+
+/* ===== EVALUATION TYPE DROPDOWN ===== */
+.col-eval-type {
+    text-align: center;
+    padding: 8px;
+    font-weight: 600;
+}
+
+.cell-eval-type {
+    padding: 8px;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.eval-type-select {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 500;
+}
+
+.eval-type-select:hover {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.eval-type-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+/* Warning badge enhancement */
+.badge-error {
+    color: #f59e0b;
+    font-size: 16px;
+    cursor: help;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}

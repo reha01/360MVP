@@ -11,6 +11,7 @@ import * as XLSX from 'xlsx';
 import './CampaignDashboard.css';
 import EvaluatorManagementModal from './EvaluatorManagementModal';
 import AddParticipantModal from './AddParticipantModal';
+import { EVALUATION_TYPES } from '../../utils/evaluatorAssignmentLogic';
 
 const CampaignDashboard = () => {
     const { campaignId } = useParams();
@@ -30,6 +31,7 @@ const CampaignDashboard = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedEvaluatee, setSelectedEvaluatee] = useState(null);
     const [isAddParticipantModalOpen, setIsAddParticipantModalOpen] = useState(false);
+    const [userEvaluationTypes, setUserEvaluationTypes] = useState({});
 
     useEffect(() => {
         if (!currentOrgId || !campaignId) return;
@@ -62,6 +64,17 @@ const CampaignDashboard = () => {
 
         loadData();
     }, [currentOrgId, campaignId]);
+
+    // Initialize user evaluation types from campaign data
+    useEffect(() => {
+        if (campaign?.selectedUsers) {
+            const types = {};
+            campaign.selectedUsers.forEach(user => {
+                types[user.id] = user.evaluationType || campaign.selectedStrategy || 'SELF_ONLY';
+            });
+            setUserEvaluationTypes(types);
+        }
+    }, [campaign]);
 
     const handleExportExcel = () => {
         if (!campaign?.selectedUsers) return;
@@ -255,8 +268,112 @@ const CampaignDashboard = () => {
         }
     };
 
+    const handleEvaluationTypeChange = async (userId, newType) => {
+        try {
+            // Update local state immediately for responsive UI
+            setUserEvaluationTypes(prev => ({
+                ...prev,
+                [userId]: newType
+            }));
+
+            // Update campaign data with new evaluation type
+            const updatedSelectedUsers = campaign.selectedUsers.map(u => {
+                if (u.id === userId) {
+                    return { ...u, evaluationType: newType };
+                }
+                return u;
+            });
+
+            setCampaign(prev => ({
+                ...prev,
+                selectedUsers: updatedSelectedUsers
+            }));
+
+            // Persist to Firestore
+            await updateCampaign(currentOrgId, campaign.id, {
+                selectedUsers: updatedSelectedUsers
+            });
+        } catch (err) {
+            console.error('Error updating evaluation type:', err);
+            alert('Error al cambiar tipo de evaluación: ' + err.message);
+            // Revert local state on error
+            setUserEvaluationTypes(prev => ({
+                ...prev,
+                [userId]: campaign.selectedUsers.find(u => u.id === userId)?.evaluationType || campaign.selectedStrategy
+            }));
+        }
+    };
+
     const getUserName = (userId) => {
         return usersMap[userId]?.name || 'Usuario desconocido';
+    };
+
+    /**
+     * Calcula los conteos teóricos de evaluadores incoming/outgoing
+     * basado en el tipo de evaluación y las relaciones del usuario.
+     * Refleja la misma lógica que evaluatorAssignmentLogic.js
+     */
+    const calculateTheoreticalCounts = (user, evaluationType) => {
+        const liveUser = usersMap[user.id];
+        if (!liveUser) return {
+            incoming: { auto: 0, managers: 0, peers: 0, team: 0 },
+            outgoing: { auto: 0, managers: 0, peers: 0, team: 0 }
+        };
+
+        // Helpers
+        const manager = allUsers.find(u => u.id === liveUser.managerId);
+        const team = allUsers.filter(u => u.managerId === user.id);
+        const peers = allUsers.filter(u => u.managerId === liveUser.managerId && u.id !== user.id);
+
+        const incoming = { auto: 1, managers: 0, peers: 0, team: 0 };
+        const outgoing = { auto: 1, managers: 0, peers: 0, team: 0 };
+
+        switch (evaluationType) {
+            case EVALUATION_TYPES.SELF_ONLY:
+                // Solo auto (ya inicializado)
+                break;
+
+            case EVALUATION_TYPES.TOP_DOWN:
+                // Incoming: Manager
+                if (manager) incoming.managers = 1;
+                // Outgoing: Team
+                outgoing.team = team.length;
+                break;
+
+            case EVALUATION_TYPES.PEER_TO_PEER:
+                // Incoming: Peers
+                incoming.peers = peers.length;
+                // Outgoing: Peers
+                outgoing.peers = peers.length;
+                break;
+
+            case EVALUATION_TYPES.LEADERSHIP_180:
+                // Incoming: Manager + Team
+                if (manager) incoming.managers = 1;
+                incoming.team = team.length;
+                // Outgoing: Sub-Leaders only (subordinados que son managers)
+                const subLeaders = team.filter(member =>
+                    allUsers.some(u => u.managerId === member.id)
+                );
+                outgoing.team = subLeaders.length;
+                break;
+
+            case EVALUATION_TYPES.FULL_360:
+                // Incoming: Manager + Team + Peers
+                if (manager) incoming.managers = 1;
+                incoming.team = team.length;
+                incoming.peers = peers.length;
+                // Outgoing: Manager + Team + Peers (Upward feedback)
+                if (manager) outgoing.managers = 1;
+                outgoing.team = team.length;
+                outgoing.peers = peers.length;
+                break;
+
+            default:
+                console.warn('Unknown evaluation type:', evaluationType);
+        }
+
+        return { incoming, outgoing };
     };
 
     const getEffectiveEvaluators = (user, type) => {
@@ -443,21 +560,23 @@ const CampaignDashboard = () => {
                 <table className="table-compact">
                     {/* Column width definitions */}
                     <colgroup>
-                        <col style={{ width: "30%" }} /> {/* Colaborador */}
-                        <col style={{ width: "8%" }} />  {/* Auto */}
-                        <col style={{ width: "8%" }} />  {/* Jefes */}
-                        <col style={{ width: "8%" }} />  {/* Pares */}
-                        <col style={{ width: "8%" }} />  {/* Equipo */}
-                        <col style={{ width: "9%" }} />  {/* A Jefes */}
-                        <col style={{ width: "9%" }} />  {/* A Pares */}
-                        <col style={{ width: "9%" }} />  {/* A Equipo */}
-                        <col style={{ width: "11%" }} /> {/* Acciones */}
+                        <col style={{ width: "25%" }} /> {/* Colaborador */}
+                        <col style={{ width: "10%" }} /> {/* Tipo */}
+                        <col style={{ width: "7%" }} />  {/* Auto */}
+                        <col style={{ width: "7%" }} />  {/* Jefes */}
+                        <col style={{ width: "7%" }} />  {/* Pares */}
+                        <col style={{ width: "7%" }} />  {/* Equipo */}
+                        <col style={{ width: "8%" }} />  {/* A Jefes */}
+                        <col style={{ width: "8%" }} />  {/* A Pares */}
+                        <col style={{ width: "8%" }} />  {/* A Equipo */}
+                        <col style={{ width: "13%" }} /> {/* Acciones */}
                     </colgroup>
 
                     <thead>
                         {/* Fila 1: Super-Headers con color */}
                         <tr className="grouped-headers">
                             <th rowSpan="2" className="col-identity-compact group-header">Colaborador</th>
+                            <th rowSpan="2" className="col-eval-type group-header">Tipo</th>
                             <th colSpan="4" className="header-incoming">📥 RECIBE FEEDBACK DE</th>
                             <th colSpan="3" className="header-outgoing">📤 DEBE EVALUAR A</th>
                             <th rowSpan="2" className="col-actions-compact group-header">Acciones</th>
@@ -475,6 +594,13 @@ const CampaignDashboard = () => {
                     </thead>
                     <tbody>
                         {campaign.selectedUsers?.map((user) => {
+                            // Get selected evaluation type for this user
+                            const evalType = userEvaluationTypes[user.id] || campaign.selectedStrategy || 'SELF_ONLY';
+
+                            // Calculate theoretical counts based on eval type
+                            const counts = calculateTheoreticalCounts(user, evalType);
+
+                            // Keep old functions for workload calculation
                             const effectiveManagers = getEffectiveEvaluators(user, 'manager');
                             const effectivePeers = getEffectiveEvaluators(user, 'peer');
                             const effectiveSubordinates = getEffectiveEvaluators(user, 'subordinate');
@@ -497,41 +623,51 @@ const CampaignDashboard = () => {
                                         </div>
                                     </td>
 
+                                    {/* Evaluation Type Dropdown */}
+                                    <td className="cell-eval-type">
+                                        <select
+                                            value={userEvaluationTypes[user.id] || 'SELF_ONLY'}
+                                            onChange={(e) => handleEvaluationTypeChange(user.id, e.target.value)}
+                                            className="eval-type-select"
+                                        >
+                                            <option value="SELF_ONLY">Auto</option>
+                                            <option value="TOP_DOWN">Top-Down</option>
+                                            <option value="PEER_TO_PEER">Peer</option>
+                                            <option value="LEADERSHIP_180">180º</option>
+                                            <option value="FULL_360">360º</option>
+                                        </select>
+                                    </td>
+
                                     {/* Auto */}
                                     <td className="cell-numeric border-left-separator cell-incoming" style={{ backgroundColor: '#f0f9ff' }}>
-                                        {campaign.evaluatorRules?.self ? (
-                                            <span className="badge-numeric badge-auto">1</span>
+                                        {counts.incoming.auto > 0 ? (
+                                            <span className="badge-numeric badge-auto">{counts.incoming.auto}</span>
                                         ) : (
                                             <span className="badge-none">-</span>
                                         )}
                                     </td>
 
-                                    {/* Superior */}
+                                    {/* Superior (Jefes) */}
                                     <td className="cell-numeric cell-incoming" style={{ backgroundColor: '#f0f9ff' }}>
-                                        {user.skipManagerEvaluation ? (
-                                            <span className="badge-exempt-compact">Exento</span>
-                                        ) : effectiveManagers.length > 0 ? (
-                                            <span
-                                                className="badge-numeric badge-manager"
-                                                title={getNamesForTooltip(effectiveManagers)}
-                                            >
-                                                {effectiveManagers.length}
+                                        {counts.incoming.managers > 0 ? (
+                                            <span className="badge-numeric badge-manager">
+                                                {counts.incoming.managers}
                                             </span>
-                                        ) : campaign.evaluatorRules?.manager ? (
-                                            <span className="badge-error">⚠️</span>
                                         ) : (
-                                            <span className="badge-zero">0</span>
+                                            // Show warning if type requires manager but none exists
+                                            [EVALUATION_TYPES.TOP_DOWN, EVALUATION_TYPES.LEADERSHIP_180, EVALUATION_TYPES.FULL_360].includes(evalType) ? (
+                                                <span className="badge-error" title="Este tipo requiere un superior">⚠️</span>
+                                            ) : (
+                                                <span className="badge-zero">0</span>
+                                            )
                                         )}
                                     </td>
 
                                     {/* Pares */}
                                     <td className="cell-numeric cell-incoming" style={{ backgroundColor: '#f0f9ff' }}>
-                                        {effectivePeers.length > 0 ? (
-                                            <span
-                                                className="badge-numeric badge-peer"
-                                                title={getNamesForTooltip(effectivePeers)}
-                                            >
-                                                {effectivePeers.length}
+                                        {counts.incoming.peers > 0 ? (
+                                            <span className="badge-numeric badge-peer">
+                                                {counts.incoming.peers}
                                             </span>
                                         ) : (
                                             <span className="badge-zero">0</span>
@@ -540,12 +676,9 @@ const CampaignDashboard = () => {
 
                                     {/* Equipo */}
                                     <td className="cell-numeric cell-incoming" style={{ backgroundColor: '#f0f9ff' }}>
-                                        {effectiveSubordinates.length > 0 ? (
-                                            <span
-                                                className="badge-numeric badge-team"
-                                                title={getNamesForTooltip(effectiveSubordinates)}
-                                            >
-                                                {effectiveSubordinates.length}
+                                        {counts.incoming.team > 0 ? (
+                                            <span className="badge-numeric badge-team">
+                                                {counts.incoming.team}
                                             </span>
                                         ) : (
                                             <span className="badge-zero">0</span>
@@ -553,54 +686,38 @@ const CampaignDashboard = () => {
                                     </td>
 
                                     {/* OUTGOING SECTION - Who they must evaluate */}
-                                    {(() => {
-                                        const outgoing = calculateOutgoingEvaluations(user.id);
-                                        return (
-                                            <>
-                                                {/* A Jefes */}
-                                                <td className="cell-numeric border-left-separator cell-outgoing" style={{ backgroundColor: '#fffbeb' }}>
-                                                    {outgoing.toManagers.length > 0 ? (
-                                                        <span
-                                                            className="badge-numeric badge-outgoing-manager"
-                                                            title={getNamesForTooltip(outgoing.toManagers)}
-                                                        >
-                                                            {outgoing.toManagers.length}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="badge-zero">0</span>
-                                                    )}
-                                                </td>
+                                    {/* A Jefes */}
+                                    <td className="cell-numeric border-left-separator cell-outgoing" style={{ backgroundColor: '#fffbeb' }}>
+                                        {counts.outgoing.managers > 0 ? (
+                                            <span className="badge-numeric badge-outgoing-manager">
+                                                {counts.outgoing.managers}
+                                            </span>
+                                        ) : (
+                                            <span className="badge-zero">0</span>
+                                        )}
+                                    </td>
 
-                                                {/* A Pares */}
-                                                <td className="cell-numeric cell-outgoing" style={{ backgroundColor: '#fffbeb' }}>
-                                                    {outgoing.toPeers.length > 0 ? (
-                                                        <span
-                                                            className="badge-numeric badge-outgoing-peer"
-                                                            title={getNamesForTooltip(outgoing.toPeers)}
-                                                        >
-                                                            {outgoing.toPeers.length}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="badge-zero">0</span>
-                                                    )}
-                                                </td>
+                                    {/* A Pares */}
+                                    <td className="cell-numeric cell-outgoing" style={{ backgroundColor: '#fffbeb' }}>
+                                        {counts.outgoing.peers > 0 ? (
+                                            <span className="badge-numeric badge-outgoing-peer">
+                                                {counts.outgoing.peers}
+                                            </span>
+                                        ) : (
+                                            <span className="badge-zero">0</span>
+                                        )}
+                                    </td>
 
-                                                {/* A Equipo */}
-                                                <td className="cell-numeric cell-outgoing" style={{ backgroundColor: '#fffbeb' }}>
-                                                    {outgoing.toSubordinates.length > 0 ? (
-                                                        <span
-                                                            className="badge-numeric badge-outgoing-team"
-                                                            title={getNamesForTooltip(outgoing.toSubordinates)}
-                                                        >
-                                                            {outgoing.toSubordinates.length}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="badge-zero">0</span>
-                                                    )}
-                                                </td>
-                                            </>
-                                        );
-                                    })()}
+                                    {/* A Equipo */}
+                                    <td className="cell-numeric cell-outgoing" style={{ backgroundColor: '#fffbeb' }}>
+                                        {counts.outgoing.team > 0 ? (
+                                            <span className="badge-numeric badge-outgoing-team">
+                                                {counts.outgoing.team}
+                                            </span>
+                                        ) : (
+                                            <span className="badge-zero">0</span>
+                                        )}
+                                    </td>
 
                                     {/* Actions */}
                                     <td className="cell-actions-compact">
