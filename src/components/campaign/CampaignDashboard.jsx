@@ -96,6 +96,20 @@ const CampaignDashboard = () => {
     const handleLaunchCampaign = async () => {
         if (!campaign) return;
 
+        // Validación específica para 180º Liderazgo
+        if (campaign.selectedStrategy === 'LEADERSHIP_180') {
+            const usersWithoutTeam = campaign.selectedUsers?.filter(user => {
+                const team = allUsers.filter(u => u.managerId === user.id);
+                return team.length === 0;
+            }) || [];
+
+            if (usersWithoutTeam.length > 0) {
+                const names = usersWithoutTeam.map(u => u.name).join(', ');
+                alert(`⚠️ No se puede lanzar la campaña 180º Liderazgo:\n\nLos siguientes usuarios no tienen equipo asignado:\n${names}\n\nLa evaluación 180º requiere que el líder tenga subordinados directos para recibir feedback.`);
+                return;
+            }
+        }
+
         const hasErrors = campaign.selectedUsers?.some(user => checkMissingEvaluators(user).hasError);
         if (hasErrors) {
             alert('No se puede lanzar la campaña porque hay usuarios con evaluadores obligatorios faltantes.');

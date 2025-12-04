@@ -14,7 +14,12 @@ import { useMultiTenant } from '../../hooks/useMultiTenant';
 import { useAuth } from '../../context/AuthContext';
 import campaignService from '../../services/campaignService';
 import { getTestsForOrg } from '../../services/globalTestDefinitionService';
+import { getOrgUsers } from '../../services/orgStructureServiceWrapper';
 import { CAMPAIGN_TYPE, CAMPAIGN_STATUS } from '../../models/Campaign';
+import {
+  getSuggestedEvaluators,
+  convertToCustomEvaluatorsFormat
+} from '../../utils/evaluatorAssignmentLogic';
 
 // Subcomponentes (4 pasos)
 import WizardStepper from './WizardStepper';
@@ -79,21 +84,26 @@ const CampaignWizard = ({ isOpen, onClose, onSuccess }) => {
 
   // Datos de referencia
   const [availableTests, setAvailableTests] = useState([]);
+  const [allOrgUsers, setAllOrgUsers] = useState([]);
 
-  // Cargar tests disponibles
+  // Cargar tests y usuarios disponibles
   useEffect(() => {
     if (!currentOrgId || !isOpen) return;
 
-    const loadTests = async () => {
+    const loadData = async () => {
       try {
-        const testsData = await getTestsForOrg(currentOrgId).catch(() => []);
+        const [testsData, usersData] = await Promise.all([
+          getTestsForOrg(currentOrgId).catch(() => []),
+          getOrgUsers(currentOrgId).catch(() => [])
+        ]);
         setAvailableTests(testsData || []);
+        setAllOrgUsers(usersData || []);
       } catch (err) {
-        console.error('[CampaignWizard] Error loading tests:', err);
+        console.error('[CampaignWizard] Error loading data:', err);
       }
     };
 
-    loadTests();
+    loadData();
   }, [currentOrgId, isOpen]);
 
   // Definición de pasos para el stepper (4 pasos)
@@ -193,32 +203,55 @@ const CampaignWizard = ({ isOpen, onClose, onSuccess }) => {
     setLoading(true);
     setError(null);
     try {
-      // Calculate potential evaluations based on selected users' relationships
+      // Auto-assign evaluators based on selected strategy
       const selectedUsers = campaignData.selectedUsers || [];
 
-      const potentialPeers = selectedUsers.reduce((acc, user) => acc + (user.peersCount || 0), 0);
-      const potentialSubordinates = selectedUsers.reduce((acc, user) => acc + (user.dependentsCount || 0), 0);
-      const potentialManagers = selectedUsers.reduce((acc, user) => acc + (user.superiorsCount || 0), 0);
+      // Apply automatic evaluator assignment based on campaign type
+      const usersWithEvaluators = selectedUsers.map(user => {
+        const suggestedEvaluators = getSuggestedEvaluators(
+          user,
+          campaignData.selectedStrategy,
+          allOrgUsers
+        );
+
+        const customEvaluators = convertToCustomEvaluatorsFormat(suggestedEvaluators);
+
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          jobTitle: user.jobTitle,
+          customEvaluators: customEvaluators
+        };
+      });
+
+      // Calculate potential evaluations for stats
+      const potentialPeers = usersWithEvaluators.reduce((acc, user) =>
+        acc + (user.customEvaluators?.peers?.length || 0), 0);
+      const potentialSubordinates = usersWithEvaluators.reduce((acc, user) =>
+        acc + (user.customEvaluators?.subordinates?.length || 0), 0);
+      const potentialManagers = usersWithEvaluators.reduce((acc, user) =>
+        acc + (user.customEvaluators?.managers?.length || 0), 0);
 
       const initialStats = {
-        totalEvaluatees: selectedUsers.length,
+        totalEvaluatees: usersWithEvaluators.length,
         totalInvitations: 0,
         completionRate: 0,
         selfCompleted: 0,
-        selfTotal: campaignData.evaluatorRules?.self ? selectedUsers.length : 0,
+        selfTotal: campaignData.evaluatorRules?.self ? usersWithEvaluators.length : 0,
         peersCompleted: 0,
-        peersTotal: campaignData.evaluatorRules?.peers ? potentialPeers : 0,
+        peersTotal: potentialPeers,
         subordinatesCompleted: 0,
-        subordinatesTotal: campaignData.evaluatorRules?.subordinates ? potentialSubordinates : 0,
+        subordinatesTotal: potentialSubordinates,
         managerCompleted: 0,
-        managerTotal: campaignData.evaluatorRules?.manager ? potentialManagers : 0
+        managerTotal: potentialManagers
       };
 
       const payload = {
         ...campaignData,
+        selectedUsers: usersWithEvaluators, // Use users with auto-assigned evaluators
         status: CAMPAIGN_STATUS.DRAFT,
         stats: initialStats,
-        // Asegurar que evaluateeFilters tenga la estructura correcta
         evaluateeFilters: campaignData.audienceFilters
       };
 
