@@ -267,7 +267,10 @@ const CampaignDashboard = () => {
      */
     const calculateTheoreticalCounts = (user, evaluationType) => {
         // 1. DEFINIR RELACIONES REALES (The "Who is Who")
-        const managerId = user.managerId;  // El jefe de este usuario
+        // CRÍTICO: user viene de campaign.selectedUsers que NO tiene managerId
+        // Necesitamos buscar en usersMap para obtener la data organizacional completa
+        const liveUser = usersMap[user.id];
+        const managerId = liveUser?.managerId;  // El jefe de este usuario (de usersMap)
         const myManager = managerId ? allUsers.find(u => u.id === managerId) : null;
 
         // Mi Equipo: Usuarios cuyo managerId soy yo
