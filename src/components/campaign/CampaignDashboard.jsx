@@ -304,15 +304,22 @@ const CampaignDashboard = () => {
                 break;
 
             case EVALUATION_TYPES.LEADERSHIP_180:
-                // Incoming: Manager + Team
+                // 1. INCOMING (Recibe Feedback):
+                // REGLA: Todo el equipo evalúa al líder, sin importar si son managers o no.
                 incoming.managers = myManager ? 1 : 0;
-                incoming.team = myTeam.length;
+                incoming.team = myTeam.length; // <--- CORRECCIÓN: Usar el equipo completo (All Direct Reports)
+                incoming.peers = 0; // En 180 Liderazgo no participan pares
 
-                // Outgoing: Solo Sub-Líderes (miembros de mi equipo que tienen subordinados)
-                const subLeaders = myTeam.filter(member =>
-                    allUsers.some(u => u.managerId === member.id)
-                );
-                outgoing.team = subLeaders.length;
+                // 2. OUTGOING (Debe Evaluar A):
+                // REGLA: El líder solo evalúa a sus subordinados que TAMBIÉN son líderes (Sub-Líderes).
+                const subLeaders = myTeam.filter(member => {
+                    // Un miembro es líder si alguien más lo tiene como manager
+                    return allUsers.some(u => u.managerId === member.id);
+                });
+
+                outgoing.managers = 0; // El líder no evalúa a su jefe en 180 (solo recibe)
+                outgoing.team = subLeaders.length; // <--- Mantiene el filtro solo para Outgoing
+                outgoing.peers = 0;
                 break;
 
             case EVALUATION_TYPES.FULL_360:
