@@ -263,48 +263,53 @@ const CampaignDashboard = () => {
     /**
      * Calcula los conteos teóricos de evaluadores incoming/outgoing
      * basado en el tipo de evaluación y las relaciones del usuario.
-     * Refleja la misma lógica que evaluatorAssignmentLogic.js
+     * FÓRMULAS ESTRICTAS basadas en managerId hierarchy
      */
     const calculateTheoreticalCounts = (user, evaluationType) => {
-        const liveUser = usersMap[user.id];
-        if (!liveUser) return {
-            incoming: { auto: 0, managers: 0, peers: 0, team: 0 },
-            outgoing: { auto: 0, managers: 0, peers: 0, team: 0 }
-        };
+        // 1. DEFINIR RELACIONES REALES (The "Who is Who")
+        const managerId = user.managerId;  // El jefe de este usuario
+        const myManager = managerId ? allUsers.find(u => u.id === managerId) : null;
 
-        // Helpers
-        const manager = allUsers.find(u => u.id === liveUser.managerId);
-        const team = allUsers.filter(u => u.managerId === user.id);
-        const peers = allUsers.filter(u => u.managerId === liveUser.managerId && u.id !== user.id);
+        // Mi Equipo: Usuarios cuyo managerId soy yo
+        const myTeam = allUsers.filter(u => u.managerId === user.id);
 
+        // Mis Pares: Usuarios que tienen MI MISMO managerId (y no soy yo)
+        // OJO: Si yo no tengo manager (soy el CEO), NO tengo pares automáticos.
+        const myPeers = managerId
+            ? allUsers.filter(u => u.managerId === managerId && u.id !== user.id)
+            : [];
+
+        // Initialize counts
         const incoming = { auto: 1, managers: 0, peers: 0, team: 0 };
         const outgoing = { auto: 1, managers: 0, peers: 0, team: 0 };
 
+        // 2. APLICAR REGLAS SEGÚN TIPO DE CAMPAÑA (The "Counts")
         switch (evaluationType) {
             case EVALUATION_TYPES.SELF_ONLY:
-                // Solo auto (ya inicializado)
+                // Solo autoevaluación (ya inicializado con auto: 1)
                 break;
 
             case EVALUATION_TYPES.TOP_DOWN:
-                // Incoming: Manager
-                if (manager) incoming.managers = 1;
-                // Outgoing: Team
-                outgoing.team = team.length;
+                // Incoming: Solo mi manager
+                incoming.managers = myManager ? 1 : 0;
+                // Outgoing: Todo mi equipo
+                outgoing.team = myTeam.length;
                 break;
 
             case EVALUATION_TYPES.PEER_TO_PEER:
-                // Incoming: Peers
-                incoming.peers = peers.length;
-                // Outgoing: Peers
-                outgoing.peers = peers.length;
+                // Incoming: Mis pares
+                incoming.peers = myPeers.length;
+                // Outgoing: Mis pares
+                outgoing.peers = myPeers.length;
                 break;
 
             case EVALUATION_TYPES.LEADERSHIP_180:
                 // Incoming: Manager + Team
-                if (manager) incoming.managers = 1;
-                incoming.team = team.length;
-                // Outgoing: Sub-Leaders only (subordinados que son managers)
-                const subLeaders = team.filter(member =>
+                incoming.managers = myManager ? 1 : 0;
+                incoming.team = myTeam.length;
+
+                // Outgoing: Solo Sub-Líderes (miembros de mi equipo que tienen subordinados)
+                const subLeaders = myTeam.filter(member =>
                     allUsers.some(u => u.managerId === member.id)
                 );
                 outgoing.team = subLeaders.length;
@@ -312,13 +317,14 @@ const CampaignDashboard = () => {
 
             case EVALUATION_TYPES.FULL_360:
                 // Incoming: Manager + Team + Peers
-                if (manager) incoming.managers = 1;
-                incoming.team = team.length;
-                incoming.peers = peers.length;
+                incoming.managers = myManager ? 1 : 0;
+                incoming.team = myTeam.length;
+                incoming.peers = myPeers.length;
+
                 // Outgoing: Manager + Team + Peers (Upward feedback)
-                if (manager) outgoing.managers = 1;
-                outgoing.team = team.length;
-                outgoing.peers = peers.length;
+                outgoing.managers = myManager ? 1 : 0;
+                outgoing.team = myTeam.length;
+                outgoing.peers = myPeers.length;
                 break;
 
             default:
