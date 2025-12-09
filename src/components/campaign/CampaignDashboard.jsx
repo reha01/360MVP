@@ -266,21 +266,105 @@ const CampaignDashboard = () => {
      * FÓRMULAS ESTRICTAS basadas en managerId hierarchy
      */
     const calculateTheoreticalCounts = (user, evaluationType) => {
-        // 1. DEFINIR RELACIONES REALES (The "Who is Who")
-        // CRÍTICO: user viene de campaign.selectedUsers que NO tiene managerId
-        // Necesitamos buscar en usersMap para obtener la data organizacional completa
+        // 🕵️ LOG DE DIAGNÓSTICO - Ver qué tipo exacto llega
+        console.log('🕵️ MYSTERY TYPE DETECTED:', evaluationType);
+
+        // ==========================================
+        // 1. NORMALIZACIÓN DE DATOS DEL USUARIO ACTUAL
+        // ==========================================
+        const currentUserId = String(user.id || user.uid || '');
+        const currentUserEmail = (user.email || '').toLowerCase().trim();
+
+        // Obtener datos completos del usuario desde usersMap
         const liveUser = usersMap[user.id];
-        const managerId = liveUser?.managerId;  // El jefe de este usuario (de usersMap)
-        const myManager = managerId ? allUsers.find(u => u.id === managerId) : null;
 
-        // Mi Equipo: Usuarios cuyo managerId soy yo
-        const myTeam = allUsers.filter(u => u.managerId === user.id);
+        // Normalizar mis Jefes a un Array de Strings (Soporte Single + Multi)
+        let myManagerIds = [];
+        if (Array.isArray(liveUser?.managerIds)) {
+            myManagerIds = liveUser.managerIds.map(id => String(id));
+        } else if (liveUser?.managerId) {
+            myManagerIds = [String(liveUser.managerId)];
+        }
 
-        // Mis Pares: Usuarios que tienen MI MISMO managerId (y no soy yo)
-        // OJO: Si yo no tengo manager (soy el CEO), NO tengo pares automáticos.
-        const myPeers = managerId
-            ? allUsers.filter(u => u.managerId === managerId && u.id !== user.id)
-            : [];
+        // ==========================================
+        // 2. ENCONTRAR RELACIONES (Lógica Robusta)
+        // ==========================================
+
+        // A. MIS JEFES (Incoming Manager)
+        // Buscamos usuarios cuyo ID esté en mi lista de jefes O cuyo email sea mi managerEmail
+        const myManagers = allUsers.filter(u => {
+            const uId = String(u.id || u.uid || '');
+            const uEmail = (u.email || '').toLowerCase().trim();
+
+            const matchId = myManagerIds.includes(uId);
+            const matchEmail = liveUser?.managerEmail && uEmail === liveUser.managerEmail.toLowerCase().trim();
+
+            return matchId || matchEmail;
+        });
+
+        // B. MI EQUIPO (Incoming Team / Outgoing Team)
+        // Buscamos usuarios que me tengan a MI como jefe (en su Array, ID o Email)
+        const myTeam = allUsers.filter(u => {
+            // Normalizar jefes del otro usuario
+            const uMgrIds = Array.isArray(u.managerIds) ? u.managerIds.map(String) : (u.managerId ? [String(u.managerId)] : []);
+
+            const matchId = uMgrIds.includes(currentUserId);
+            const matchEmail = u.managerEmail && u.managerEmail.toLowerCase().trim() === currentUserEmail;
+
+            return matchId || matchEmail;
+        });
+
+        // C. MIS PARES (Incoming/Outgoing Peers)
+        // Usuarios que comparten al menos UN jefe conmigo O están en mi mismo nivel (C-Level)
+        const myPeers = allUsers.filter(u => {
+            if (u.id === user.id) return false; // No soy par de mí mismo
+
+            // Normalizar jefes del otro usuario
+            const uMgrIds = Array.isArray(u.managerIds) ? u.managerIds.map(String) : (u.managerId ? [String(u.managerId)] : []);
+
+            // CASO A: Ambos tienen jefe (Empleados normales)
+            if (myManagerIds.length > 0 && uMgrIds.length > 0) {
+                // Son pares si comparten al menos un jefe
+                const shareManagerId = uMgrIds.some(id => myManagerIds.includes(id));
+                const shareManagerEmail = liveUser?.managerEmail && u.managerEmail &&
+                    liveUser.managerEmail.toLowerCase().trim() === u.managerEmail.toLowerCase().trim();
+                return shareManagerId || shareManagerEmail;
+            }
+
+            // CASO B: Ninguno tiene jefe (C-Level / Directores)
+            // Definición: Arrays de managers vacíos
+            if (myManagerIds.length === 0 && uMgrIds.length === 0) {
+
+                // 1. HIDRATACIÓN (Clave del Fix):
+                // Buscamos el objeto COMPLETO del usuario actual en la lista cargada
+                const fullUser = allUsers.find(member => String(member.id) === String(user.id)) || user;
+
+                // 2. COMPARACIÓN ROBUSTA POR ID
+                const myFamId = fullUser.jobFamilyId;
+                const theirFamId = u.jobFamilyId;
+
+                if (myFamId && theirFamId && String(myFamId) === String(theirFamId)) {
+                    return true;
+                }
+
+                // 3. COMPARACIÓN ROBUSTA POR NOMBRE (Fallback)
+                const getJobFamilyName = (obj) => {
+                    // Agregamos todas las variantes vistas en los logs
+                    return String(obj.jobFamily || obj.jobFamilyName || obj.job_family_name || obj.family || '').toLowerCase().trim();
+                };
+
+                const myJF = getJobFamilyName(fullUser); // Usamos fullUser aquí
+                const theirJF = getJobFamilyName(u);
+
+                if (myJF && theirJF && myJF === theirJF) return true;
+
+                return false;
+            }
+
+            return false; // Si uno tiene jefe y el otro no, no son pares
+        });
+
+        console.log(`✅ Relaciones calculadas para ${user.name}: Managers=${myManagers.length}, Team=${myTeam.length}, Peers=${myPeers.length}`);
 
         // Initialize counts
         const incoming = { auto: 1, managers: 0, peers: 0, team: 0 };
@@ -293,46 +377,62 @@ const CampaignDashboard = () => {
                 break;
 
             case EVALUATION_TYPES.TOP_DOWN:
-                // Incoming: Solo mi manager
-                incoming.managers = myManager ? 1 : 0;
+                // Incoming: Mis managers (soporte multi-jefatura)
+                incoming.managers = myManagers.length;
                 // Outgoing: Todo mi equipo
                 outgoing.team = myTeam.length;
                 break;
 
-            case EVALUATION_TYPES.PEER_TO_PEER:
-                // Incoming: Mis pares
-                incoming.peers = myPeers.length;
-                // Outgoing: Mis pares
-                outgoing.peers = myPeers.length;
+            // --- FIX FINAL: Catch-all para Peer-to-Peer ---
+            case 'PEER':                        // Variante corta uppercase
+            case 'PEER_TO_PEER':                // Variante larga uppercase
+            case 'PEERS':                       // Variante plural uppercase
+            case 'Peer-to-Peer':                // Título exacto del Wizard
+            case 'peer-to-peer':                // Slug URL / lowercase
+            case 'P2P':                         // Abreviatura
+            case 'COLLABORATION':               // Posible alias
+            case EVALUATION_TYPES.PEER_TO_PEER: // Constante del enum
+                console.log(`✅ Entrando a CASE PEER con valor global: ${myPeers.length}`);
+
+                // INCOMING
+                incoming.managers = 0;
+                incoming.team = 0;
+                incoming.peers = myPeers.length; // Usa la variable global que ya calculaste con "hidratación"
+
+                // OUTGOING
+                outgoing.managers = 0;
+                outgoing.team = 0;
+                outgoing.peers = myPeers.length; // Usa la variable global
                 break;
 
             case EVALUATION_TYPES.LEADERSHIP_180:
-                // 1. INCOMING (Recibe Feedback):
-                // REGLA: Todo el equipo evalúa al líder, sin importar si son managers o no.
-                incoming.managers = myManager ? 1 : 0;
-                incoming.team = myTeam.length; // <--- CORRECCIÓN: Usar el equipo completo (All Direct Reports)
-                incoming.peers = 0; // En 180 Liderazgo no participan pares
+                // REGLA INCOMING (Recibe de managers + TODO el equipo)
+                incoming.managers = myManagers.length;
+                incoming.team = myTeam.length;
+                incoming.peers = 0;
 
-                // 2. OUTGOING (Debe Evaluar A):
-                // REGLA: El líder solo evalúa a sus subordinados que TAMBIÉN son líderes (Sub-Líderes).
+                // REGLA OUTGOING (Solo Sub-Líderes)
                 const subLeaders = myTeam.filter(member => {
-                    // Un miembro es líder si alguien más lo tiene como manager
-                    return allUsers.some(u => u.managerId === member.id);
+                    // Un miembro es sub-líder si alguien lo tiene como manager
+                    return allUsers.some(u => {
+                        const uMgrIds = Array.isArray(u.managerIds) ? u.managerIds.map(String) : [];
+                        return uMgrIds.includes(String(member.id));
+                    });
                 });
 
-                outgoing.managers = 0; // El líder no evalúa a su jefe en 180 (solo recibe)
-                outgoing.team = subLeaders.length; // <--- Mantiene el filtro solo para Outgoing
+                outgoing.managers = 0;
+                outgoing.team = subLeaders.length;
                 outgoing.peers = 0;
                 break;
 
             case EVALUATION_TYPES.FULL_360:
-                // Incoming: Manager + Team + Peers
-                incoming.managers = myManager ? 1 : 0;
+                // Incoming: Managers + Team + Peers (soporte multi-jefatura)
+                incoming.managers = myManagers.length;
                 incoming.team = myTeam.length;
                 incoming.peers = myPeers.length;
 
-                // Outgoing: Manager + Team + Peers (Upward feedback)
-                outgoing.managers = myManager ? 1 : 0;
+                // Outgoing: Managers + Team + Peers (Upward feedback)
+                outgoing.managers = myManagers.length;
                 outgoing.team = myTeam.length;
                 outgoing.peers = myPeers.length;
                 break;
