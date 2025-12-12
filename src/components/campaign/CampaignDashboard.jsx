@@ -4,6 +4,7 @@ import { useMultiTenant } from '../../hooks/useMultiTenant';
 import { useAuth } from '../../context/AuthContext';
 import { getCampaign, updateCampaign } from '../../services/campaignService';
 import { getOrgUsers } from '../../services/orgStructureServiceWrapper';
+import { getOrgJobFamilies } from '../../services/jobFamilyService';
 import { CAMPAIGN_STATUS } from '../../models/Campaign';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
@@ -12,6 +13,9 @@ import './CampaignDashboard.css';
 import EvaluatorManagementModal from './EvaluatorManagementModal';
 import AddParticipantModal from './AddParticipantModal';
 import { EVALUATION_TYPES } from '../../utils/evaluatorAssignmentLogic';
+
+
+console.log('>>> APP VERSION: 2.1.14 - OUTGOING TAB FILTER <<<');
 
 const CampaignDashboard = () => {
     const { campaignId } = useParams();
@@ -22,6 +26,7 @@ const CampaignDashboard = () => {
     const [campaign, setCampaign] = useState(null);
     const [allUsers, setAllUsers] = useState([]);
     const [usersMap, setUsersMap] = useState({});
+    const [jobFamiliesMap, setJobFamiliesMap] = useState({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [processing, setProcessing] = useState(false);
@@ -38,9 +43,10 @@ const CampaignDashboard = () => {
         const loadData = async () => {
             try {
                 setLoading(true);
-                const [campaignData, usersData] = await Promise.all([
+                const [campaignData, usersData, jobFamiliesData] = await Promise.all([
                     getCampaign(currentOrgId, campaignId),
-                    getOrgUsers(currentOrgId)
+                    getOrgUsers(currentOrgId),
+                    getOrgJobFamilies(currentOrgId)
                 ]);
 
                 setCampaign(campaignData);
@@ -52,6 +58,12 @@ const CampaignDashboard = () => {
                     map[u.id] = u;
                 });
                 setUsersMap(map);
+
+                const jfMap = {};
+                (jobFamiliesData || []).forEach(jf => {
+                    jfMap[jf.id] = jf;
+                });
+                setJobFamiliesMap(jfMap);
 
             } catch (err) {
                 console.error('Error loading campaign dashboard:', err);
@@ -176,15 +188,58 @@ const CampaignDashboard = () => {
     };
 
     const handleOpenModal = (evaluatee) => {
-        const effectiveManagers = getEffectiveEvaluators(evaluatee, 'manager');
-        const effectivePeers = getEffectiveEvaluators(evaluatee, 'peer');
-        const effectiveSubordinates = getEffectiveEvaluators(evaluatee, 'subordinate');
+        // Detect relationships first (what SHOULD be there)
+        const { myManagers, myTeam, myPeers } = detectRelationships(evaluatee, allUsers, usersMap);
+
+        // Prefer saved custom evaluators, but fallback to detected ones if null/undefined OR EMPTY
+        // Usage Rule: If the user explicitly wants "0", they must save an empty list. 
+        // BUT, given the bug history, we assume empty list = "not correctly set" for the "Gran Jefe" case.
+        // To be safe and fix the user's issue: If custom list is empty, valid detected relationships take precedence.
+
+        const currentCustom = evaluatee.customEvaluators || {};
+
+        let effectiveManagers = (currentCustom.managers && currentCustom.managers.length > 0)
+            ? currentCustom.managers
+            : myManagers.map(u => u.id);
+
+        let effectivePeers = (currentCustom.peers && currentCustom.peers.length > 0)
+            ? currentCustom.peers
+            : myPeers.map(u => u.id);
+
+        let effectiveSubordinates = (currentCustom.subordinates && currentCustom.subordinates.length > 0)
+            ? currentCustom.subordinates
+            : myTeam.map(u => u.id);
+
+        // Calculate OUTGOING (Who this user evaluates)
+        // We use the same helper function from the render loop
+        const outgoingIds = calculateOutgoingEvaluations(evaluatee.id);
+
+        // Resolve IDs to Objects
+        const resolveIds = (ids) => ids.map(id => usersMap[id]).filter(Boolean);
+
+        const outgoingEvaluations = {
+            managers: resolveIds(outgoingIds.toManagers),
+            peers: resolveIds(outgoingIds.toPeers),
+            subordinates: resolveIds(outgoingIds.toSubordinates)
+        };
+
+        // FILTER AUTO-POPULATED LISTS BASED ON STRATEGY
+        // To prevent "ghost" evaluators appearing when they shouldn't
+        if (campaign.selectedStrategy === 'PEER_ONLY') {
+            effectiveManagers = [];
+            effectiveSubordinates = [];
+        } else if (campaign.selectedStrategy === 'TOP_DOWN') {
+            effectivePeers = [];
+            effectiveSubordinates = []; // Usually only Manager evaluates
+        }
 
         setSelectedEvaluatee({
             ...evaluatee,
             managerIds: effectiveManagers,
             peerIds: effectivePeers,
-            dependentIds: effectiveSubordinates
+            dependentIds: effectiveSubordinates,
+            outgoingEvaluations: outgoingEvaluations, // New Prop data
+            config: campaign.evaluatorRules // Pass rules for "Auto" check
         });
         setIsModalOpen(true);
     };
@@ -261,14 +316,10 @@ const CampaignDashboard = () => {
     };
 
     /**
-     * Calcula los conteos teóricos de evaluadores incoming/outgoing
-     * basado en el tipo de evaluación y las relaciones del usuario.
-     * FÓRMULAS ESTRICTAS basadas en managerId hierarchy
+     * CORE LOGIC: Detects natural relationships based on data.
+     * Returns arrays of User Objects (or IDs if preferred, here Arrays for flexibility).
      */
-    const calculateTheoreticalCounts = (user, evaluationType) => {
-        // 🕵️ LOG DE DIAGNÓSTICO - Ver qué tipo exacto llega
-        console.log('🕵️ MYSTERY TYPE DETECTED:', evaluationType);
-
+    const detectRelationships = (user, allUsersData, usersMapData) => {
         // ==========================================
         // 1. NORMALIZACIÓN DE DATOS DEL USUARIO ACTUAL
         // ==========================================
@@ -276,7 +327,7 @@ const CampaignDashboard = () => {
         const currentUserEmail = (user.email || '').toLowerCase().trim();
 
         // Obtener datos completos del usuario desde usersMap
-        const liveUser = usersMap[user.id];
+        const liveUser = usersMapData[user.id] || user;
 
         // Normalizar mis Jefes a un Array de Strings (Soporte Single + Multi)
         let myManagerIds = [];
@@ -291,40 +342,30 @@ const CampaignDashboard = () => {
         // ==========================================
 
         // A. MIS JEFES (Incoming Manager)
-        // Buscamos usuarios cuyo ID esté en mi lista de jefes O cuyo email sea mi managerEmail
-        const myManagers = allUsers.filter(u => {
+        const myManagers = allUsersData.filter(u => {
             const uId = String(u.id || u.uid || '');
             const uEmail = (u.email || '').toLowerCase().trim();
-
             const matchId = myManagerIds.includes(uId);
             const matchEmail = liveUser?.managerEmail && uEmail === liveUser.managerEmail.toLowerCase().trim();
-
             return matchId || matchEmail;
         });
 
         // B. MI EQUIPO (Incoming Team / Outgoing Team)
-        // Buscamos usuarios que me tengan a MI como jefe (en su Array, ID o Email)
-        const myTeam = allUsers.filter(u => {
-            // Normalizar jefes del otro usuario
+        const myTeam = allUsersData.filter(u => {
             const uMgrIds = Array.isArray(u.managerIds) ? u.managerIds.map(String) : (u.managerId ? [String(u.managerId)] : []);
-
             const matchId = uMgrIds.includes(currentUserId);
             const matchEmail = u.managerEmail && u.managerEmail.toLowerCase().trim() === currentUserEmail;
-
             return matchId || matchEmail;
         });
 
         // C. MIS PARES (Incoming/Outgoing Peers)
-        // Usuarios que comparten al menos UN jefe conmigo O están en mi mismo nivel (C-Level)
-        const myPeers = allUsers.filter(u => {
+        const myPeers = allUsersData.filter(u => {
             if (u.id === user.id) return false; // No soy par de mí mismo
 
-            // Normalizar jefes del otro usuario
             const uMgrIds = Array.isArray(u.managerIds) ? u.managerIds.map(String) : (u.managerId ? [String(u.managerId)] : []);
 
-            // CASO A: Ambos tienen jefe (Empleados normales)
+            // CASO A: Ambos tienen jefe
             if (myManagerIds.length > 0 && uMgrIds.length > 0) {
-                // Son pares si comparten al menos un jefe
                 const shareManagerId = uMgrIds.some(id => myManagerIds.includes(id));
                 const shareManagerEmail = liveUser?.managerEmail && u.managerEmail &&
                     liveUser.managerEmail.toLowerCase().trim() === u.managerEmail.toLowerCase().trim();
@@ -332,37 +373,34 @@ const CampaignDashboard = () => {
             }
 
             // CASO B: Ninguno tiene jefe (C-Level / Directores)
-            // Definición: Arrays de managers vacíos
             if (myManagerIds.length === 0 && uMgrIds.length === 0) {
-
-                // 1. HIDRATACIÓN (Clave del Fix):
-                // Buscamos el objeto COMPLETO del usuario actual en la lista cargada
-                const fullUser = allUsers.find(member => String(member.id) === String(user.id)) || user;
-
-                // 2. COMPARACIÓN ROBUSTA POR ID
-                const myFamId = fullUser.jobFamilyId;
+                const myFamId = liveUser.jobFamilyId;
                 const theirFamId = u.jobFamilyId;
 
-                if (myFamId && theirFamId && String(myFamId) === String(theirFamId)) {
-                    return true;
-                }
+                if (myFamId && theirFamId && String(myFamId) === String(theirFamId)) return true;
 
-                // 3. COMPARACIÓN ROBUSTA POR NOMBRE (Fallback)
-                const getJobFamilyName = (obj) => {
-                    // Agregamos todas las variantes vistas en los logs
-                    return String(obj.jobFamily || obj.jobFamilyName || obj.job_family_name || obj.family || '').toLowerCase().trim();
-                };
+                const getJobFamilyName = (obj) =>
+                    String(obj.jobFamily || obj.jobFamilyName || obj.job_family_name || obj.family || '').toLowerCase().trim();
 
-                const myJF = getJobFamilyName(fullUser); // Usamos fullUser aquí
+                const myJF = getJobFamilyName(liveUser);
                 const theirJF = getJobFamilyName(u);
 
                 if (myJF && theirJF && myJF === theirJF) return true;
-
                 return false;
             }
-
-            return false; // Si uno tiene jefe y el otro no, no son pares
+            return false;
         });
+
+        return { myManagers, myTeam, myPeers };
+    };
+
+    /**
+     * Calcula los conteos teóricos de evaluadores incoming/outgoing
+     * basado en el tipo de evaluación y las relaciones del usuario.
+     */
+    const calculateTheoreticalCounts = (user, evaluationType) => {
+        // 1. OBTENER RELACIONES DETECTADAS
+        const { myManagers, myTeam, myPeers } = detectRelationships(user, allUsers, usersMap);
 
         console.log(`✅ Relaciones calculadas para ${user.name}: Managers=${myManagers.length}, Team=${myTeam.length}, Peers=${myPeers.length}`);
 
@@ -370,68 +408,47 @@ const CampaignDashboard = () => {
         const incoming = { auto: 1, managers: 0, peers: 0, team: 0 };
         const outgoing = { auto: 1, managers: 0, peers: 0, team: 0 };
 
-        // 2. APLICAR REGLAS SEGÚN TIPO DE CAMPAÑA (The "Counts")
+        // 2. APLICAR REGLAS SEGÚN TIPO DE CAMPAÑA
         switch (evaluationType) {
             case EVALUATION_TYPES.SELF_ONLY:
-                // Solo autoevaluación (ya inicializado con auto: 1)
                 break;
 
             case EVALUATION_TYPES.TOP_DOWN:
-                // Incoming: Mis managers (soporte multi-jefatura)
                 incoming.managers = myManagers.length;
-                // Outgoing: Todo mi equipo
                 outgoing.team = myTeam.length;
                 break;
 
-            // --- FIX FINAL: Catch-all para Peer-to-Peer ---
-            case 'PEER':                        // Variante corta uppercase
-            case 'PEER_TO_PEER':                // Variante larga uppercase
-            case 'PEERS':                       // Variante plural uppercase
-            case 'Peer-to-Peer':                // Título exacto del Wizard
-            case 'peer-to-peer':                // Slug URL / lowercase
-            case 'P2P':                         // Abreviatura
-            case 'COLLABORATION':               // Posible alias
-            case EVALUATION_TYPES.PEER_TO_PEER: // Constante del enum
-                console.log(`✅ Entrando a CASE PEER con valor global: ${myPeers.length}`);
-
-                // INCOMING
-                incoming.managers = 0;
-                incoming.team = 0;
-                incoming.peers = myPeers.length; // Usa la variable global que ya calculaste con "hidratación"
-
-                // OUTGOING
-                outgoing.managers = 0;
-                outgoing.team = 0;
-                outgoing.peers = myPeers.length; // Usa la variable global
+            case 'PEER':
+            case 'PEER_TO_PEER':
+            case 'PEERS':
+            case 'Peer-to-Peer':
+            case 'peer-to-peer':
+            case 'P2P':
+            case 'COLLABORATION':
+            case EVALUATION_TYPES.PEER_TO_PEER:
+                incoming.peers = myPeers.length;
+                outgoing.peers = myPeers.length;
                 break;
 
             case EVALUATION_TYPES.LEADERSHIP_180:
-                // REGLA INCOMING (Recibe de managers + TODO el equipo)
                 incoming.managers = myManagers.length;
                 incoming.team = myTeam.length;
-                incoming.peers = 0;
 
-                // REGLA OUTGOING (Solo Sub-Líderes)
                 const subLeaders = myTeam.filter(member => {
-                    // Un miembro es sub-líder si alguien lo tiene como manager
                     return allUsers.some(u => {
                         const uMgrIds = Array.isArray(u.managerIds) ? u.managerIds.map(String) : [];
                         return uMgrIds.includes(String(member.id));
                     });
                 });
 
-                outgoing.managers = 0;
                 outgoing.team = subLeaders.length;
-                outgoing.peers = 0;
                 break;
 
             case EVALUATION_TYPES.FULL_360:
-                // Incoming: Managers + Team + Peers (soporte multi-jefatura)
                 incoming.managers = myManagers.length;
                 incoming.team = myTeam.length;
                 incoming.peers = myPeers.length;
 
-                // Outgoing: Managers + Team + Peers (Upward feedback)
                 outgoing.managers = myManagers.length;
                 outgoing.team = myTeam.length;
                 outgoing.peers = myPeers.length;
@@ -445,17 +462,20 @@ const CampaignDashboard = () => {
     };
 
     const getEffectiveEvaluators = (user, type) => {
+        // 1. Check Custom Override (Explicitly set AND not empty)
+        // We apply the same logic as the modal: Empty custom list -> Fallback to smart detection
         if (user.customEvaluators) {
-            if (type === 'manager' && user.customEvaluators.managers) return user.customEvaluators.managers;
-            if (type === 'peer' && user.customEvaluators.peers) return user.customEvaluators.peers;
-            if (type === 'subordinate' && user.customEvaluators.subordinates) return user.customEvaluators.subordinates;
+            if (type === 'manager' && user.customEvaluators.managers && user.customEvaluators.managers.length > 0) return user.customEvaluators.managers;
+            if (type === 'peer' && user.customEvaluators.peers && user.customEvaluators.peers.length > 0) return user.customEvaluators.peers;
+            if (type === 'subordinate' && user.customEvaluators.subordinates && user.customEvaluators.subordinates.length > 0) return user.customEvaluators.subordinates;
         }
 
-        const liveUser = usersMap[user.id];
+        // 2. Fallback to Smart Detection
+        const detected = detectRelationships(user, allUsers, usersMap);
 
-        if (type === 'manager') return liveUser?.managerIds || [];
-        if (type === 'subordinate') return allUsers.filter(u => u.managerIds?.includes(user.id)).map(u => u.id);
-        if (type === 'peer') return user.peerIds || [];
+        if (type === 'manager') return detected.myManagers.map(u => u.id);
+        if (type === 'subordinate') return detected.myTeam.map(u => u.id); // Note: detectRelationships returns 'myTeam' for subordinates
+        if (type === 'peer') return detected.myPeers.map(u => u.id);
 
         return [];
     };
@@ -517,9 +537,10 @@ const CampaignDashboard = () => {
             const otherPeers = getEffectiveEvaluators(otherUser, 'peer');
             const otherSubordinates = getEffectiveEvaluators(otherUser, 'subordinate');
 
-            // If current user is in this person's manager list, they must evaluate their manager
+            // If current user is in this person's manager list (Manager role),
+            // then this person is their SUBORDINATE (Downwards evaluation)
             if (otherManagers.includes(userId)) {
-                toManagers.push(otherUser.id);
+                toSubordinates.push(otherUser.id);
             }
 
             // If current user is in this person's peer list, they must evaluate a peer
@@ -527,9 +548,10 @@ const CampaignDashboard = () => {
                 toPeers.push(otherUser.id);
             }
 
-            // If current user is in this person's subordinate list, they must evaluate a subordinate
+            // If current user is in this person's subordinate list (Subordinate role),
+            // then this person is their MANAGER (Upwards evaluation)
             if (otherSubordinates.includes(userId)) {
-                toSubordinates.push(otherUser.id);
+                toManagers.push(otherUser.id);
             }
         });
 
@@ -795,14 +817,22 @@ const CampaignDashboard = () => {
             </div>
 
             {/* Modals */}
-            <EvaluatorManagementModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-                evaluatee={selectedEvaluatee}
-                allUsers={allUsers}
-                onSave={handleSaveEvaluators}
-            />
-
+            {isModalOpen && selectedEvaluatee && (
+                <EvaluatorManagementModal
+                    isOpen={isModalOpen}
+                    onClose={() => {
+                        setIsModalOpen(false);
+                        setSelectedEvaluatee(null);
+                    }}
+                    evaluatee={selectedEvaluatee}
+                    allUsers={allUsers}
+                    onSave={handleSaveEvaluators}
+                    outgoingEvaluations={selectedEvaluatee.outgoingEvaluations}
+                    evaluatorRules={selectedEvaluatee.config}
+                    jobFamiliesMap={jobFamiliesMap}
+                    campaignStrategy={campaign.selectedStrategy} // PASS STRATEGY EXPLICITLY
+                />
+            )}
             <AddParticipantModal
                 isOpen={isAddParticipantModalOpen}
                 onClose={() => setIsAddParticipantModalOpen(false)}
