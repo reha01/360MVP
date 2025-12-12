@@ -15,7 +15,7 @@ import AddParticipantModal from './AddParticipantModal';
 import { EVALUATION_TYPES } from '../../utils/evaluatorAssignmentLogic';
 
 
-console.log('>>> APP VERSION: 2.1.14 - OUTGOING TAB FILTER <<<');
+console.log('>>> APP VERSION: 2.1.16 - EXCEL FINAL <<<');
 
 const CampaignDashboard = () => {
     const { campaignId } = useParams();
@@ -79,30 +79,179 @@ const CampaignDashboard = () => {
     const handleExportExcel = () => {
         if (!campaign?.selectedUsers) return;
 
-        const excelData = campaign.selectedUsers.map(user => {
-            const effectiveManagers = getEffectiveEvaluators(user, 'manager');
-            const effectivePeers = getEffectiveEvaluators(user, 'peer');
-            const effectiveSubordinates = getEffectiveEvaluators(user, 'subordinate');
-            const workLoad = effectiveManagers.length + effectivePeers.length + effectiveSubordinates.length;
+        // --- HELPER: Date Formatter ---
+        const formatDateForExcel = (dateVal) => {
+            if (!dateVal) return '-';
+            // Handle Firestore Timestamp or Date object or String
+            let d = dateVal;
+            if (dateVal.seconds) d = new Date(dateVal.seconds * 1000); // Firestore
+            if (typeof dateVal === 'string') d = new Date(dateVal);
 
-            return {
-                'Nombre': user.name,
-                'Email': user.email,
-                'Cargo': user.jobTitle || usersMap[user.id]?.jobTitle || 'Sin cargo',
-                'Auto': campaign.evaluatorRules?.self ? 'Sí' : '-',
-                'Jefes': effectiveManagers.length,
-                'Pares': effectivePeers.length,
-                'Equipo': effectiveSubordinates.length,
-                'Carga de Trabajo': workLoad,
-                'Estado': 'Pendiente'
+            if (isNaN(d.getTime())) return '-';
+
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const year = d.getFullYear();
+            return `${day}/${month}/${year}`;
+        };
+
+        // --- HELPER: Job Family Lookup ---
+        const getFamilyName = (user) => {
+            if (!user?.jobFamilyId) return '-';
+            return jobFamiliesMap[user.jobFamilyId]?.name || '-';
+        };
+
+        // --- PREP DATA CONTAINERS ---
+        const sheet1_Context = [];
+        const sheet2_Assignments = []; // Flat Table
+        const workloadMap = {};
+        const sheet4_Coverage = [];
+
+        // Helper to track workload
+        const trackWorkload = (evaluator, role) => {
+            if (!evaluator || !evaluator.id) return;
+            const uid = evaluator.id;
+            if (!workloadMap[uid]) {
+                const fullUser = usersMap[uid] || evaluator;
+                workloadMap[uid] = {
+                    id: uid,
+                    name: fullUser.name || 'Desconocido',
+                    email: fullUser.email || '-',
+                    boss: 0,
+                    peer: 0,
+                    team: 0,
+                    total: 0
+                };
+            }
+            if (role === 'Jefe') workloadMap[uid].boss++;
+            if (role === 'Par') workloadMap[uid].peer++;
+            if (role === 'Equipo') workloadMap[uid].team++;
+            workloadMap[uid].total++;
+        };
+
+        // --- PROCESS DATA ---
+        let totalEvaluations = 0;
+
+        campaign.selectedUsers.forEach(evaluatee => {
+            const strategy = campaign.selectedStrategy || evaluatee.campaignStrategy || 'FULL_360';
+
+            // Get Effective Evaluators
+            const mgrs = getEffectiveEvaluators(evaluatee, 'manager');
+            const peers = getEffectiveEvaluators(evaluatee, 'peer');
+            const subs = getEffectiveEvaluators(evaluatee, 'subordinate');
+            const hasSelf = campaign.evaluatorRules?.self;
+
+            let incomingCount = mgrs.length + peers.length + subs.length + (hasSelf ? 1 : 0);
+            totalEvaluations += incomingCount;
+
+            // --- SHEET 4: COVERAGE ---
+            sheet4_Coverage.push({
+                'Nombre Evaluado': evaluatee.name,
+                'Email Evaluado': evaluatee.email,
+                'Area': evaluatee.area || '-',
+                'Cargo': evaluatee.jobTitle || '-',
+                'Familia Cargo': getFamilyName(evaluatee),
+                'Total Recibidas': incomingCount,
+                '¿Tiene Jefe?': mgrs.length > 0 ? 'SÍ' : 'NO',
+                'Cant. Pares': peers.length,
+                'Cant. Equipo': subs.length,
+                '¿Autoevaluación?': hasSelf ? 'SÍ' : 'NO'
+            });
+
+            // --- SHEET 2: ASSIGNMENTS (FLAT TABLE) ---
+            const addAssignmentRow = (evaluator, relation) => {
+                // Ensure evaluator details are full even if it comes from ID only (though getEffectiveEvaluators returns objs)
+                const fullEvaluator = usersMap[evaluator.id] || evaluator;
+
+                sheet2_Assignments.push({
+                    'Evaluador - Nombre': fullEvaluator.name,
+                    'Evaluador - Email': fullEvaluator.email,
+                    'Evaluador - Cargo': fullEvaluator.jobTitle || '-',
+                    'Evaluador - Área': fullEvaluator.area || '-',
+                    'Evaluador - Job Family': getFamilyName(fullEvaluator),
+                    'RELACIÓN': relation,
+                    'Evaluado - Nombre': evaluatee.name,
+                    'Evaluado - Email': evaluatee.email,
+                    'Evaluado - Cargo': evaluatee.jobTitle || '-',
+                    'Evaluado - Área': evaluatee.area || '-',
+                    'Evaluado - Job Family': getFamilyName(evaluatee)
+                });
             };
+
+            // 1. Managers
+            mgrs.forEach(ev => { trackWorkload(ev, 'Jefe'); addAssignmentRow(ev, 'Jefe'); });
+
+            // 2. Peers
+            peers.forEach(ev => { trackWorkload(ev, 'Par'); addAssignmentRow(ev, 'Par'); });
+
+            // 3. Team
+            subs.forEach(ev => { trackWorkload(ev, 'Equipo'); addAssignmentRow(ev, 'Equipo'); });
+
+            // 4. Self
+            if (hasSelf) {
+                addAssignmentRow(evaluatee, 'Auto');
+                // Exclude self from workload count typically
+            }
         });
 
-        const ws = XLSX.utils.json_to_sheet(excelData);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Campaña');
+        // --- SHEET 1: CONTEXT (Simple Array of Arrays) ---
+        // Using "skipHeader: true" later requires us to pass data without keys or handle it manually.
+        // Easiest is to use json_to_sheet with header:null and skipHeader:true?
+        // Actually, let's just use Arrays.
 
-        const fileName = `${campaign.title || 'Campaña'}_${new Date().toISOString().split('T')[0]}.xlsx`;
+        sheet1_Context.push(['Ficha de Campaña']); // Title row
+        sheet1_Context.push(['']); // Spacer
+        sheet1_Context.push(['Nombre de la Campaña', campaign.title]);
+        sheet1_Context.push(['Estrategia', campaign.selectedStrategy || 'Estándar']);
+        sheet1_Context.push(['Estado Actual', campaign.status]);
+        const dateRange = `${formatDateForExcel(campaign.startDate)} al ${formatDateForExcel(campaign.endDate)}`;
+        sheet1_Context.push(['Fechas', dateRange]);
+        sheet1_Context.push(['Total Participantes', campaign.selectedUsers.length]);
+        sheet1_Context.push(['Total Evaluaciones Generadas', totalEvaluations]);
+        sheet1_Context.push(['Fecha Exportación', new Date().toLocaleString()]);
+
+
+        // --- SHEET 3: WORKLOAD FINALIZATION ---
+        const sheet3_Workload = Object.values(workloadMap).map(w => ({
+            'Nombre Evaluador': w.name,
+            'Email': w.email,
+            'TOTAL Encuestas': w.total,
+            'Como Jefe': w.boss,
+            'Como Par': w.peer,
+            'Como Equipo': w.team,
+            'Estado Carga': w.total > 15 ? 'ALTA' : 'NORMAL'
+        })).sort((a, b) => b['TOTAL Encuestas'] - a['TOTAL Encuestas']);
+
+
+        // --- BUILD WORKBOOK ---
+        const wb = XLSX.utils.book_new();
+
+        // Sheet 1: Ficha (Array of Arrays)
+        const ws1 = XLSX.utils.aoa_to_sheet(sheet1_Context);
+        ws1['!cols'] = [{ wch: 30 }, { wch: 50 }];
+        XLSX.utils.book_append_sheet(wb, ws1, 'Ficha Campaña');
+
+        // Sheet 2: Asignaciones (Assignments)
+        const ws2 = XLSX.utils.json_to_sheet(sheet2_Assignments);
+        ws2['!cols'] = [
+            { wch: 25 }, { wch: 35 }, { wch: 25 }, { wch: 20 }, { wch: 20 }, // Evaluator
+            { wch: 15 }, // Relation
+            { wch: 25 }, { wch: 35 }, { wch: 25 }, { wch: 20 }, { wch: 20 }  // Evaluatee
+        ];
+        XLSX.utils.book_append_sheet(wb, ws2, 'Asignaciones');
+
+        // Sheet 3: Carga Trabajo
+        const ws3 = XLSX.utils.json_to_sheet(sheet3_Workload);
+        ws3['!cols'] = [{ wch: 30 }, { wch: 35 }, { wch: 15 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 15 }];
+        XLSX.utils.book_append_sheet(wb, ws3, 'Carga Trabajo');
+
+        // Sheet 4: Auditoría Cobertura
+        const ws4 = XLSX.utils.json_to_sheet(sheet4_Coverage);
+        ws4['!cols'] = [{ wch: 25 }, { wch: 35 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }];
+        XLSX.utils.book_append_sheet(wb, ws4, 'Auditoría Cobertura');
+
+
+        const fileName = `${campaign.title || 'Campaña'}_Reporte_${new Date().toISOString().split('T')[0]}.xlsx`;
         XLSX.writeFile(wb, fileName);
     };
 
