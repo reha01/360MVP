@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useMultiTenant } from '../../hooks/useMultiTenant';
 import { useAuth } from '../../context/AuthContext';
-import { getCampaign, updateCampaign } from '../../services/campaignService';
+import { getCampaign, updateCampaign, getCampaignSessions } from '../../services/campaignService';
 import { getOrgUsers } from '../../services/orgStructureServiceWrapper';
 import { getOrgJobFamilies } from '../../services/jobFamilyService';
 import { CAMPAIGN_STATUS } from '../../models/Campaign';
@@ -15,7 +15,7 @@ import AddParticipantModal from './AddParticipantModal';
 import { EVALUATION_TYPES } from '../../utils/evaluatorAssignmentLogic';
 
 
-console.log('>>> APP VERSION: 2.1.16 - EXCEL FINAL <<<');
+console.log('>>> APP VERSION: 2.1.25 - EXCEL HEADER REFINEMENT <<<');
 
 const CampaignDashboard = () => {
     const { campaignId } = useParams();
@@ -76,183 +76,250 @@ const CampaignDashboard = () => {
         loadData();
     }, [currentOrgId, campaignId]);
 
-    const handleExportExcel = () => {
+    const handleExportExcel = async () => {
         if (!campaign?.selectedUsers) return;
 
-        // --- HELPER: Date Formatter ---
-        const formatDateForExcel = (dateVal) => {
-            if (!dateVal) return '-';
-            // Handle Firestore Timestamp or Date object or String
-            let d = dateVal;
-            if (dateVal.seconds) d = new Date(dateVal.seconds * 1000); // Firestore
-            if (typeof dateVal === 'string') d = new Date(dateVal);
+        try {
+            setProcessing(true);
 
-            if (isNaN(d.getTime())) return '-';
-
-            const day = String(d.getDate()).padStart(2, '0');
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const year = d.getFullYear();
-            return `${day}/${month}/${year}`;
-        };
-
-        // --- HELPER: Job Family Lookup ---
-        const getFamilyName = (user) => {
-            if (!user?.jobFamilyId) return '-';
-            return jobFamiliesMap[user.jobFamilyId]?.name || '-';
-        };
-
-        // --- PREP DATA CONTAINERS ---
-        const sheet1_Context = [];
-        const sheet2_Assignments = []; // Flat Table
-        const workloadMap = {};
-        const sheet4_Coverage = [];
-
-        // Helper to track workload
-        const trackWorkload = (evaluator, role) => {
-            if (!evaluator || !evaluator.id) return;
-            const uid = evaluator.id;
-            if (!workloadMap[uid]) {
-                const fullUser = usersMap[uid] || evaluator;
-                workloadMap[uid] = {
-                    id: uid,
-                    name: fullUser.name || 'Desconocido',
-                    email: fullUser.email || '-',
-                    boss: 0,
-                    peer: 0,
-                    team: 0,
-                    total: 0
-                };
-            }
-            if (role === 'Jefe') workloadMap[uid].boss++;
-            if (role === 'Par') workloadMap[uid].peer++;
-            if (role === 'Equipo') workloadMap[uid].team++;
-            workloadMap[uid].total++;
-        };
-
-        // --- PROCESS DATA ---
-        let totalEvaluations = 0;
-
-        campaign.selectedUsers.forEach(evaluatee => {
-            const strategy = campaign.selectedStrategy || evaluatee.campaignStrategy || 'FULL_360';
-
-            // Get Effective Evaluators
-            const mgrs = getEffectiveEvaluators(evaluatee, 'manager');
-            const peers = getEffectiveEvaluators(evaluatee, 'peer');
-            const subs = getEffectiveEvaluators(evaluatee, 'subordinate');
-            const hasSelf = campaign.evaluatorRules?.self;
-
-            let incomingCount = mgrs.length + peers.length + subs.length + (hasSelf ? 1 : 0);
-            totalEvaluations += incomingCount;
-
-            // --- SHEET 4: COVERAGE ---
-            sheet4_Coverage.push({
-                'Nombre Evaluado': evaluatee.name,
-                'Email Evaluado': evaluatee.email,
-                'Area': evaluatee.area || '-',
-                'Cargo': evaluatee.jobTitle || '-',
-                'Familia Cargo': getFamilyName(evaluatee),
-                'Total Recibidas': incomingCount,
-                '¿Tiene Jefe?': mgrs.length > 0 ? 'SÍ' : 'NO',
-                'Cant. Pares': peers.length,
-                'Cant. Equipo': subs.length,
-                '¿Autoevaluación?': hasSelf ? 'SÍ' : 'NO'
-            });
-
-            // --- SHEET 2: ASSIGNMENTS (FLAT TABLE) ---
-            const addAssignmentRow = (evaluator, relation) => {
-                // Ensure evaluator details are full even if it comes from ID only (though getEffectiveEvaluators returns objs)
-                const fullEvaluator = usersMap[evaluator.id] || evaluator;
-
-                sheet2_Assignments.push({
-                    'Evaluador - Nombre': fullEvaluator.name,
-                    'Evaluador - Email': fullEvaluator.email,
-                    'Evaluador - Cargo': fullEvaluator.jobTitle || '-',
-                    'Evaluador - Área': fullEvaluator.area || '-',
-                    'Evaluador - Job Family': getFamilyName(fullEvaluator),
-                    'RELACIÓN': relation,
-                    'Evaluado - Nombre': evaluatee.name,
-                    'Evaluado - Email': evaluatee.email,
-                    'Evaluado - Cargo': evaluatee.jobTitle || '-',
-                    'Evaluado - Área': evaluatee.area || '-',
-                    'Evaluado - Job Family': getFamilyName(evaluatee)
+            // 1. Fetch Integration Data (Sessions for Status)
+            let sessionsMap = {};
+            try {
+                const sessions = await getCampaignSessions(currentOrgId, campaignId);
+                sessions.forEach(s => {
+                    sessionsMap[s.evaluateeId] = s;
                 });
+            } catch (e) {
+                console.warn('Could not load sessions for Excel export:', e);
+            }
+
+            // --- HELPER 1: Date Formatter ---
+            const formatDateForExcel = (dateVal) => {
+                if (!dateVal) return '-';
+                try {
+                    if (typeof dateVal.toDate === 'function') return dateVal.toDate().toLocaleDateString('es-ES');
+                    if (dateVal.seconds) return new Date(dateVal.seconds * 1000).toLocaleDateString('es-ES');
+                    const d = new Date(dateVal);
+                    if (!isNaN(d.getTime())) return d.toLocaleDateString('es-ES');
+                } catch (e) { console.error(e); }
+                return '-';
             };
 
-            // 1. Managers
-            mgrs.forEach(ev => { trackWorkload(ev, 'Jefe'); addAssignmentRow(ev, 'Jefe'); });
+            // --- HELPER 2: ROBUST HYDRATION (THE FIX) ---
+            const getUserData = (userId) => {
+                const safeId = String(userId);
+                // 1. Strict Lookup from Source of Truth
+                const user = usersMap[safeId] || allUsers.find(u => String(u.id) === safeId);
 
-            // 2. Peers
-            peers.forEach(ev => { trackWorkload(ev, 'Par'); addAssignmentRow(ev, 'Par'); });
+                if (!user) {
+                    return {
+                        name: 'Usuario Eliminado',
+                        email: '-',
+                        jobTitle: '-',
+                        area: '-',
+                        jobFamilyName: '-'
+                    };
+                }
 
-            // 3. Team
-            subs.forEach(ev => { trackWorkload(ev, 'Equipo'); addAssignmentRow(ev, 'Equipo'); });
+                // 2. Resolve Job Family Name specifically
+                let jfName = '-';
+                if (user.jobFamilyName) jfName = user.jobFamilyName;
+                else if (user.jobFamilyId && jobFamiliesMap[user.jobFamilyId]) jfName = jobFamiliesMap[user.jobFamilyId].name;
+                else if (user.job_family_id && jobFamiliesMap[user.job_family_id]) jfName = jobFamiliesMap[user.job_family_id].name;
+                else if (user.family) jfName = user.family;
 
-            // 4. Self
-            if (hasSelf) {
-                addAssignmentRow(evaluatee, 'Auto');
-                // Exclude self from workload count typically
-            }
-        });
+                // 3. Return Normalized Object
+                return {
+                    id: user.id,
+                    name: user.name || user.displayName || 'Sin Nombre',
+                    email: user.email || '-',
+                    // Variants for Title
+                    jobTitle: user.jobTitle || user.position || user.cargo || user.job_title || '-',
+                    // Variants for Area
+                    area: user.area || user.department || user.areaName || user.area_name || '-',
+                    // Resolved Job Family
+                    jobFamilyName: jfName
+                };
+            };
 
-        // --- SHEET 1: CONTEXT (Simple Array of Arrays) ---
-        // Using "skipHeader: true" later requires us to pass data without keys or handle it manually.
-        // Easiest is to use json_to_sheet with header:null and skipHeader:true?
-        // Actually, let's just use Arrays.
+            // --- PREP DATA CONTAINERS ---
+            const sheet1_Context = [];
+            const sheet2_Assignments = [];
+            const workloadMap = {};
+            const sheet4_Coverage = [];
 
-        sheet1_Context.push(['Ficha de Campaña']); // Title row
-        sheet1_Context.push(['']); // Spacer
-        sheet1_Context.push(['Nombre de la Campaña', campaign.title]);
-        sheet1_Context.push(['Estrategia', campaign.selectedStrategy || 'Estándar']);
-        sheet1_Context.push(['Estado Actual', campaign.status]);
-        const dateRange = `${formatDateForExcel(campaign.startDate)} al ${formatDateForExcel(campaign.endDate)}`;
-        sheet1_Context.push(['Fechas', dateRange]);
-        sheet1_Context.push(['Total Participantes', campaign.selectedUsers.length]);
-        sheet1_Context.push(['Total Evaluaciones Generadas', totalEvaluations]);
-        sheet1_Context.push(['Fecha Exportación', new Date().toLocaleString()]);
+            const trackWorkload = (evaluatorId, evaluatorData, role) => {
+                if (!evaluatorId) return;
+                if (!workloadMap[evaluatorId]) {
+                    workloadMap[evaluatorId] = {
+                        id: evaluatorId,
+                        name: evaluatorData.name,
+                        email: evaluatorData.email,
+                        boss: 0, peer: 0, team: 0, total: 0
+                    };
+                }
+                if (role === 'Jefe') workloadMap[evaluatorId].boss++;
+                if (role === 'Par') workloadMap[evaluatorId].peer++;
+                if (role === 'Equipo') workloadMap[evaluatorId].team++;
+                workloadMap[evaluatorId].total++;
+            };
 
+            // --- HELPER: CHECK STATUS ---
+            const getStatus = (session, evaluatorId, typeBox) => {
+                if (!session || !session.results) return { status: 'Pendiente', date: '-' };
 
-        // --- SHEET 3: WORKLOAD FINALIZATION ---
-        const sheet3_Workload = Object.values(workloadMap).map(w => ({
-            'Nombre Evaluador': w.name,
-            'Email': w.email,
-            'TOTAL Encuestas': w.total,
-            'Como Jefe': w.boss,
-            'Como Par': w.peer,
-            'Como Equipo': w.team,
-            'Estado Carga': w.total > 15 ? 'ALTA' : 'NORMAL'
-        })).sort((a, b) => b['TOTAL Encuestas'] - a['TOTAL Encuestas']);
+                const collection = session.results[typeBox];
+                if (!collection) return { status: 'Pendiente', date: '-' };
 
+                let match = null;
+                if (Array.isArray(collection)) {
+                    match = collection.find(r => String(r.evaluatorId) === String(evaluatorId));
+                } else if (typeof collection === 'object') {
+                    if (collection[String(evaluatorId)]) {
+                        match = collection[String(evaluatorId)];
+                    } else if ((collection.completedAt || collection.submittedAt) && typeBox === 'self') {
+                        // For self, often it's just the object itself
+                        match = collection;
+                    }
+                }
 
-        // --- BUILD WORKBOOK ---
-        const wb = XLSX.utils.book_new();
-
-        // Sheet 1: Ficha (Array of Arrays)
-        const ws1 = XLSX.utils.aoa_to_sheet(sheet1_Context);
-        ws1['!cols'] = [{ wch: 30 }, { wch: 50 }];
-        XLSX.utils.book_append_sheet(wb, ws1, 'Ficha Campaña');
-
-        // Sheet 2: Asignaciones (Assignments)
-        const ws2 = XLSX.utils.json_to_sheet(sheet2_Assignments);
-        ws2['!cols'] = [
-            { wch: 25 }, { wch: 35 }, { wch: 25 }, { wch: 20 }, { wch: 20 }, // Evaluator
-            { wch: 15 }, // Relation
-            { wch: 25 }, { wch: 35 }, { wch: 25 }, { wch: 20 }, { wch: 20 }  // Evaluatee
-        ];
-        XLSX.utils.book_append_sheet(wb, ws2, 'Asignaciones');
-
-        // Sheet 3: Carga Trabajo
-        const ws3 = XLSX.utils.json_to_sheet(sheet3_Workload);
-        ws3['!cols'] = [{ wch: 30 }, { wch: 35 }, { wch: 15 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 15 }];
-        XLSX.utils.book_append_sheet(wb, ws3, 'Carga Trabajo');
-
-        // Sheet 4: Auditoría Cobertura
-        const ws4 = XLSX.utils.json_to_sheet(sheet4_Coverage);
-        ws4['!cols'] = [{ wch: 25 }, { wch: 35 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }];
-        XLSX.utils.book_append_sheet(wb, ws4, 'Auditoría Cobertura');
+                if (match && (match.completedAt || match.submittedAt || match.updatedAt)) {
+                    return {
+                        status: 'Completada',
+                        date: formatDateForExcel(match.completedAt || match.submittedAt || match.updatedAt)
+                    };
+                }
+                return { status: 'Pendiente', date: '-' };
+            };
 
 
-        const fileName = `${campaign.title || 'Campaña'}_Reporte_${new Date().toISOString().split('T')[0]}.xlsx`;
-        XLSX.writeFile(wb, fileName);
+            // --- CORE LOOP ---
+            let totalEvaluations = 0;
+
+            campaign.selectedUsers.forEach(evaluateeRaw => {
+                // HYDRATE EVALUATEE
+                const evaluatee = getUserData(evaluateeRaw.id || evaluateeRaw);
+                const session = sessionsMap[evaluatee.id];
+
+                // Get Effective Evaluators (IDs only usually, need hydration)
+                const mgrsRaw = getEffectiveEvaluators(evaluateeRaw, 'manager');
+                const peersRaw = getEffectiveEvaluators(evaluateeRaw, 'peer');
+                const subsRaw = getEffectiveEvaluators(evaluateeRaw, 'subordinate');
+                const hasSelf = campaign.evaluatorRules?.self;
+
+                let incomingCount = mgrsRaw.length + peersRaw.length + subsRaw.length + (hasSelf ? 1 : 0);
+                totalEvaluations += incomingCount;
+
+                // --- PUSH TO SHEET 4 (COVERAGE) ---
+                sheet4_Coverage.push({
+                    'Nombre Evaluado': evaluatee.name,
+                    'Email Evaluado': evaluatee.email,
+                    'Area': evaluatee.area,
+                    'Cargo': evaluatee.jobTitle,
+                    'Familia Cargo': evaluatee.jobFamilyName,
+                    'Total Recibidas': incomingCount,
+                    '¿Tiene Jefe?': mgrsRaw.length > 0 ? 'SÍ' : 'NO',
+                    'Cant. Pares': peersRaw.length,
+                    'Cant. Equipo': subsRaw.length,
+                    '¿Autoevaluación?': hasSelf ? 'SÍ' : 'NO'
+                });
+
+                // --- PUSH TO SHEET 2 (ASSIGNMENTS) ---
+                const addRow = (evaluatorId, relationLabel, resultTypeKey) => {
+                    // HYDRATE EVALUATOR
+                    const evaluator = getUserData(evaluatorId);
+                    const { status, date } = getStatus(session, evaluatorId, resultTypeKey);
+
+                    sheet2_Assignments.push({
+                        'Evaluador': evaluator.name,
+                        'Email': evaluator.email,
+                        'Cargo': evaluator.jobTitle,
+                        'Área': evaluator.area,
+                        'Job Family': evaluator.jobFamilyName,
+                        'Evaluación': relationLabel,
+                        'Evaluado': evaluatee.name,
+                        'Email Evaluado': evaluatee.email,
+                        'Cargo Evaluado': evaluatee.jobTitle,
+                        'Área Evaluado': evaluatee.area,
+                        'Job Family Evaluado': evaluatee.jobFamilyName,
+                        'Estado Evaluación': status,
+                        'Fecha evaluación': date
+                    });
+
+                    if (relationLabel !== 'Auto') {
+                        trackWorkload(evaluatorId, evaluator, relationLabel);
+                    }
+                };
+
+                // 1. Managers
+                mgrsRaw.forEach(uid => addRow(uid, 'Jefe', 'manager'));
+                // 2. Peers
+                peersRaw.forEach(uid => addRow(uid, 'Par', 'peers'));
+                // 3. Team
+                subsRaw.forEach(uid => addRow(uid, 'Equipo', 'subordinates'));
+                // 4. Self
+                if (hasSelf) {
+                    addRow(evaluatee.id, 'Auto', 'self');
+                }
+            });
+
+
+            // --- BUILD WORKBOOK ---
+            const wb = XLSX.utils.book_new();
+
+            // S1: Ficha
+            sheet1_Context.push(
+                { 'Campo': 'Campaña', 'Valor': campaign.title },
+                { 'Campo': 'Fecha Inicio', 'Valor': formatDateForExcel(campaign.config?.startDate) },
+                { 'Campo': 'Fecha Fin', 'Valor': formatDateForExcel(campaign.config?.endDate) },
+                { 'Campo': 'Total Evaluados', 'Valor': campaign.selectedUsers.length },
+                { 'Campo': 'Total Evaluaciones', 'Valor': totalEvaluations }
+            );
+            const ws1 = XLSX.utils.json_to_sheet(sheet1_Context);
+            XLSX.utils.book_append_sheet(wb, ws1, "Ficha Campaña");
+
+            // S2: Asignaciones
+            const ws2 = XLSX.utils.json_to_sheet(sheet2_Assignments);
+            // Optional: Auto-width columns
+            const wscols2 = [
+                { wch: 30 }, { wch: 35 }, { wch: 25 }, { wch: 25 }, { wch: 25 }, // Evaluator
+                { wch: 15 }, // Rel
+                { wch: 30 }, { wch: 35 }, { wch: 25 }, { wch: 25 }, { wch: 25 }, // Evaluatee
+                { wch: 20 }, { wch: 15 } // Status
+            ];
+            ws2['!cols'] = wscols2;
+            XLSX.utils.book_append_sheet(wb, ws2, "Asignaciones");
+
+            // S3: Carga de Trabajo
+            const workloadData = Object.values(workloadMap).map(w => ({
+                'Nombre Evaluador': w.name,
+                'Email': w.email,
+                'TOTAL Encuestas': w.total,
+                'Como Jefe': w.boss,
+                'Como Par': w.peer,
+                'Como Equipo': w.team,
+                'Estado Carga': w.total > 15 ? 'ALTA' : 'NORMAL'
+            })).sort((a, b) => b['TOTAL Encuestas'] - a['TOTAL Encuestas']);
+
+            const ws3 = XLSX.utils.json_to_sheet(workloadData);
+            ws3['!cols'] = [{ wch: 30 }, { wch: 35 }, { wch: 15 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 15 }];
+            XLSX.utils.book_append_sheet(wb, ws3, "Carga de Trabajo");
+
+            // S4: Cobertura
+            const ws4 = XLSX.utils.json_to_sheet(sheet4_Coverage);
+            ws4['!cols'] = [{ wch: 30 }, { wch: 35 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }];
+            XLSX.utils.book_append_sheet(wb, ws4, "Auditoría Cobertura");
+
+            // Export
+            const fileName = `${campaign.title || 'Campaña'}_Reporte_${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+
+        } catch (err) {
+            console.error('Export Error:', err);
+            alert('Hubo un error al generar el Excel. Revisa la consola.');
+        } finally {
+            setProcessing(false);
+        }
     };
 
     const handleLaunchCampaign = async () => {
@@ -759,6 +826,7 @@ const CampaignDashboard = () => {
                     >
                         📊 Exportar Excel
                     </button>
+                    <span style={{ fontSize: '10px', color: '#999', margin: '0 5px' }}>v2.1.25</span>
                     {campaign.status === CAMPAIGN_STATUS.DRAFT && (
                         <>
                             <button
