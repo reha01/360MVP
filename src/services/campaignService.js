@@ -37,7 +37,7 @@ import {
   CAMPAIGN_STATUS
 } from '../models/Campaign';
 import jobFamilyService from './jobFamilyService';
-import orgStructureService from './orgStructureService';
+import orgStructureService from './orgStructureServiceWrapper';
 import evaluatorAssignmentService from './evaluatorAssignmentService';
 
 // ========== CAMPAIGN MANAGEMENT ==========
@@ -412,12 +412,52 @@ export const getCampaignSession = async (orgId, session360Id) => {
  */
 export const generateEvaluation360Sessions = async (orgId, campaignId, campaign) => {
   try {
-    // Obtener usuarios según filtros
-    const users = await getUsersByFilters(orgId, campaign.evaluateeFilters);
+    let users = [];
 
-    if (users.length === 0) {
+    // ESTRATEGIA PRIORITARIA: USAR USUARIOS SELECCIONADOS MANUALMENTE
+    // Esto evita depender de 'evaluateeFilters' que pueden estar desincronizados o vacíos
+    // en el enfoque "Container First".
+    if (campaign.selectedUsers && campaign.selectedUsers.length > 0) {
+      console.log(`[Campaign] Using ${campaign.selectedUsers.length} manually selected users.`);
+
+      // HYDRATION STEP:
+      // Los usuarios en selectedUsers pueden ser parciales (solo id, name).
+      // Necesitamos jobFamilyIds para asignar tests.
+      // Intentamos hidratarlos obteniendo todos los usuarios (que sabemos que funciona en Dashboard)
+      // y haciendo match.
+      try {
+        const allOrgUsers = await orgStructureService.getOrgUsers(orgId);
+        const usersMap = allOrgUsers.reduce((acc, u) => { acc[u.id] = u; return acc; }, {});
+
+        users = campaign.selectedUsers.map(partialUser => {
+          const fullUser = usersMap[partialUser.id];
+          if (fullUser) return fullUser;
+
+          console.warn(`[Campaign] User ${partialUser.id} not found in Org users. Using partial data.`);
+          return partialUser;
+        });
+      } catch (hydrationError) {
+        console.warn('[Campaign] Failed to hydrate selected users, using partial data:', hydrationError);
+        users = campaign.selectedUsers;
+      }
+
+    } else {
+      // FALLBACK: USAR FILTROS (LEGACY)
+      console.log('[Campaign] No selectedUsers found, falling back to evaluateeFilters.');
+      users = await getUsersByFilters(orgId, campaign.evaluateeFilters);
+    }
+
+    if (!users || users.length === 0) {
       throw new Error('No users found matching the campaign filters');
     }
+
+    // NORMALIZE USERS (Legacy Support): Ensure jobFamilyIds exists
+    users = users.map(u => {
+      if (!u.jobFamilyIds && u.jobFamilyId) {
+        return { ...u, jobFamilyIds: [u.jobFamilyId] };
+      }
+      return u;
+    });
 
     // Obtener Job Families para asignación automática de tests
     const jobFamilies = await jobFamilyService.getOrgJobFamilies(orgId);
@@ -431,12 +471,30 @@ export const generateEvaluation360Sessions = async (orgId, campaignId, campaign)
     const sessions = [];
 
     for (const user of users) {
-      // Determinar test asignado
-      const testAssignment = campaign.testAssignments[user.id] ||
-        getDefaultTestForUser(user, jobFamiliesMap);
+      // 1. Check explicit assignment
+      let testAssignment = campaign.testAssignments?.[user.id];
 
+      // 2. Check implicit assignment (Job Family)
       if (!testAssignment) {
-        console.warn(`[Campaign] No test assigned for user ${user.id}, skipping`);
+        testAssignment = getDefaultTestForUser(user, jobFamiliesMap);
+      }
+
+      // 3. CAMPAIGN-LEVEL FALLBACK: Use the test selected during wizard creation
+      if (!testAssignment) {
+        const campaignDefaultTestId = campaign.selectedTestId || campaign.testConfiguration?.defaultTestId;
+        if (campaignDefaultTestId) {
+          console.log(`[Campaign] Using campaign default test ${campaignDefaultTestId} for user ${user.id}`);
+          testAssignment = {
+            testId: campaignDefaultTestId,
+            version: '1.0',
+            reason: 'Campaign default test'
+          };
+        }
+      }
+
+      // 4. Final Check: If still no test, skip user
+      if (!testAssignment) {
+        console.warn(`[Campaign] CRITICAL: No test assigned for user ${user.id} (${user.name}). Skipping session generation.`);
         continue;
       }
 
@@ -467,6 +525,10 @@ export const generateEvaluation360Sessions = async (orgId, campaignId, campaign)
       });
 
       sessions.push(session);
+    }
+
+    if (sessions.length === 0) {
+      throw new Error('No sessions could be generated. Please check Test Assignments or Job Family configurations.');
     }
 
     // Ejecutar batch

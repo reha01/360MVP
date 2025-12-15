@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useMultiTenant } from '../../hooks/useMultiTenant';
 import { useAuth } from '../../context/AuthContext';
-import { getCampaign, updateCampaign, getCampaignSessions } from '../../services/campaignService';
+import { getCampaign, updateCampaign, getCampaignSessions, activateCampaign } from '../../services/campaignService';
+import emailService from '../../services/emailService';
 import { getOrgUsers } from '../../services/orgStructureServiceWrapper';
 import { getOrgJobFamilies } from '../../services/jobFamilyService';
 import { CAMPAIGN_STATUS } from '../../models/Campaign';
@@ -15,7 +16,7 @@ import AddParticipantModal from './AddParticipantModal';
 import { EVALUATION_TYPES } from '../../utils/evaluatorAssignmentLogic';
 
 
-console.log('>>> APP VERSION: 2.1.25 - EXCEL HEADER REFINEMENT <<<');
+console.log('>>> APP VERSION: 2.1.32 - PERSIST SELECTED TEST FIX <<<');
 
 const CampaignDashboard = () => {
     const { campaignId } = useParams();
@@ -207,6 +208,25 @@ const CampaignDashboard = () => {
                 const subsRaw = getEffectiveEvaluators(evaluateeRaw, 'subordinate');
                 const hasSelf = campaign.evaluatorRules?.self;
 
+                // --- STRATEGY FILTERING (Fix for Workload Calculations) ---
+                const strategy = campaign.selectedStrategy || 'SELF_ONLY';
+                // Normalize "PEER" types
+                const isPeerStrategy = ['PEER', 'PEER_TO_PEER', 'PEERS', 'Peer-to-Peer', 'P2P', 'COLLABORATION', EVALUATION_TYPES.PEER_TO_PEER].includes(strategy);
+
+                if (strategy === EVALUATION_TYPES.TOP_DOWN) {
+                    peersRaw.length = 0;
+                    subsRaw.length = 0;
+                } else if (isPeerStrategy) {
+                    mgrsRaw.length = 0;
+                    subsRaw.length = 0;
+                } else if (strategy === EVALUATION_TYPES.LEADERSHIP_180) {
+                    peersRaw.length = 0;
+                } else if (strategy === EVALUATION_TYPES.SELF_ONLY) {
+                    mgrsRaw.length = 0;
+                    peersRaw.length = 0;
+                    subsRaw.length = 0;
+                }
+
                 let incomingCount = mgrsRaw.length + peersRaw.length + subsRaw.length + (hasSelf ? 1 : 0);
                 totalEvaluations += incomingCount;
 
@@ -341,27 +361,42 @@ const CampaignDashboard = () => {
 
         const hasErrors = campaign.selectedUsers?.some(user => checkMissingEvaluators(user).hasError);
         if (hasErrors) {
-            alert('No se puede lanzar la campaña porque hay usuarios con evaluadores obligatorios faltantes.');
-            return;
+            const confirmMissing = window.confirm(
+                `HAY USUARIOS CON ERRORES DE EVALUADORES (ej. FALTA JEFE).\n\n` +
+                `Si lanzas ahora, estos usuarios podrían quedar incompletos.\n` +
+                `¿Deseas lanzar de todas formas?`
+            );
+            if (!confirmMissing) return;
         }
 
-        if (!window.confirm('¿Estás seguro de que deseas lanzar esta campaña?')) {
+        if (!window.confirm('¿Estás seguro de LANZAR esta campaña?\n\n- Se generarán las sesiones de evaluación.\n- Se enviarán correos a los participantes (Simulado en Staging).')) {
             return;
         }
 
         try {
             setProcessing(true);
-            await updateCampaign(currentOrgId, campaign.id, {
-                status: CAMPAIGN_STATUS.ACTIVE,
-                launchedAt: new Date()
-            });
+
+            // 1. Activate Campaign (Generate Sessions in Backend)
+            console.log('🚀 Activating campaign...');
+            const { sessions } = await activateCampaign(currentOrgId, campaign.id, user.uid);
+            console.log(`✅ Campaign activated! Generated ${sessions?.length || 0} sessions.`);
+
+            // 2. Send Emails (Simulation/Real)
+            // Note: In a real Scenario we would call this:
+            // await emailService.sendInvitations(campaign.id, sessions.map(s => s.id));
+            console.log('📧 (Simulation) Emails would be sent here via emailService.');
 
             setCampaign(prev => ({
                 ...prev,
-                status: CAMPAIGN_STATUS.ACTIVE
+                status: CAMPAIGN_STATUS.ACTIVE,
+                stats: {
+                    ...prev.stats,
+                    totalEvaluatees: sessions?.length || 0
+                }
             }));
 
-            alert('¡Campaña lanzada con éxito!');
+            alert(`¡Campaña lanzada con éxito!\nSe han generado ${sessions?.length || 0} sesiones de evaluación.`);
+
         } catch (err) {
             console.error('Error launching campaign:', err);
             alert('Error al lanzar la campaña: ' + err.message);
@@ -826,7 +861,7 @@ const CampaignDashboard = () => {
                     >
                         📊 Exportar Excel
                     </button>
-                    <span style={{ fontSize: '10px', color: '#999', margin: '0 5px' }}>v2.1.25</span>
+                    <span style={{ fontSize: '10px', color: '#999', margin: '0 5px' }}>v2.1.26</span>
                     {campaign.status === CAMPAIGN_STATUS.DRAFT && (
                         <>
                             <button

@@ -120,6 +120,14 @@ export const createCampaignModel = (data) => {
       external: false
     },
 
+    // Test selection from Wizard (Campaign-level default)
+    selectedTestId: data.selectedTestId || null,
+    testConfiguration: data.testConfiguration || {
+      mode: 'unified',
+      defaultTestId: null,
+      assignments: {}
+    },
+
     // Tests asignados
     testAssignments: data.testAssignments || {}, // { userId: { testId, version, reason } }
 
@@ -407,9 +415,11 @@ export const canActivateCampaign = (campaign) => {
     issues.push('Debe seleccionar evaluados');
   }
 
+  /*
   if (Object.keys(campaign.testAssignments).length === 0) {
     issues.push('Debe asignar tests a los evaluados');
   }
+  */
 
   return {
     canActivate: issues.length === 0,
