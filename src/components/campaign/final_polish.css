@@ -1,0 +1,37 @@
+/* ========================================= */
+/* FINAL POLISH: SPACING & CONSISTENCY (v2.2.1) */
+/* ========================================= */
+
+.header-actions-compact {
+    display: flex;
+    align-items: center;
+    /* Vertical alignment */
+    justify-content: space-between;
+    width: 100%;
+}
+
+.actions-group-pro {
+    display: flex;
+    align-items: center;
+    /* Vertical alignment */
+    gap: 24px;
+    /* GAP-6: Wider spacing as requested */
+}
+
+/* UNIFORM BUTTON SIZING override */
+/* All buttons must be h-10 (40px) and px-4 (16px) */
+.btn-secondary-compact,
+.btn-primary-compact,
+.btn-destructive-compact {
+    height: 40px !important;
+    /* h-10 */
+    padding: 0 16px !important;
+    /* px-4 */
+    font-size: 14px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    /* Ensure rounded-lg stays */
+}

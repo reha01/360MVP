@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import {
+    ArrowLeft,
+    Settings,
+    FileSpreadsheet,
+    Trash2,
+    Rocket
+} from 'lucide-react';
 import { useMultiTenant } from '../../hooks/useMultiTenant';
 import { useAuth } from '../../context/AuthContext';
 import { getCampaign, updateCampaign, getCampaignSessions, activateCampaign } from '../../services/campaignService';
@@ -13,6 +20,7 @@ import * as XLSX from 'xlsx';
 import './CampaignDashboard.css';
 import EvaluatorManagementModal from './EvaluatorManagementModal';
 import AddParticipantModal from './AddParticipantModal';
+import CampaignWizard from './CampaignWizard';
 import { EVALUATION_TYPES } from '../../utils/evaluatorAssignmentLogic';
 
 
@@ -37,6 +45,7 @@ const CampaignDashboard = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedEvaluatee, setSelectedEvaluatee] = useState(null);
     const [isAddParticipantModalOpen, setIsAddParticipantModalOpen] = useState(false);
+    const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
 
     useEffect(() => {
         if (!currentOrgId || !campaignId) return;
@@ -438,6 +447,15 @@ const CampaignDashboard = () => {
         }
     };
 
+    const handleConfigUpdateSuccess = (updatedCampaign) => {
+        setCampaign(prev => ({
+            ...prev,
+            ...updatedCampaign,
+            stats: updatedCampaign.stats || prev.stats // Ensure stats are preserved/updated
+        }));
+        setIsConfigModalOpen(false);
+    };
+
     const handleOpenModal = (evaluatee) => {
         // Detect relationships first (what SHOULD be there)
         const { myManagers, myTeam, myPeers } = detectRelationships(evaluatee, allUsers, usersMap);
@@ -813,6 +831,31 @@ const CampaignDashboard = () => {
         };
     };
 
+    /**
+     * HELPER: Get readable label and explanation for strategy
+     */
+    const getStrategyDisplayInfo = (strategy) => {
+        switch (strategy) {
+            case EVALUATION_TYPES.SELF_ONLY:
+                return { label: 'Autoevaluación', desc: 'Cada colaborador se evalúa a sí mismo. No hay evaluadores adicionales.' };
+            case EVALUATION_TYPES.TOP_DOWN:
+                return { label: 'Top-Down (Jefe)', desc: 'Jefes evalúan a sus colaboradores. Feedback tradicional descendente.' };
+            case EVALUATION_TYPES.LEADERSHIP_180:
+                return { label: '180º Liderazgo', desc: 'Jefes y Equipo directo evalúan al líder. Feedback bidireccional vertical.' };
+            case 'PEER':
+            case 'PEER_TO_PEER':
+            case 'PEERS':
+            case 'P2P':
+            case EVALUATION_TYPES.PEER_TO_PEER:
+                return { label: 'Pares (Peer-to-Peer)', desc: 'Colaboradores se evalúan entre sí (nivel horizontal).' };
+            case EVALUATION_TYPES.FULL_360:
+                return { label: 'Evaluación 360°', desc: 'Evaluación completa: Auto, Jefe, Pares y Equipo.' };
+            case 'CUSTOM':
+            default:
+                return { label: 'Personalizada', desc: 'Configuración mixta o manual de evaluadores.' };
+        }
+    };
+
     if (loading) return <div className="dashboard-compact"><div className="loading-state">Cargando campaña...</div></div>;
     if (error) return <div className="dashboard-compact"><div className="error-state">Error: {error}</div></div>;
     if (!campaign) return <div className="dashboard-compact"><div className="empty-state">No se encontró la campaña</div></div>;
@@ -837,46 +880,169 @@ const CampaignDashboard = () => {
                             {campaign.title} <span className="edit-pencil">✏️</span>
                         </h1>
                     )}
-                    <div className="meta-row">
+
+                    {/* Strategy Info - Clean Layout */}
+                    <div style={{ marginTop: '4px', marginBottom: '8px' }}>
+                        <div style={{ fontSize: '14px', fontWeight: 600, color: '#1f2937' }}>
+                            {getStrategyDisplayInfo(campaign.selectedStrategy).label}
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>
+                            {getStrategyDisplayInfo(campaign.selectedStrategy).desc}
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '4px', fontSize: '13px', color: '#6b7280' }}>
                         <span className={`badge-status ${campaign.status === CAMPAIGN_STATUS.ACTIVE ? 'active' : 'draft'}`}>
                             {campaign.status === CAMPAIGN_STATUS.ACTIVE ? 'Activa' : 'Borrador'}
                         </span>
-                        <span className="meta-item">{campaign.selectedUsers?.length || 0} Evaluados</span>
+                        <span>{campaign.selectedUsers?.length || 0} Evaluados</span>
                         {campaign.config?.startDate && (
-                            <span className="meta-item">
-                                {formatDate(campaign.config.startDate)} - {formatDate(campaign.config.endDate)}
-                            </span>
+                            <>
+                                <span style={{ color: '#9ca3af' }}>•</span>
+                                <span>Desde {formatDate(campaign.config.startDate)}</span>
+                                <span style={{ color: '#9ca3af' }}>•</span>
+                                <span>Hasta {formatDate(campaign.config.endDate)}</span>
+                            </>
                         )}
                     </div>
                 </div>
 
-                <div className="header-actions-compact">
-                    <button className="btn-secondary-compact" onClick={() => navigate('/gestion/campanas')}>
-                        Volver
-                    </button>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', width: '100%', gap: '12px' }}>
+                    {/* Volver */}
                     <button
-                        className="btn-export-compact"
+                        onClick={() => navigate('/gestion/campanas')}
+                        title="Volver"
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            height: '40px',
+                            minWidth: '120px',
+                            padding: '0 16px',
+                            background: '#ffffff',
+                            color: '#374151',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            fontWeight: 500,
+                            cursor: 'pointer',
+                            boxShadow: '0 1px 2px 0 rgb(0 0 0 / 0.05)'
+                        }}
+                    >
+                        <ArrowLeft size={18} strokeWidth={2} />
+                        <span>Volver</span>
+                    </button>
+
+                    {/* Actions */}
+                    <button
+                        onClick={() => setIsConfigModalOpen(true)}
+                        title="Configuración"
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            height: '40px',
+                            minWidth: '140px',
+                            padding: '0 16px',
+                            background: '#ffffff',
+                            color: '#374151',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            fontWeight: 500,
+                            cursor: 'pointer',
+                            boxShadow: '0 1px 2px 0 rgb(0 0 0 / 0.05)'
+                        }}
+                    >
+                        <Settings size={18} strokeWidth={2} />
+                        <span>Configuración</span>
+                    </button>
+
+                    <button
                         onClick={handleExportExcel}
                         disabled={!campaign.selectedUsers || campaign.selectedUsers.length === 0}
+                        title="Exportar"
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            height: '40px',
+                            minWidth: '120px',
+                            padding: '0 16px',
+                            background: '#ffffff',
+                            color: '#374151',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            fontWeight: 500,
+                            cursor: 'pointer',
+                            boxShadow: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+                            opacity: (!campaign.selectedUsers || campaign.selectedUsers.length === 0) ? 0.5 : 1
+                        }}
                     >
-                        📊 Exportar Excel
+                        <FileSpreadsheet size={18} strokeWidth={2} />
+                        <span>Exportar</span>
                     </button>
-                    <span style={{ fontSize: '10px', color: '#999', margin: '0 5px' }}>v2.1.26</span>
+
+                    {/* Divider */}
+                    <div style={{ width: '1px', height: '28px', background: '#e5e7eb' }}></div>
+
                     {campaign.status === CAMPAIGN_STATUS.DRAFT && (
                         <>
                             <button
                                 onClick={handleDeleteCampaign}
                                 disabled={processing}
-                                className="btn-danger-compact"
+                                title="Eliminar"
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    height: '40px',
+                                    padding: '0 16px',
+                                    background: '#ffffff',
+                                    color: '#dc2626',
+                                    border: '1px solid #e5e7eb',
+                                    borderRadius: '8px',
+                                    fontSize: '14px',
+                                    fontWeight: 500,
+                                    cursor: 'pointer',
+                                    boxShadow: '0 1px 2px 0 rgb(0 0 0 / 0.05)'
+                                }}
                             >
-                                Eliminar
+                                <Trash2 size={18} strokeWidth={2} />
+                                <span>Eliminar</span>
                             </button>
                             <button
                                 onClick={handleLaunchCampaign}
                                 disabled={processing}
-                                className="btn-primary-compact"
+                                title="Lanzar Campaña"
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    height: '40px',
+                                    padding: '0 20px',
+                                    background: '#0f172a',
+                                    color: '#ffffff',
+                                    border: '1px solid transparent',
+                                    borderRadius: '8px',
+                                    fontSize: '14px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    boxShadow: '0 1px 2px 0 rgb(0 0 0 / 0.1)'
+                                }}
                             >
-                                {processing ? 'Lanzando...' : '🚀 Lanzar Campaña'}
+                                {processing ? (
+                                    <span className="spinner-small"></span>
+                                ) : (
+                                    <>
+                                        <Rocket size={18} strokeWidth={2} />
+                                        <span>Lanzar Campaña</span>
+                                    </>
+                                )}
                             </button>
                         </>
                     )}
@@ -1069,22 +1235,24 @@ const CampaignDashboard = () => {
             </div>
 
             {/* Modals */}
-            {isModalOpen && selectedEvaluatee && (
-                <EvaluatorManagementModal
-                    isOpen={isModalOpen}
-                    onClose={() => {
-                        setIsModalOpen(false);
-                        setSelectedEvaluatee(null);
-                    }}
-                    evaluatee={selectedEvaluatee}
-                    allUsers={allUsers}
-                    onSave={handleSaveEvaluators}
-                    outgoingEvaluations={selectedEvaluatee.outgoingEvaluations}
-                    evaluatorRules={selectedEvaluatee.config}
-                    jobFamiliesMap={jobFamiliesMap}
-                    campaignStrategy={campaign.selectedStrategy} // PASS STRATEGY EXPLICITLY
-                />
-            )}
+            {
+                isModalOpen && selectedEvaluatee && (
+                    <EvaluatorManagementModal
+                        isOpen={isModalOpen}
+                        onClose={() => {
+                            setIsModalOpen(false);
+                            setSelectedEvaluatee(null);
+                        }}
+                        evaluatee={selectedEvaluatee}
+                        allUsers={allUsers}
+                        onSave={handleSaveEvaluators}
+                        outgoingEvaluations={selectedEvaluatee.outgoingEvaluations}
+                        evaluatorRules={selectedEvaluatee.config}
+                        jobFamiliesMap={jobFamiliesMap}
+                        campaignStrategy={campaign.selectedStrategy} // PASS STRATEGY EXPLICITLY
+                    />
+                )
+            }
             <AddParticipantModal
                 isOpen={isAddParticipantModalOpen}
                 onClose={() => setIsAddParticipantModalOpen(false)}
@@ -1092,6 +1260,19 @@ const CampaignDashboard = () => {
                 existingParticipantIds={campaign.selectedUsers?.map(u => u.id) || []}
                 onAdd={handleAddParticipant}
             />
+
+            {/* Config Wizard */}
+            {
+                isConfigModalOpen && (
+                    <CampaignWizard
+                        isOpen={isConfigModalOpen}
+                        onClose={() => setIsConfigModalOpen(false)}
+                        isEditMode={true}
+                        initialData={campaign}
+                        onSuccess={handleConfigUpdateSuccess}
+                    />
+                )
+            }
         </div >
     );
 };

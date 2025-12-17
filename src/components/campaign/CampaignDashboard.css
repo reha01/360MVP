@@ -1211,3 +1211,495 @@
     align-items: center;
     justify-content: center;
 }
+
+/* ========================================= */
+/* PROFESSIONAL UI OVERRIDES (Added automatically) */
+/* ========================================= */
+
+.dashboard-header-compact {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 16px 24px;
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+}
+
+.title-compact {
+    font-size: 24px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0 0 8px 0;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    letter-spacing: -0.025em;
+}
+
+.title-compact:hover {
+    color: #2563eb;
+}
+
+.title-input-compact {
+    font-size: 24px;
+    font-weight: 600;
+    color: #1f2937;
+    padding: 6px 12px;
+    border: 2px solid #3b82f6;
+    border-radius: 6px;
+    background: #ffffff;
+    max-width: 500px;
+}
+
+.badge-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.badge-status.active {
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+.badge-status.draft {
+    background: #f3f4f6;
+    color: #4b5563;
+    border: 1px solid #e5e7eb;
+}
+
+.header-actions-compact {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.btn-secondary-compact {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    padding: 0 16px;
+    background: #ffffff;
+    color: #374151;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+.btn-secondary-compact:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+    color: #111827;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.06);
+}
+
+.btn-export-compact {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    padding: 0 16px;
+    background: #8b5cf6;
+    color: #ffffff;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 2px 0 rgb(139 92 246 / 0.3);
+}
+
+.btn-export-compact:hover:not(:disabled) {
+    background: #7c3aed;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgb(139 92 246 / 0.4), 0 2px 4px -1px rgb(139 92 246 / 0.2);
+}
+
+.btn-export-compact:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #ddd6fe;
+}
+
+.btn-primary-compact {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    padding: 0 20px;
+    background: #2563eb;
+    color: #ffffff;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 2px 0 rgb(37 99 235 / 0.3);
+}
+
+.btn-primary-compact:hover:not(:disabled) {
+    background: #1d4ed8;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgb(37 99 235 / 0.4), 0 2px 4px -1px rgb(37 99 235 / 0.2);
+}
+
+.btn-danger-compact {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    padding: 0 16px;
+    background: #ffffff;
+    color: #ef4444;
+    border: 1px solid #fee2e2;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-danger-compact:hover {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #dc2626;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgb(239 68 68 / 0.1), 0 2px 4px -1px rgb(239 68 68 / 0.06);
+}
+/* Strategy Badge Styles */
+.strategy-badge-wrapper {
+    margin-top: 8px;
+    margin-bottom: 12px;
+}
+
+.strategy-badge-compact {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background-color: #eff6ff;
+    border: 1px solid #dbeafe;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    color: #1e40af;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.strategy-icon {
+    font-size: 14px;
+}
+
+.strategy-divider {
+    color: #93c5fd;
+    font-size: 14px;
+}
+
+.strategy-desc {
+    color: #60a5fa;
+    color: #3b82f6;
+    font-weight: 400;
+}
+/* ========================================= */
+/* PROFESSIONAL BUTTONS & ACTIONS (v2.1.29) */
+/* ========================================= */
+
+.actions-divider {
+    width: 1px;
+    height: 24px;
+    background-color: #e5e7eb;
+    margin: 0 4px;
+}
+
+.version-tag {
+    font-size: 11px;
+    color: #9ca3af;
+    margin: 0 6px;
+    font-weight: 500;
+    font-family: monospace;
+}
+
+/* Base Compact Button */
+.btn-ghost-compact,
+.btn-secondary-compact,
+.btn-export-compact,
+.btn-primary-compact,
+.btn-danger-outline-compact {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: nowrap;
+    gap: 8px;
+    /* Space between icon and text */
+}
+
+/* 1. Ghost (Volver) */
+.btn-ghost-compact {
+    background: transparent;
+    color: #6b7280;
+    border: 1px solid transparent;
+}
+
+.btn-ghost-compact:hover {
+    background: #f3f4f6;
+    color: #1f2937;
+}
+
+/* 2. Secondary (Config) */
+.btn-secondary-compact {
+    background: #ffffff;
+    color: #374151;
+    border: 1px solid #d1d5db;
+    padding: 0 16px;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+.btn-secondary-compact:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+    color: #111827;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+/* 3. Export (Green/Excel theme) */
+.btn-export-compact {
+    background: #ffffff;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+    padding: 0 16px;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+.btn-export-compact:hover:not(:disabled) {
+    background: #ecfdf5;
+    border-color: #34d399;
+    color: #047857;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
+}
+
+.btn-export-compact:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    filter: grayscale(100%);
+}
+
+/* 4. Danger Outline (Eliminar) */
+.btn-danger-outline-compact {
+    background: #ffffff;
+    color: #ef4444;
+    border: 1px solid #fee2e2;
+    padding: 0 12px;
+}
+
+.btn-danger-outline-compact:hover {
+    background: #fef2f2;
+    border-color: #fca5a5;
+    color: #dc2626;
+}
+
+/* 5. Primary (Lanzar) */
+.btn-primary-compact {
+    background: #2563eb;
+    color: #ffffff;
+    border: 1px solid transparent;
+    font-weight: 600;
+    padding: 0 20px;
+    box-shadow: 0 1px 2px 0 rgb(37 99 235 / 0.3);
+}
+
+.btn-primary-compact:hover:not(:disabled) {
+    background: #1d4ed8;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgb(37 99 235 / 0.4);
+}
+
+/* Spinner */
+.spinner-small {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #ffffff;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+/* ========================================= */
+/* VERCEL-LIKE PRO MINIMALIST STYLES (v2.2.0) */
+/* ========================================= */
+
+.header-actions-compact {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.actions-group-pro {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.pro-divider {
+    width: 1px;
+    height: 24px;
+    background-color: #e5e7eb;
+    margin: 0 4px;
+}
+
+/* Base Pro Button */
+/* UNIFORMITY: h-9 (36px), rounded-lg, text-sm, font-medium */
+.btn-secondary-compact,
+.btn-primary-compact,
+.btn-destructive-compact {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 8px;
+    /* rounded-lg */
+    font-size: 14px;
+    /* text-sm */
+    font-weight: 500;
+    /* font-medium */
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    gap: 8px;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    /* shadow-sm */
+}
+
+/* 1. Secondary (White bg, Subtle border) */
+/* bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:text-gray-900 */
+.btn-secondary-compact {
+    background: #ffffff;
+    color: #374151;
+    /* gray-700 */
+    border: 1px solid #e5e7eb;
+    /* gray-200 */
+}
+
+.btn-secondary-compact:hover {
+    background: #f9fafb;
+    /* gray-50 */
+    color: #111827;
+    /* gray-900 */
+    border-color: #d1d5db;
+}
+
+/* 2. Destructive (White bg, Red text) */
+/* bg-white border border-gray-200 text-red-600 hover:bg-red-50 hover:border-red-200 */
+.btn-destructive-compact {
+    background: #ffffff;
+    color: #dc2626;
+    /* red-600 */
+    border: 1px solid #e5e7eb;
+    /* gray-200 */
+}
+
+.btn-destructive-compact:hover {
+    background: #fef2f2;
+    /* red-50 */
+    border-color: #fecaca;
+    /* red-200 */
+    color: #b91c1c;
+    /* red-700 */
+}
+
+/* 3. Primary (Dark Solid) */
+/* bg-slate-900 text-white hover:bg-slate-800 */
+.btn-primary-compact {
+    background: #0f172a;
+    /* slate-900 */
+    color: #ffffff;
+    border: 1px solid transparent;
+}
+
+.btn-primary-compact:hover:not(:disabled) {
+    background: #1e293b;
+    /* slate-800 */
+}
+
+.btn-primary-compact:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: #94a3b8;
+}
+
+/* Spinner */
+.spinner-small {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #ffffff;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+/* ========================================= */
+/* FINAL POLISH: SPACING & CONSISTENCY (v2.2.1) */
+/* ========================================= */
+
+.header-actions-compact {
+    display: flex;
+    align-items: center;
+    /* Vertical alignment */
+    justify-content: space-between;
+    width: 100%;
+}
+
+.actions-group-pro {
+    display: flex;
+    align-items: center;
+    /* Vertical alignment */
+    gap: 24px;
+    /* GAP-6: Wider spacing as requested */
+}
+
+/* UNIFORM BUTTON SIZING override */
+/* All buttons must be h-10 (40px) and px-4 (16px) */
+.btn-secondary-compact,
+.btn-primary-compact,
+.btn-destructive-compact {
+    height: 40px !important;
+    /* h-10 */
+    padding: 0 16px !important;
+    /* px-4 */
+    font-size: 14px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    /* Ensure rounded-lg stays */
+}

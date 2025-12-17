@@ -1,0 +1,114 @@
+/* ========================================= */
+/* VERCEL-LIKE PRO MINIMALIST STYLES (v2.2.0) */
+/* ========================================= */
+
+.header-actions-compact {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.actions-group-pro {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.pro-divider {
+    width: 1px;
+    height: 24px;
+    background-color: #e5e7eb;
+    margin: 0 4px;
+}
+
+/* Base Pro Button */
+/* UNIFORMITY: h-9 (36px), rounded-lg, text-sm, font-medium */
+.btn-secondary-compact,
+.btn-primary-compact,
+.btn-destructive-compact {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 8px;
+    /* rounded-lg */
+    font-size: 14px;
+    /* text-sm */
+    font-weight: 500;
+    /* font-medium */
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    gap: 8px;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    /* shadow-sm */
+}
+
+/* 1. Secondary (White bg, Subtle border) */
+/* bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:text-gray-900 */
+.btn-secondary-compact {
+    background: #ffffff;
+    color: #374151;
+    /* gray-700 */
+    border: 1px solid #e5e7eb;
+    /* gray-200 */
+}
+
+.btn-secondary-compact:hover {
+    background: #f9fafb;
+    /* gray-50 */
+    color: #111827;
+    /* gray-900 */
+    border-color: #d1d5db;
+}
+
+/* 2. Destructive (White bg, Red text) */
+/* bg-white border border-gray-200 text-red-600 hover:bg-red-50 hover:border-red-200 */
+.btn-destructive-compact {
+    background: #ffffff;
+    color: #dc2626;
+    /* red-600 */
+    border: 1px solid #e5e7eb;
+    /* gray-200 */
+}
+
+.btn-destructive-compact:hover {
+    background: #fef2f2;
+    /* red-50 */
+    border-color: #fecaca;
+    /* red-200 */
+    color: #b91c1c;
+    /* red-700 */
+}
+
+/* 3. Primary (Dark Solid) */
+/* bg-slate-900 text-white hover:bg-slate-800 */
+.btn-primary-compact {
+    background: #0f172a;
+    /* slate-900 */
+    color: #ffffff;
+    border: 1px solid transparent;
+}
+
+.btn-primary-compact:hover:not(:disabled) {
+    background: #1e293b;
+    /* slate-800 */
+}
+
+.btn-primary-compact:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: #94a3b8;
+}
+
+/* Spinner */
+.spinner-small {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #ffffff;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}

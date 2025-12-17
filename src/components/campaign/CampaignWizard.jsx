@@ -31,7 +31,7 @@ import ConnectionRulesStep from './ConnectionRulesStep';
 // Estilos
 import './CampaignWizard.css';
 
-const CampaignWizard = ({ isOpen, onClose, onSuccess }) => {
+const CampaignWizard = ({ isOpen, onClose, onSuccess, isEditMode = false, initialData = null }) => {
   const { currentOrgId } = useMultiTenant();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -105,6 +105,38 @@ const CampaignWizard = ({ isOpen, onClose, onSuccess }) => {
 
     loadData();
   }, [currentOrgId, isOpen]);
+
+  // Initialize data for Edit Mode
+  useEffect(() => {
+    if (isEditMode && initialData && isOpen) {
+      setCampaignData({
+        selectedStrategy: initialData.selectedStrategy,
+        evaluatorRules: initialData.evaluatorRules || {
+          self: false, manager: false, peers: false, subordinates: false, external: false
+        },
+        title: initialData.title,
+        description: initialData.description || '',
+        type: initialData.type || CAMPAIGN_TYPE.CUSTOM,
+        config: {
+          startDate: initialData.config?.startDate || initialData.startDate || null,
+          endDate: initialData.config?.endDate || initialData.endDate || null,
+          timezone: initialData.config?.timezone || 'UTC',
+          reminderSchedule: initialData.config?.reminderSchedule || [3, 7, 14]
+        },
+        selectedUsers: initialData.selectedUsers || [],
+        audienceFilters: initialData.evaluateeFilters || {
+          jobFamilyIds: [], areaIds: [], userIds: []
+        },
+        selectedTestId: initialData.selectedTestId || null,
+        testConfiguration: initialData.testConfiguration || {
+          mode: 'unified', defaultTestId: null, assignments: {}
+        },
+        connectionRules: initialData.connectionRules || {
+          allowMultipleManagers: false, restrictPeersToArea: true
+        }
+      });
+    }
+  }, [isEditMode, initialData, isOpen]);
 
   // Definición de pasos para el stepper (4 pasos)
   const stepDefinitions = [
@@ -206,8 +238,17 @@ const CampaignWizard = ({ isOpen, onClose, onSuccess }) => {
       // Auto-assign evaluators based on selected strategy
       const selectedUsers = campaignData.selectedUsers || [];
 
+      // Check if we should preserve existing evaluators (Edit Mode + Same Strategy)
+      const shouldPreserveEvaluators = isEditMode && initialData &&
+        campaignData.selectedStrategy === initialData.selectedStrategy;
+
       // Apply automatic evaluator assignment based on campaign type
       const usersWithEvaluators = selectedUsers.map(user => {
+        // If preserving and user has evaluators, keep them
+        if (shouldPreserveEvaluators && user.customEvaluators) {
+          return user;
+        }
+
         const suggestedEvaluators = getSuggestedEvaluators(
           user,
           campaignData.selectedStrategy,
@@ -250,26 +291,73 @@ const CampaignWizard = ({ isOpen, onClose, onSuccess }) => {
       const payload = {
         ...campaignData,
         selectedUsers: usersWithEvaluators, // Use users with auto-assigned evaluators
-        status: CAMPAIGN_STATUS.DRAFT,
-        stats: initialStats,
+        status: isEditMode ? (initialData.status || CAMPAIGN_STATUS.DRAFT) : CAMPAIGN_STATUS.DRAFT,
+        stats: isEditMode ? (initialData.stats || initialStats) : initialStats, // Keep existing stats if editing, or maybe recurcalute? Recalculating is safer for 'Total' fields
         evaluateeFilters: campaignData.audienceFilters
       };
 
-      const newCampaign = await campaignService.createCampaign(
-        currentOrgId,
-        payload,
-        user.uid
-      );
+      // Recalculate Totals in stats always, but keep progress (Completed) if editing
+      if (isEditMode && initialData && initialData.stats) {
+        payload.stats = {
+          ...initialData.stats,
+          totalEvaluatees: usersWithEvaluators.length,
+          selfTotal: campaignData.evaluatorRules?.self ? usersWithEvaluators.length : 0,
+          peersTotal: potentialPeers,
+          subordinatesTotal: potentialSubordinates,
+          managerTotal: potentialManagers
+        };
+      }
+
+      let resultCampaign;
+
+      if (isEditMode) {
+        // WARN IF ACTIVE AND DATES CHANGED
+        const isActive = initialData.status === CAMPAIGN_STATUS.ACTIVE;
+
+        if (isActive) {
+          const hasChanged = (a, b) => {
+            if (!a && !b) return false;
+            if (!a || !b) return true;
+            // Compare dates loosely (string or timestamp)
+            const tA = a.seconds ? a.seconds : new Date(a).getTime();
+            const tB = b.seconds ? b.seconds : new Date(b).getTime();
+            // Round to nearest day to avoid second-precision diffs
+            return Math.abs(tA - tB) > 86400000;
+          };
+
+          const startChanged = hasChanged(initialData.config?.startDate, campaignData.config?.startDate);
+          const endChanged = hasChanged(initialData.config?.endDate, campaignData.config?.endDate);
+
+          if (startChanged || endChanged) {
+            if (!window.confirm("⚠️ ADVERTENCIA: La campaña está ACTIVA.\n\nHas modificado las fechas. Esto podría afectar el funcionamiento.\n¿Deseas guardar de todas formas?")) {
+              setLoading(false);
+              return;
+            }
+          }
+        }
+
+        await campaignService.updateCampaign(currentOrgId, initialData.id, payload, user.uid);
+        resultCampaign = { ...initialData, ...payload, id: initialData.id };
+        alert('¡Configuración actualizada con éxito!');
+      } else {
+        resultCampaign = await campaignService.createCampaign(
+          currentOrgId,
+          payload,
+          user.uid
+        );
+      }
 
       if (onSuccess) {
-        onSuccess(newCampaign);
+        onSuccess(resultCampaign);
       }
 
       resetWizard();
       onClose();
 
-      if (newCampaign.id) {
-        navigate(`/gestion/campanas/${newCampaign.id}`);
+      if (resultCampaign.id) {
+        if (!isEditMode) {
+          navigate(`/gestion/campanas/${resultCampaign.id}`);
+        }
       }
     } catch (err) {
       console.error('Error creating campaign:', err);
@@ -383,7 +471,7 @@ const CampaignWizard = ({ isOpen, onClose, onSuccess }) => {
       <div className="campaign-wizard-modal modern">
         {/* Header */}
         <div className="campaign-wizard-header modern">
-          <h2>Crear Nueva Campaña de Evaluación</h2>
+          <h2>{isEditMode ? 'Editar Configuración de Campaña' : 'Crear Nueva Campaña de Evaluación'}</h2>
           <button className="campaign-wizard-close" onClick={onClose}>×</button>
         </div>
 
@@ -432,7 +520,7 @@ const CampaignWizard = ({ isOpen, onClose, onSuccess }) => {
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M13.3337 4L6.00033 11.3333L2.66699 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
                   </svg>
-                  Crear Borrador
+                  {isEditMode ? 'Guardar Cambios' : 'Crear Borrador'}
                 </>
               )
             ) : (

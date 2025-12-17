@@ -168,15 +168,21 @@ const CampaignInfoStep = React.memo(({ data, onChange }) => {
   const getTimezones = () => {
     return [
       { value: 'UTC', label: 'UTC (Tiempo Universal Coordinado)' },
-      { value: 'America/New_York', label: 'EST/EDT (Nueva York)' },
-      { value: 'America/Chicago', label: 'CST/CDT (Chicago)' },
-      { value: 'America/Denver', label: 'MST/MDT (Denver)' },
-      { value: 'America/Los_Angeles', label: 'PST/PDT (Los Ángeles)' },
-      { value: 'Europe/London', label: 'GMT/BST (Londres)' },
-      { value: 'Europe/Paris', label: 'CET/CEST (París)' },
-      { value: 'Europe/Madrid', label: 'CET/CEST (Madrid)' },
-      { value: 'America/Mexico_City', label: 'CST/CDT (Ciudad de México)' },
-      { value: 'America/Argentina/Buenos_Aires', label: 'ART (Buenos Aires)' }
+      { value: 'America/Santiago', label: 'Santiago (Chile)' },
+      { value: 'America/Argentina/Buenos_Aires', label: 'Buenos Aires (Argentina)' },
+      { value: 'America/Sao_Paulo', label: 'São Paulo (Brasil)' },
+      { value: 'America/Sao_Paulo', label: 'Río de Janeiro (Brasil)' },
+      { value: 'America/Bogota', label: 'Colombia (Bogotá)' },
+      { value: 'America/Lima', label: 'Perú (Lima)' },
+      { value: 'America/Guatemala', label: 'Guatemala' },
+      { value: 'America/New_York', label: 'Miami (EE.UU.)' },
+      { value: 'America/New_York', label: 'Nueva York (EE.UU.)' },
+      { value: 'America/Chicago', label: 'Chicago (EE.UU.)' },
+      { value: 'America/Denver', label: 'Denver (EE.UU.)' },
+      { value: 'America/Los_Angeles', label: 'Los Ángeles (EE.UU.)' },
+      { value: 'America/Mexico_City', label: 'Ciudad de México' },
+      { value: 'Europe/Madrid', label: 'Madrid (España)' },
+      { value: 'Europe/Paris', label: 'París (Francia)' }
     ];
   };
 
@@ -306,7 +312,7 @@ const CampaignInfoStep = React.memo(({ data, onChange }) => {
             </Select.Trigger>
             <Select.Content>
               {getTimezones().map(tz => (
-                <Select.Item key={tz.value} value={tz.value}>
+                <Select.Item key={tz.label} value={tz.value}>
                   {tz.label}
                 </Select.Item>
               ))}
