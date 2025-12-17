@@ -5,11 +5,12 @@ import {
     Settings,
     FileSpreadsheet,
     Trash2,
-    Rocket
+    Rocket,
+    Copy
 } from 'lucide-react';
 import { useMultiTenant } from '../../hooks/useMultiTenant';
 import { useAuth } from '../../context/AuthContext';
-import { getCampaign, updateCampaign, getCampaignSessions, activateCampaign } from '../../services/campaignService';
+import { getCampaign, updateCampaign, getCampaignSessions, activateCampaign, duplicateCampaign } from '../../services/campaignService';
 import emailService from '../../services/emailService';
 import { getOrgUsers } from '../../services/orgStructureServiceWrapper';
 import { getOrgJobFamilies } from '../../services/jobFamilyService';
@@ -427,6 +428,24 @@ const CampaignDashboard = () => {
         } catch (err) {
             console.error('Error deleting campaign:', err);
             alert('Error al eliminar: ' + err.message);
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    const handleDuplicateCampaign = async () => {
+        if (!window.confirm(`¿Deseas duplicar la campaña "${campaign.title}"?`)) {
+            return;
+        }
+
+        try {
+            setProcessing(true);
+            const newCampaign = await duplicateCampaign(currentOrgId, campaign.id, user.uid);
+            alert(`Campaña duplicada: "${newCampaign.title}"`);
+            navigate(`/gestion/campanas/${newCampaign.campaignId}`);
+        } catch (err) {
+            console.error('Error duplicating campaign:', err);
+            alert('Error al duplicar: ' + err.message);
         } finally {
             setProcessing(false);
         }
@@ -985,6 +1004,32 @@ const CampaignDashboard = () => {
                     >
                         <FileSpreadsheet size={18} strokeWidth={2} />
                         <span>Exportar</span>
+                    </button>
+
+                    <button
+                        onClick={handleDuplicateCampaign}
+                        disabled={processing}
+                        title="Duplicar Campaña"
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            height: '40px',
+                            minWidth: '120px',
+                            padding: '0 16px',
+                            background: '#ffffff',
+                            color: '#374151',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            fontWeight: 500,
+                            cursor: 'pointer',
+                            boxShadow: '0 1px 2px 0 rgb(0 0 0 / 0.05)'
+                        }}
+                    >
+                        <Copy size={18} strokeWidth={2} />
+                        <span>Duplicar</span>
                     </button>
 
                     {/* Divider */}

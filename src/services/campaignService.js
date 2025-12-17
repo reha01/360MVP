@@ -224,6 +224,83 @@ export const createCampaign = async (orgId, campaignData, userId) => {
 };
 
 /**
+ * Duplicar campaña existente
+ * Crea una copia con el nombre + numeración (ej: "Campaña 1" -> "Campaña 1 (2)")
+ */
+export const duplicateCampaign = async (orgId, campaignId, userId) => {
+  try {
+    // Obtener campaña original
+    const originalCampaign = await getCampaign(orgId, campaignId);
+
+    if (!originalCampaign) {
+      throw new Error('Campaña original no encontrada');
+    }
+
+    // Generar nuevo nombre con numeración
+    const baseName = originalCampaign.title.replace(/\s*\(\d+\)$/, ''); // Quitar numeración existente
+    const newTitle = await generateUniqueTitle(orgId, baseName);
+
+    // Limpiar campos que no deben duplicarse
+    const {
+      id,
+      campaignId: oldCampaignId,
+      createdAt,
+      createdBy,
+      updatedAt,
+      updatedBy,
+      status,
+      sessions,
+      ...cleanData
+    } = originalCampaign;
+
+    // Crear nueva campaña como borrador
+    const duplicatedCampaign = await createCampaign(orgId, {
+      ...cleanData,
+      title: newTitle,
+      status: 'draft' // Siempre inicia como borrador
+    }, userId);
+
+    console.log(`[Campaign] Duplicated campaign: ${originalCampaign.title} -> ${newTitle}`);
+    return duplicatedCampaign;
+  } catch (error) {
+    console.error('[Campaign] Error duplicating campaign:', error);
+    throw error;
+  }
+};
+
+/**
+ * Generar título único para campaña duplicada
+ */
+const generateUniqueTitle = async (orgId, baseName) => {
+  try {
+    // Buscar campañas con nombre similar
+    const campaignsRef = collection(db, 'organizations', orgId, 'campaigns');
+    const snapshot = await getDocs(campaignsRef);
+
+    const existingTitles = snapshot.docs.map(doc => doc.data().title);
+
+    // Encontrar el número más alto usado
+    let maxNumber = 1;
+    const regex = new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\((\\d+)\\)$`);
+
+    existingTitles.forEach(title => {
+      if (title === baseName) {
+        maxNumber = Math.max(maxNumber, 1);
+      }
+      const match = title.match(regex);
+      if (match) {
+        maxNumber = Math.max(maxNumber, parseInt(match[1]));
+      }
+    });
+
+    return `${baseName} (${maxNumber + 1})`;
+  } catch (error) {
+    console.error('[Campaign] Error generating unique title:', error);
+    return `${baseName} (copia)`;
+  }
+};
+
+/**
  * Actualizar campaña existente
  */
 export const updateCampaign = async (orgId, campaignId, updates, userId) => {
