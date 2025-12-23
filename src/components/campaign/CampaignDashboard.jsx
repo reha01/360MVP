@@ -12,6 +12,7 @@ import { useMultiTenant } from '../../hooks/useMultiTenant';
 import { useAuth } from '../../context/AuthContext';
 import { getCampaign, updateCampaign, getCampaignSessions, activateCampaign, duplicateCampaign } from '../../services/campaignService';
 import emailService from '../../services/emailService';
+import * as evaluatorAssignmentService from '../../services/evaluatorAssignmentService';
 import { getOrgUsers } from '../../services/orgStructureServiceWrapper';
 import { getOrgJobFamilies } from '../../services/jobFamilyService';
 import { CAMPAIGN_STATUS } from '../../models/Campaign';
@@ -352,6 +353,8 @@ const CampaignDashboard = () => {
         }
     };
 
+
+
     const handleLaunchCampaign = async () => {
         if (!campaign) return;
 
@@ -379,7 +382,7 @@ const CampaignDashboard = () => {
             if (!confirmMissing) return;
         }
 
-        if (!window.confirm('¿Estás seguro de LANZAR esta campaña?\n\n- Se generarán las sesiones de evaluación.\n- Se enviarán correos a los participantes (Simulado en Staging).')) {
+        if (!window.confirm('¿Estás seguro de LANZAR esta campaña?\n\n- Se generarán las sesiones de evaluación.\n- Se notificarán a los evaluadores (Manager, Pares, Equipo).\n- Se enviarán correos REALES a los participantes.')) {
             return;
         }
 
@@ -391,10 +394,44 @@ const CampaignDashboard = () => {
             const { sessions } = await activateCampaign(currentOrgId, campaign.id, user.uid);
             console.log(`✅ Campaign activated! Generated ${sessions?.length || 0} sessions.`);
 
-            // 2. Send Emails (Simulation/Real)
-            // Note: In a real Scenario we would call this:
-            // await emailService.sendInvitations(campaign.id, sessions.map(s => s.id));
-            console.log('📧 (Simulation) Emails would be sent here via emailService.');
+            // 1.5 Generate Assignments (CRITICAL FIX)
+            // Generates evaluator assignments for each session based on rules
+            console.log('👥 Generating Evaluator Assignments...');
+            let allAssignmentIds = [];
+
+            for (const session of sessions) {
+                try {
+                    console.log(`Processing session ${session.session360Id} for ${session.evaluateeId}...`);
+                    const assignments = await evaluatorAssignmentService.generateSessionAssignments(
+                        currentOrgId,
+                        session.session360Id,
+                        session
+                    );
+                    const ids = assignments.map(a => a.assignmentId);
+                    allAssignmentIds = [...allAssignmentIds, ...ids];
+                } catch (assignError) {
+                    console.error(`Error generating assignments for session ${session.session360Id}:`, assignError);
+                }
+            }
+            console.log(`✅ Generated ${allAssignmentIds.length} total assignments.`);
+
+            // 2. Send Emails (REAL - Sprint 9 Activated)
+            console.log('📧 Sending real invitation emails...');
+            try {
+                if (allAssignmentIds.length > 0) {
+                    // Use the NEW 360 method with proper assignment IDs
+                    await emailService.send360Invitations(currentOrgId, campaign.id, allAssignmentIds);
+                    console.log('✅ Invitation emails sent successfully!');
+                    alert(`¡Campaña lanzada con éxito!\n\n- ${sessions?.length || 0} sesiones generadas\n- ${allAssignmentIds.length} evaluadores invitados\n- Correos enviados correctamente.`);
+                } else {
+                    console.warn('⚠️ No assignments generated, skipping emails.');
+                    alert(`¡Campaña activada!\nSe generaron ${sessions?.length || 0} sesiones, pero NO se generaron asignaciones de evaluadores (ver consola).`);
+                }
+            } catch (emailError) {
+                console.error('⚠️ Error sending emails:', emailError);
+                // Continue even if emails fail - campaign is already active
+                alert(`¡Campaña lanzada con éxito!\n\nSe generaron las sesiones, pero hubo un error enviando algunos correos:\n${emailError.message}`);
+            }
 
             setCampaign(prev => ({
                 ...prev,
@@ -404,8 +441,6 @@ const CampaignDashboard = () => {
                     totalEvaluatees: sessions?.length || 0
                 }
             }));
-
-            alert(`¡Campaña lanzada con éxito!\nSe han generado ${sessions?.length || 0} sesiones de evaluación.`);
 
         } catch (err) {
             console.error('Error launching campaign:', err);

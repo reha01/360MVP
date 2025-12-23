@@ -18,19 +18,31 @@ class Email360Service {
   }
 
   /**
+   * Sanitizar valor para tags de Resend (solo ASCII, letras, números, guiones, guiones bajos)
+   */
+  sanitizeTagValue(value) {
+    if (!value) return 'unknown';
+    return String(value)
+      .normalize('NFD')  // Descomponer acentos
+      .replace(/[\u0300-\u036f]/g, '')  // Eliminar diacríticos
+      .replace(/[^a-zA-Z0-9_-]/g, '_')  // Reemplazar caracteres no válidos con _
+      .substring(0, 50);  // Limitar longitud
+  }
+
+  /**
    * Cargar template HTML
    */
   loadTemplate(templateName, variables) {
     try {
       const templatePath = path.join(this.templatesPath, `360-${templateName}.html`);
       let template = fs.readFileSync(templatePath, 'utf8');
-      
+
       // Reemplazar variables
       Object.keys(variables).forEach(key => {
         const regex = new RegExp(`{{${key}}}`, 'g');
         template = template.replace(regex, variables[key] || '');
       });
-      
+
       return template;
     } catch (error) {
       console.error(`[Email360] Error loading template ${templateName}:`, error);
@@ -77,20 +89,20 @@ class Email360Service {
       });
 
       const emailData = {
-        from: 'Evaluaciones 360° <noreply@company.com>',
+        from: 'Evaluaciones 360° <noreply@welead360.com>',
         to: [toEmail],
         subject: `🎯 Evaluación 360° - ${campaignTitle}`,
         html: template,
         text: this.generatePlainTextInvitation(data),
         tags: [
           { name: 'type', value: '360_invitation' },
-          { name: 'campaign', value: campaignTitle },
-          { name: 'org', value: orgName }
+          { name: 'campaign', value: this.sanitizeTagValue(campaignTitle) },
+          { name: 'org', value: this.sanitizeTagValue(orgName) }
         ]
       };
 
       const result = await this.sendEmail(emailData);
-      
+
       console.log(`[Email360] Invitation sent to ${toEmail} for ${evaluateeName}`);
       return result;
     } catch (error) {
@@ -147,21 +159,21 @@ class Email360Service {
       });
 
       const emailData = {
-        from: 'Evaluaciones 360° <noreply@company.com>',
+        from: 'Evaluaciones 360° <noreply@welead360.com>',
         to: [toEmail],
         subject: `⏰ Recordatorio: Evaluación 360° - ${campaignTitle}`,
         html: template,
         text: this.generatePlainTextReminder(data),
         tags: [
           { name: 'type', value: '360_reminder' },
-          { name: 'campaign', value: campaignTitle },
-          { name: 'org', value: orgName },
+          { name: 'campaign', value: this.sanitizeTagValue(campaignTitle) },
+          { name: 'org', value: this.sanitizeTagValue(orgName) },
           { name: 'urgency', value: daysRemaining <= 2 ? 'high' : 'normal' }
         ]
       };
 
       const result = await this.sendEmail(emailData);
-      
+
       console.log(`[Email360] Reminder sent to ${toEmail} for ${evaluateeName} (${daysRemaining} days remaining)`);
       return result;
     } catch (error) {
@@ -196,20 +208,20 @@ class Email360Service {
       });
 
       const emailData = {
-        from: 'Evaluaciones 360° <noreply@company.com>',
+        from: 'Evaluaciones 360° <noreply@welead360.com>',
         to: [toEmail],
         subject: `✅ Evaluación 360° Completada - ${campaignTitle}`,
         html: template,
         text: this.generatePlainTextCompletion(data),
         tags: [
           { name: 'type', value: '360_completion' },
-          { name: 'campaign', value: campaignTitle },
-          { name: 'org', value: orgName }
+          { name: 'campaign', value: this.sanitizeTagValue(campaignTitle) },
+          { name: 'org', value: this.sanitizeTagValue(orgName) }
         ]
       };
 
       const result = await this.sendEmail(emailData);
-      
+
       console.log(`[Email360] Completion confirmation sent to ${toEmail}`);
       return result;
     } catch (error) {
@@ -267,7 +279,7 @@ class Email360Service {
       subject: emailData.subject,
       template: emailData.tags?.find(t => t.name === 'type')?.value
     });
-    
+
     return {
       success: true,
       messageId: `mock-${Date.now()}`,
@@ -280,7 +292,7 @@ class Email360Service {
    */
   generatePlainTextInvitation(data) {
     const { evaluatorName, evaluateeName, campaignTitle, deadline, evaluationUrl } = data;
-    
+
     return `
 Hola ${evaluatorName},
 
@@ -307,7 +319,7 @@ Este es un email automático del sistema de evaluaciones 360°.
    */
   generatePlainTextReminder(data) {
     const { evaluatorName, evaluateeName, campaignTitle, deadline, daysRemaining, evaluationUrl } = data;
-    
+
     return `
 Hola ${evaluatorName},
 
@@ -334,7 +346,7 @@ Este es un recordatorio automático del sistema de evaluaciones 360°.
    */
   generatePlainTextCompletion(data) {
     const { evaluatorName, evaluateeName, campaignTitle, completionTime } = data;
-    
+
     return `
 Hola ${evaluatorName},
 
@@ -364,7 +376,7 @@ Este es un email automático del sistema de evaluaciones 360°.
       'subordinate': 'Subordinado',
       'external': 'Externo'
     };
-    
+
     return labels[type] || 'Evaluador';
   }
 
@@ -375,13 +387,14 @@ Este es un email automático del sistema de evaluaciones 360°.
     try {
       const db = admin.firestore();
       const logRef = db.collection('email_logs').doc();
-      
+
       await logRef.set({
         ...eventData,
+        error: eventData.error || null, // Asegurar que no sea undefined
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         service: '360_email'
       });
-      
+
       console.log(`[Email360] Email event logged: ${eventData.emailType}`);
     } catch (error) {
       console.error('[Email360] Error logging email event:', error);
@@ -390,3 +403,4 @@ Este es un email automático del sistema de evaluaciones 360°.
 }
 
 module.exports = new Email360Service();
+// Force update config

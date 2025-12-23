@@ -1,9 +1,5 @@
 /**
-<<<<<<< Current (Your changes)
- * Servicio para gestiÃ³n de Campaigns 360Â°
-=======
  * Servicio para gestión de Campaigns 360°
->>>>>>> Incoming (Background Agent changes)
  * 
  * Maneja CRUD de campañas, sesiones de evaluación 360°,
  * y generación automática de evaluadores
@@ -558,7 +554,17 @@ export const generateEvaluation360Sessions = async (orgId, campaignId, campaign)
 
       // 3. CAMPAIGN-LEVEL FALLBACK: Use the test selected during wizard creation
       if (!testAssignment) {
-        const campaignDefaultTestId = campaign.selectedTestId || campaign.testConfiguration?.defaultTestId;
+        let campaignDefaultTestId = campaign.selectedTestId || campaign.testConfiguration?.defaultTestId;
+
+        // 3.1 Hard Fallback: Try to find ANY testId if specifically defined in testAssignments map
+        if (!campaignDefaultTestId && campaign.testAssignments) {
+          const firstAssigned = Object.values(campaign.testAssignments).find(t => t?.testId);
+          if (firstAssigned) {
+            campaignDefaultTestId = firstAssigned.testId;
+            console.warn(`[Campaign] selectedTestId missing. Falling back to test ${campaignDefaultTestId} found in testAssignments.`);
+          }
+        }
+
         if (campaignDefaultTestId) {
           console.log(`[Campaign] Using campaign default test ${campaignDefaultTestId} for user ${user.id}`);
           testAssignment = {

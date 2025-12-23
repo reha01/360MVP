@@ -43,3 +43,5 @@ exports.process360Aggregations = process360Aggregations.process360Aggregations;
 
 // Member import export
 exports.memberImportProcessor = memberImportProcessor;
+
+// Forzando redeploy para actualizar config

@@ -26,6 +26,24 @@ class EmailService {
   }
 
   /**
+   * Send invitations for 360 evaluations
+   */
+  async send360Invitations(orgId, campaignId, assignmentIds) {
+    try {
+      const send360Invitations = httpsCallable(this.functions, 'send360Invitations');
+      const result = await send360Invitations({
+        orgId,
+        campaignId,
+        assignmentIds
+      });
+      return result.data;
+    } catch (error) {
+      console.error('Error sending 360 invitations:', error);
+      throw new Error(`Failed to send 360 invitations: ${error.message}`);
+    }
+  }
+
+  /**
    * Send reminders for pending invitations
    */
   async sendReminders(processId, daysBeforeDeadline = 3) {

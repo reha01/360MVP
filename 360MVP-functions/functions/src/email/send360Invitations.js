@@ -25,7 +25,7 @@ exports.send360Invitations = functions.https.onCall(async (data, context) => {
 
   try {
     // Obtener información de la campaña
-    const campaignDoc = await db.collection('orgs').doc(orgId).collection('campaigns').doc(campaignId).get();
+    const campaignDoc = await db.collection('organizations').doc(orgId).collection('campaigns').doc(campaignId).get();
     if (!campaignDoc.exists) {
       throw new functions.https.HttpsError('not-found', 'Campaign not found');
     }
@@ -34,15 +34,15 @@ exports.send360Invitations = functions.https.onCall(async (data, context) => {
     const { title: campaignTitle, config, orgName } = campaignData;
 
     // Obtener información de la organización
-    const orgDoc = await db.collection('orgs').doc(orgId).get();
+    const orgDoc = await db.collection('organizations').doc(orgId).get();
     const orgData = orgDoc.data();
     const supportEmail = orgData.supportEmail || 'support@company.com';
 
     // Procesar cada asignación
     for (const assignmentId of assignmentIds) {
       try {
-        const assignmentDoc = await db.collection('orgs').doc(orgId).collection('evaluatorAssignments').doc(assignmentId).get();
-        
+        const assignmentDoc = await db.collection('organizations').doc(orgId).collection('evaluatorAssignments').doc(assignmentId).get();
+
         if (!assignmentDoc.exists) {
           results.push({
             assignmentId,
@@ -53,14 +53,14 @@ exports.send360Invitations = functions.https.onCall(async (data, context) => {
         }
 
         const assignmentData = assignmentDoc.data();
-        const { 
-          evaluatorEmail, 
-          evaluatorName, 
-          evaluatorType, 
+        const {
+          evaluatorEmail,
+          evaluatorName,
+          evaluatorType,
           session360Id,
           evaluateeId,
           emailSent,
-          emailSentAt 
+          emailSentAt
         } = assignmentData;
 
         // Verificar si ya se envió recientemente (prevenir spam)
@@ -78,7 +78,7 @@ exports.send360Invitations = functions.https.onCall(async (data, context) => {
         }
 
         // Obtener información del evaluado
-        const evaluateeDoc = await db.collection('orgs').doc(orgId).collection('members').doc(evaluateeId).get();
+        const evaluateeDoc = await db.collection('organizations').doc(orgId).collection('members').doc(evaluateeId).get();
         const evaluateeData = evaluateeDoc.data();
         const evaluateeName = evaluateeData?.displayName || 'Evaluado';
 
@@ -111,11 +111,11 @@ exports.send360Invitations = functions.https.onCall(async (data, context) => {
         });
 
         // Actualizar asignación con estado de email
-        await db.collection('orgs').doc(orgId).collection('evaluatorAssignments').doc(assignmentId).update({
+        await db.collection('organizations').doc(orgId).collection('evaluatorAssignments').doc(assignmentId).update({
           emailSent: true,
           emailSentAt: admin.firestore.FieldValue.serverTimestamp(),
-          emailStatus: emailResult.status,
-          emailMessageId: emailResult.messageId,
+          emailStatus: emailResult.status || 'unknown',
+          emailMessageId: emailResult.messageId || null,
           emailError: emailResult.error || null,
           status: 'invited',
           updatedAt: admin.firestore.FieldValue.serverTimestamp()
@@ -162,9 +162,9 @@ exports.send360Invitations = functions.https.onCall(async (data, context) => {
 async function updateCampaignStats(orgId, campaignId) {
   try {
     const db = admin.firestore();
-    
+
     // Obtener todas las asignaciones de la campaña
-    const assignmentsSnapshot = await db.collection('orgs').doc(orgId).collection('evaluatorAssignments')
+    const assignmentsSnapshot = await db.collection('organizations').doc(orgId).collection('evaluatorAssignments')
       .where('campaignId', '==', campaignId)
       .get();
 
@@ -177,25 +177,25 @@ async function updateCampaignStats(orgId, campaignId) {
 
     assignmentsSnapshot.forEach(doc => {
       const data = doc.data();
-      
+
       if (data.emailSent) {
         stats.invitationsSent++;
       }
-      
+
       if (data.status === 'completed') {
         stats.evaluationsCompleted++;
       }
-      
+
       stats.byStatus[data.status] = (stats.byStatus[data.status] || 0) + 1;
     });
 
     // Calcular tasa de completitud
-    stats.completionRate = stats.totalAssignments > 0 
+    stats.completionRate = stats.totalAssignments > 0
       ? Math.round((stats.evaluationsCompleted / stats.totalAssignments) * 100)
       : 0;
 
     // Actualizar campaña
-    await db.collection('orgs').doc(orgId).collection('campaigns').doc(campaignId).update({
+    await db.collection('organizations').doc(orgId).collection('campaigns').doc(campaignId).update({
       stats,
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
